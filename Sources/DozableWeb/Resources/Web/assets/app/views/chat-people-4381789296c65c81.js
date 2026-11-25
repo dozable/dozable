@@ -1,0 +1,136 @@
+// views/chat-people — who is in the room shown: presence, the standing lines for those quiet now, and the lines when
+// someone's state changes; the room's menu (hold agent-only chatter, your avatar). Both are the chat server's commands
+// (/hold, /avatar), posted as you with a helper to choose — the server says what changed, in the room.
+import { state } from '../core/state-1036883eb74b9520.js';
+import { canWrite, chatError, getJSON, request, roomUrl, viewer } from '../core/chat-api-ec968582d97ebdcb.js';
+import { cap, mins, time } from '../core/chat-format-bc877d395788e64c.js';
+import { status } from '../components/chat-log-1fc6c219d594a8e3.js';
+import { chatNote } from '../components/chat-note-95e0cc435178e0d8.js';
+import { addBotToRoom } from '../components/bot-invite-0409f2fe8e1b4bc2.js';
+import { dialog } from '../components/dialog-6c4b0145eb6f40c0.js';
+import { menuButton } from '../components/menus-2bfb74f31fa5969c.js';
+import { AVATAR_COLOURS, AVATAR_EMOJI, AVATAR_SHAPES, avatar } from '../dom/chat-avatar-afd4621f27e3492b.js';
+import { $, h } from '../dom/h-f853cc7eb6672c45.js';
+import { icon } from '../dom/icons-aaec6b77d82a3494.js';
+
+/// One of the chat server's commands, posted as the person in the room shown.
+async function command(text, what) {
+  try {
+    const r = await request(roomUrl(state.chat.room, '/messages'), { method: 'POST', json: { content: text } });
+    if (!r.ok) throw await chatError(r);
+    const j = await r.json();
+    if (j.state === 'refused') throw new Error(j.detail || 'refused');
+    chatNote(what);
+  } catch (e) { chatNote('Not done: ' + (e.message || e), true); }
+}
+
+/// Your avatar: a letter, a shape or an emoji, in a colour — sent as /avatar vendor:shape:colour. No picture from elsewhere.
+export function avatarDialog() {
+  const looks = [['initial', 'A letter'], ...AVATAR_SHAPES.map((s) => [s, 'A ' + s]), ...AVATAR_EMOJI.map((e) => ['emoji:' + e, 'Emoji: ' + e])];
+  dialog('Your avatar in chat', 'Shown beside your messages and in the room’s list. The room records the change.',
+    [{ name: 'look', label: 'Look', type: 'select', options: looks, value: 'initial' },
+     { name: 'colour', label: 'Colour (for a letter or a shape)', type: 'select', options: AVATAR_COLOURS, value: 'blue' }],
+    'Change', async (v) => {
+      const spec = String(v.look).startsWith('emoji:') ? 'emoji:' + String(v.look).slice(6) + ':default' : 'human:' + v.look + ':' + v.colour;
+      await command('/avatar ' + spec, 'Your avatar is changing to ' + spec + '.');
+    }, { icon: 'user-round' });
+}
+
+/// The room's menu (beside its name): hold agent-only chatter (/hold), and your avatar.
+export function roomMenu() {
+  const hold = (arg, label, desc) => ({ label, desc, icon: 'pause', onSelect: () => command('/hold ' + arg, 'Asked: /hold ' + arg + '.') });
+  const b = h('button', { type: 'button', class: 'btn quiet sm', title: 'This room: hold agent-only chatter, your avatar', 'aria-label': 'Room options' },
+    icon('ellipsis-vertical'));
+  return menuButton(b, [
+    { heading: 'Hold agent-only chatter' },
+    hold('3', 'After 3 agent messages', 'Then messages to agents wait until you post'),
+    hold('12', 'After 12 agent messages', 'Then messages to agents wait until you post'),
+    hold('on', 'On', 'The chat server’s own number'),
+    hold('off', 'Off', 'Agents talk to each other freely (the default)'),
+    { sep: true },
+    // Add an Agent / Bot as a voice: the chat server's /invite, posted as you — no token step.
+    { label: 'Add an Agent / Bot…', icon: 'users', desc: 'As a voice: it reads and speaks here, no grants', data: { 'room-add-bot': '' },
+      onSelect: () => addBotToRoom(state.chat.room) },
+    { label: 'Change your avatar…', icon: 'user-round', onSelect: avatarDialog },
+  ], { label: 'Room options', align: 'end' }).el;
+}
+
+const members = () => (state.chat.srv && state.chat.srv.rooms[state.chat.room]) || [];
+const DOT = new Set(['here', 'present', 'idle', 'working', 'woken', 'away', 'quiet', 'not-running', 'gone']);
+
+/// A centred line per change in what is known of someone in the room.
+export function changes(list) {
+  const m = members(), now = Date.now() / 1000;
+  for (const p of list) {
+    if (!m.includes(p.name) || p.name === viewer()) continue;
+    const was = state.chat.prev.get(p.name);
+    if (was && was !== p.state) {
+      if (p.state === 'not running') status(cap(p.name) + ' is not running · ' + time(now), '', [p.name]);
+      else if (was === 'not running') status(cap(p.name) + ' is running again · ' + time(now), '', [p.name]);
+      else if (p.state === 'quiet') status(cap(p.name) + ' has gone quiet and might be sleeping · ' + time(now), '', [p.name]);
+    }
+    state.chat.prev.set(p.name, p.state);
+  }
+}
+
+/// The standing lines at the foot of the log for anyone quiet or not running now.
+export function standing() {
+  document.querySelectorAll('#chat-log .chat-status.is-now').forEach((e) => e.remove());
+  const m = members(), now = Date.now() / 1000;
+  for (const p of state.chat.presence) {
+    if (!m.includes(p.name)) continue;
+    if (p.state === 'quiet') status(p.last_seen ? cap(p.name) + ' might be sleeping · quiet for ' + mins(now - p.last_seen)
+      : cap(p.name) + ' has not been heard from since the chat server started', 'is-now', [p.name]);
+    else if (p.state === 'not running') status(cap(p.name) + ' is not running', 'is-now', [p.name]);
+  }
+}
+
+export function people() {
+  const box = $('chat-people');
+  if (!box) return;
+  const m = members(), rows = [];
+  let here = 0;
+  for (const p of state.chat.presence.filter((x) => m.includes(x.name))) {
+    const st = String(p.state || ''), dot = st.replace(/ /g, '-');
+    if (/^(here|present|idle|working|woken)$/.test(st)) here++;
+    rows.push(h('div', { class: 'chat-who', title: [p.identity, p.detail].filter(Boolean).join(' · ') || null },
+      h('i', { class: 'chat-dot' + (DOT.has(dot) ? ' is-' + dot : ''), 'aria-hidden': 'true' }),
+      avatar(p.avatar, p.name),
+      h('div', { class: 'chat-who-text' },
+        h('b', { class: 'chat-who-name' }, cap(p.name) + (p.name === viewer() ? ' (you)' : '')),
+        p.kind === 'feed' ? h('span', { class: 'chat-feed-mark', title: 'A feed: it posts notices only — it never asks, decides or reads the room' }, 'feed') : null,
+        p.name === viewer() && canWrite() ? changeAvatar() : null,
+        h('span', { class: 'chat-who-meta' }, st + (p.kind && p.kind !== 'human' ? ' · ' + String(p.kind).replace('-', ' ') : '')),
+        p.activity ? h('span', { class: 'chat-who-meta is-act' }, p.activity + '…') : null)));
+  }
+  box.replaceChildren(...rows);
+  const c = $('chat-people-count');
+  if (c) c.textContent = here ? String(here) + ' here' : '';
+  // The head's people toggle carries the count of those here (written only when it changes: presence comes often).
+  const n = $('chat-people-n'), count = here ? String(here) : '';
+  if (n && n.textContent !== count) {
+    n.textContent = count;
+    $('chat-people-btn').setAttribute('aria-label', 'People in this room' + (here ? ': ' + here + ' here' : ''));
+  }
+  const busy = $('chat-busy');
+  if (busy) {
+    const list = state.chat.presence.filter((p) => m.includes(p.name) && p.activity && p.name !== viewer());
+    busy.replaceChildren(...list.map((p) => h('span', { class: 'chat-lv' }, avatar(p.avatar, p.name, 'sm'), cap(p.name) + ' is ' + p.activity)));
+  }
+  standing();
+}
+
+function changeAvatar() {
+  const b = h('button', { type: 'button', class: 'chat-link' }, 'Change avatar');
+  b.addEventListener('click', avatarDialog);
+  return b;
+}
+
+export async function loadPresence() {
+  try {
+    const p = await getJSON('/presence');
+    state.chat.presence = Array.isArray(p) ? p : [];
+    changes(state.chat.presence);
+    people();
+  } catch (_) { /* the stream's return reads it again */ }
+}

@@ -1710,15 +1710,15 @@ exec /usr/local/bin/gemini "$@"</pre></details>
 
 <section id="sg-space-pictures">
   <h2>The workspace drawn — the hero, the thumbnails, the tile</h2>
-  <p>A workspace a space file made is drawn from its file and its live state by the space editor's renderer
+  <p>Every workspace is drawn with its live state by the space editor's renderer — one a space file made from its file, one made
+    without from its document (the one <code>doz workspace doc</code> prints)
     (<code>vendor/space-editor/space-render.js</code>, loaded only once a picture is on screen; <code>core/space-pictures.js</code> reads and draws,
     <code>components/space-picture.js</code> lays out). On a workspace's Home tab — and on no other tab — the hero (<code>.ws-hero-band</code>, <code>.ws-hero</code> — a link to the space editor's
     page, <code>#/w/NAME/space</code>, beside “Edit the space” — “Open the space” on another computer —, <code>.ws-hero-open</code>); a file that doesn't read adds Dozable's own verdict (<code>.ws-hero-problem</code>) under the drawing.
     On Home a thumbnail in the Workspace cell (<code>.sp-thumb-home</code>, 128 × 80; 96 × 60 at phone width) and in the sidebar one at the top of an
-    unfolded workspace (<code>.nav-ws-thumb</code>, <code>ui.nav_thumbnails</code>) — each an <code>&lt;img&gt;</code> of the drawing at 160 × 100. With no file (or one this
-    browser may not read): a small tile (<code>.sp-tile-sm</code>, 32 × 32, Lucide's boxes) on Home and the Workspaces page, keeping the thumbnail's slot so the names line up (a file this
-    browser may not read keeps its box, the icon centred), the compact band (<code>.ws-hero-none</code>) on a workspace's Home, nothing in the
-    sidebar. While a hero is on screen (<code>body.ws-hero-on</code>) the notification cards stack at the bottom right, never over
+    unfolded workspace (<code>.nav-ws-thumb</code>, <code>ui.nav_thumbnails</code>) — each an <code>&lt;img&gt;</code> of the drawing at 160 × 100. Made without a space file:
+    the same thumbnails, and a hero that is no link (<code>.ws-hero.is-plain</code> — there is no file to edit) with the command that prints its
+    document (<code>.ws-hero-doc</code>). One this browser may not read keeps its box, the tile centred (<code>.sp-tile</code>). While a hero is on screen (<code>body.ws-hero-on</code>) the notification cards stack at the bottom right, never over
     its drawing. The drawings below are the vendored renderer's own, made here.</p>
   <div class="pair"><div class="scheme">
     <section class="ws-hero-band" style="max-width:640px">
@@ -1730,12 +1730,15 @@ exec /usr/local/bin/gemini "$@"</pre></details>
       <div class="ws-hero-problem"><p class="ws-hero-problem-text"><i data-i="triangle-alert"></i>This file doesn’t read: “agents” is a map of names to settings, not a list.</p>
         <span class="cmd-copy"><code>doz workspace up -f ~/spaces/broken.space.yaml --dry-run</code><button type="button" class="btn sm quiet icon-only" aria-label="Copy"><i data-i="copy"></i></button></span></div>
     </section>
-    <section class="ws-hero-band ws-hero-none" style="max-width:640px"><span class="sp-tile" title="Made without a space file"><i data-i="boxes"></i></span>
-      <span class="ws-hero-why">Made without a space file — </span><span class="cmd-copy"><code>doz workspace up -f FILE</code><button type="button" class="btn sm quiet icon-only" aria-label="Copy"><i data-i="copy"></i></button></span><span class="ws-hero-why"> draws it</span></section>
+    <section class="ws-hero-band" style="max-width:640px">
+      <div class="ws-hero-head"><span class="ws-hero-label"><i data-i="boxes"></i><span>Drawn from its record — made without a space file</span></span>
+        <span class="ws-hero-doc"><span class="cmd-copy"><code>doz workspace doc demo</code><button type="button" class="btn sm quiet icon-only" aria-label="Copy"><i data-i="copy"></i></button></span></span></div>
+      <div class="ws-hero is-plain" role="img" aria-label="demo, drawn from its record"><div class="ws-hero-pic" data-sg-space="hero"></div></div>
+    </section>
     <div class="sg-row">
       <div class="hm-ws-cell"><a class="hm-thumb-link" href="#"><span class="sp-thumb sp-thumb-home"><img class="sp-img" alt="launch, drawn from its space file" width="160" height="100" data-sg-space="thumb"></span></a>
         <div class="hm-ws"><a class="hm-ws-name" href="#"><b>launch</b></a><div class="hm-folders"><span class="hm-folder">~/video/launch</span></div></div></div>
-      <div class="hm-ws-cell"><a class="hm-thumb-link" href="#"><span class="sp-tile sp-tile-sm" title="Made without a space file"><i data-i="boxes"></i></span></a>
+      <div class="hm-ws-cell"><a class="hm-thumb-link" href="#"><span class="sp-thumb sp-thumb-home"><img class="sp-img" alt="demo, drawn from its record" width="160" height="100" data-sg-space="thumb"></span></a>
         <div class="hm-ws"><a class="hm-ws-name" href="#"><b>demo</b></a><div class="hm-folders"><span class="hm-folder muted">no folder</span></div></div></div>
       <div class="hm-ws-cell"><span class="sp-thumb sp-thumb-home is-problem"><img class="sp-img" alt="broken, drawn from its space file" width="160" height="100" data-sg-space="thumb-broken"></span></div>
       <div style="width:200px"><a class="nav-ws-thumb" href="#"><span class="sp-thumb sp-thumb-nav"><img class="sp-img" alt="" width="160" height="100" data-sg-space="thumb"></span></a></div>
@@ -1811,7 +1814,7 @@ exec /usr/local/bin/gemini "$@"</pre></details>
           <div class="wsl-meta"><span>cutter working</span><span class="hm-folder">~/video/launch</span></div>
           <div class="wsl-meta"><a class="hm-room" href="#"># launch</a><span class="wsl-last">active 3 h ago</span></div></div>
         <div class="wsl-next"><div class="hm-next-acts"><button type="button" class="btn sm"><i data-i="moon"></i>Sleep</button></div></div></li>
-      <li class="wsl-row"><a class="wsl-pic is-plain" href="#"><span class="sp-tile sp-tile-sm" title="Made without a space file"><i data-i="boxes"></i></span></a>
+      <li class="wsl-row"><a class="wsl-pic" href="#"><span class="sp-thumb sp-thumb-list"><img class="sp-img" alt="demo, drawn from its record" width="160" height="100" data-sg-space="thumb"></span></a>
         <div class="wsl-main"><div class="wsl-top"><a class="wsl-name" href="#">demo</a><span class="pill ws-idle"><i data-i="pause"></i>idle</span><span class="ws-chip ws-driver">you</span></div>
           <div class="wsl-meta"><span class="hm-folder muted">no folder</span></div>
           <div class="wsl-meta"><a class="hm-room" href="#"># demo</a><span class="wsl-last muted">no activity yet</span></div></div>
@@ -1822,7 +1825,7 @@ exec /usr/local/bin/gemini "$@"</pre></details>
         <div class="wsl-card-body"><div class="wsl-top"><a class="wsl-name" href="#">launch</a><span class="pill ws-working"><span class="dot ws-working"></span>working</span></div>
           <div class="wsl-meta"><span class="ws-chip ws-manager">mira (fenced)</span></div><div class="wsl-meta"><span>1 working</span><span class="wsl-last">active 3 h ago</span></div>
           <div class="wsl-meta"><a class="hm-room" href="#"># launch</a></div></div></li>
-      <li class="wsl-card"><a class="wsl-pic is-plain" href="#"><span class="sp-tile sp-tile-sm" title="Made without a space file"><i data-i="boxes"></i></span></a>
+      <li class="wsl-card"><a class="wsl-pic" href="#"><span class="sp-thumb sp-thumb-list"><img class="sp-img" alt="demo, drawn from its record" width="160" height="100" data-sg-space="thumb"></span></a>
         <div class="wsl-card-body"><div class="wsl-top"><a class="wsl-name" href="#">demo</a><span class="pill ws-idle"><i data-i="pause"></i>idle</span></div>
           <div class="wsl-meta"><span class="wsl-last muted">no activity yet</span></div><div class="wsl-meta"><a class="hm-room" href="#"># demo</a></div></div></li>
     </ul>

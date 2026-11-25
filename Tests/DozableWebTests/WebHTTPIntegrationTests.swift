@@ -414,6 +414,21 @@ final class WebHTTPIntegrationTests: XCTestCase {
         XCTAssertEqual(state.sha, state.computedSHA)
         XCTAssertEqual(try get("/api/v1/workspace-space", h, method: "POST", body: #"{"workspace":"nope"}"#).status, 404)
         XCTAssertEqual(fake.performedOps, [], "reads: no operation")
+        // 781: a workspace made without a space file, drawn from its document: one read-only HostOp, strictly decoded.
+        let docBefore = fake.workspaceCalls.count
+        for b in [#"{}"#, #"{"workspace":"-bad"}"#, #"{"workspace":"plain","path":"/etc/passwd"}"#, "[]"] {
+            XCTAssertEqual(try get("/api/v1/workspace-doc", h, method: "POST", body: b).status, 400, b)
+        }
+        XCTAssertEqual(try get("/api/v1/workspace-doc", ["Cookie": cookie, "Origin": origin, "Content-Type": "application/json"], method: "POST", body: #"{"workspace":"plain"}"#).status, 403, "CSRF")
+        XCTAssertEqual(try get("/api/v1/workspace-doc", ["Cookie": cookie], method: "GET").status, 404, "POST only")
+        XCTAssertEqual(fake.workspaceCalls.count, docBefore, "no call for a refused request")
+        let pd = try JSONDecoder().decode(WebWorkspaceDoc.self, from: try get("/api/v1/workspace-doc", h, method: "POST", body: #"{"workspace":"plain"}"#).body)
+        XCTAssertEqual(fake.workspaceCalls.last, "doc plain")
+        XCTAssertTrue(pd.picture.hasPrefix("doz: space/3.1\n"), pd.picture)
+        XCTAssertTrue(pd.picture.contains("secret-session-name"), "this Mac's own browser sees its sessions")
+        XCTAssertEqual(pd.subjects["sandbox:plain-vm1"], "plain-vm1")
+        XCTAssertEqual(try get("/api/v1/workspace-doc", h, method: "POST", body: #"{"workspace":"nope"}"#).status, 404)
+        XCTAssertEqual(fake.performedOps, [], "reads: no operation")
         // The save: one operation, exactly its HostOp.
         let sha = file.sha256
         let save = try get("/api/v1/actions", h, method: "POST", body: #"{"action":"workspace-space-save","workspace":"demo","text":"doz: space/3\nspace: demo\ntitle: t\n","ifMatch":"\#(sha)"}"#)
@@ -935,6 +950,19 @@ final class FakeData: DozableWebData, @unchecked Sendable {
         let text = "doz: space/3\nspace: demo\n"
         return WorkspaceSpaceFile(workspace: "demo", file: "demo.space.yaml", path: "/Users/someone/work/demo.space.yaml", shownPath: "~/work/demo.space.yaml",
                                   text: text, sha256: WorkspaceStore.sha256(Data(text.utf8)), bytes: text.utf8.count)
+    }
+    /// 781: a plain workspace's document ("plain"): a fenced worker and an adopted session on this Mac, a vm worker.
+    func workspaceDoc(_ w: WorkspaceRequest) async throws -> WorkspaceDocumentAnswer {
+        lock.withLock { _workspaceCalls.append("doc \(w.name ?? "")") }
+        guard w.name == "plain" else { throw HostError(.notFound, "no workspace \(w.name ?? "")") }
+        let doc = #"{"doz":"space/3.1","space":"plain","owner":"ada","brief":{"text":"Mind the walk."},"x-dozable":{"lifetime":"standing"},"#
+            + #""agents":{"w1":{"kind":"claude-code","role":"worker","isolation":"fenced","prompt":"watch"},"#
+            + #""adopted":{"external":{"session":"secret-session-name"}},"vm1":{"kind":"claude-code","role":"worker","where":"sandbox:plain-vm1","prompt":""}},"#
+            + #""sandboxes":{"plain-vm1":{}},"chat":{"rooms":{"plain":{"main":true}}}}"#
+        return WorkspaceDocumentAnswer(workspace: "plain", from: "record", document: doc, notes: [],
+                                       subjects: ["agent:w1": "w1", "agent:adopted": "adopted", "member:adopted": "adopted", "agent:vm1": "vm1",
+                                                  "sandbox:plain-vm1": "plain-vm1", "room:plain": "plain"],
+                                       macAgents: ["w1", "adopted"])
     }
     func workspaceState(_ w: WorkspaceRequest) async throws -> SpaceState {
         lock.withLock { _workspaceCalls.append("state \(w.name ?? "")\(w.macSessionsHidden == true ? " hidden" : "")") }

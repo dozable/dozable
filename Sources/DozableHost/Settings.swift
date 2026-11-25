@@ -797,7 +797,7 @@ public struct DozableSettings: Sendable {
             // 635 (owner): a session's live picture from the sidebar — a screen icon on the row's hover, held half a second.
             // 742 (owner: thumbnails, which this turns off): and an unfolded workspace drawn from its space file.
             .init("ui", "nav_thumbnails", .bool, .bool(true),
-                  "The sidebar's pictures. Hovering a session shows a screen icon; resting on it for half a second shows the session's live picture (moving to another session then shows its picture at once). An unfolded workspace that a space file made shows a small picture of it, drawn from its file and its live state. false: no icon and no picture (Home and a workspace's page still show theirs).",
+                  "The sidebar's pictures. Hovering a session shows a screen icon; resting on it for half a second shows the session's live picture (moving to another session then shows its picture at once). An unfolded workspace shows a small picture of it, drawn from its space file (or, made without one, from its record) and its live state. false: no icon and no picture (Home and a workspace's page still show theirs).",
                   applies: .now),
             .init("ui", "split_default", .choice(["shell", "watch", "attach", "dialog"]), .string("shell"),
                   "What a terminal's Split opens: shell (a new shell session), watch (a read-only view of the left terminal's session), attach (a second, shared view of it), dialog (choose each time).",

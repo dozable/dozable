@@ -840,6 +840,31 @@ final class ServeHTTPTests: XCTestCase {
         XCTAssertTrue(fake.performedOps.isEmpty)
     }
 
+    /// 781: a workspace made without a space file is drawn from its document — read as the space file is (another computer only
+    /// with serve.chat read or write), and while serve.mac_sessions keeps this Mac's sessions from it, its agents on this Mac are
+    /// left out of the drawing (no session's name), as the workspace's page leaves them out.
+    func testTheDocumentIsDrawnForAnotherComputerAsServeChatAndServeMacSessionsAllow() async throws {
+        try await start(macSessions: "off", chat: "off")
+        let (devCookie, devCSRF) = try await admit()
+        let refused = try macJSON(devCookie, devCSRF, "/api/v1/workspace-doc", #"{"workspace":"plain"}"#, remote: true)
+        XCTAssertEqual(refused.status, 403, refused.text)
+        XCTAssertTrue(refused.text.contains("\"space-remote\""), refused.text)
+        XCTAssertFalse(fake.workspaceCalls.contains("doc plain"), "nothing asked of the daemon")
+        try "[serve]\nmac_sessions = \"off\"\nchat = \"read\"\n".write(to: dir.appendingPathComponent("xdg/doz/doz.toml"), atomically: true, encoding: .utf8)
+        let hidden = try macJSON(devCookie, devCSRF, "/api/v1/workspace-doc", #"{"workspace":"plain"}"#, remote: true)
+        XCTAssertEqual(hidden.status, 200, hidden.text)
+        let h = try JSONDecoder().decode(WebWorkspaceDoc.self, from: hidden.body)
+        XCTAssertFalse(hidden.text.contains("secret-session-name"), hidden.text)
+        XCTAssertFalse(h.picture.contains("\"w1\""), "the fenced worker on this Mac is not drawn: \(h.picture)")
+        XCTAssertTrue(h.picture.contains("\"vm1\""), "a VM's worker is: \(h.picture)")
+        XCTAssertNil(h.subjects["agent:adopted"])
+        try "[serve]\nmac_sessions = \"watch\"\nchat = \"read\"\n".write(to: dir.appendingPathComponent("xdg/doz/doz.toml"), atomically: true, encoding: .utf8)
+        let shown = try JSONDecoder().decode(WebWorkspaceDoc.self, from: try macJSON(devCookie, devCSRF, "/api/v1/workspace-doc", #"{"workspace":"plain"}"#, remote: true).body)
+        XCTAssertTrue(shown.picture.contains("secret-session-name"), "serve.mac_sessions watch: shown")
+        XCTAssertNotEqual(shown.sha256, h.sha256, "a different drawing, a different sha")
+        XCTAssertTrue(fake.performedOps.isEmpty)
+    }
+
     /// A fenced session's site allowed from another computer: 403 `mac-only` whatever serve.mac_sessions and serve.chat say,
     /// one audit line each, nothing sent to the daemon; this Mac's own browser: 202, exactly `net-policy` on `@mac` with the
     /// session. The wide views read from another computer: held secrets a count only, this Mac's agents per serve.mac_sessions.

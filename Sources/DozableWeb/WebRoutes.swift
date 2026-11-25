@@ -133,6 +133,9 @@ public enum WebRoute: Equatable, Sendable {
     case workspaceSpacePlan             // POST /api/v1/workspace-space-plan  ({workspace, text})
     case workspaceState                 // POST /api/v1/workspace-state       ({workspace})
     case workspaceRunFrames             // POST /api/v1/workspace-run-frames  ({workspace, run}) — a space's run in frames
+    // 781: a workspace made with no space file drawn from its document (`workspace-doc`, `doz workspace doc W`), in the
+    // renderer's words — the same exposure as `workspace-space`; this Mac's agents as serve.mac_sessions allows. WebSpace.swift.
+    case workspaceDoc                   // POST /api/v1/workspace-doc         ({workspace})
     case chatRoomPlan                   // POST /api/v1/chat-room-plan      ({room, verb})
     case macSessionPlan                 // POST /api/v1/mac/session-plan  ({case, program, folder, session?, preset?, account?, github?, agentConfig?, simulator?, keychain?, ports?, open?})
     // 594 — onboarding: the wizard's facts; the settings file + prompt template written only when
@@ -290,6 +293,7 @@ public enum WebRoute: Equatable, Sendable {
         case (.post, 1) where rest[0] == "workspace-space-plan": return .workspaceSpacePlan
         case (.post, 1) where rest[0] == "workspace-state": return .workspaceState
         case (.post, 1) where rest[0] == "workspace-run-frames": return .workspaceRunFrames
+        case (.post, 1) where rest[0] == "workspace-doc": return .workspaceDoc
         case (.post, 1) where rest[0] == "chat-room-plan": return .chatRoomPlan
         case (.post, 2) where rest == ["project", "open"]: return .projectOpen
         case (.post, 2) where rest == ["project", "preview"]: return .projectPreview

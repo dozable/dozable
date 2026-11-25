@@ -71,10 +71,12 @@
 //     name keeps the button off; a crafted action with another name is 400), then the room's archived notice; 7 Restore →
 //     finished; 8 Delete… with the Bin box unticked → gone from Home and the sidebar, its folder still on disk; 9 another
 //     computer's 403 is ServeHTTPTests'; 11 (below) with the daemon stopped the plan route answers. The leak sweep after.
-//   · the workspace drawn, chat still on: the first load (Home with only plain workspaces) fetches no renderer byte and
-//     shows a plain tile, its bytes printed, the two glue modules at most 16 KB; `spc2` brought up from a space file (a
-//     fenced worker running the FAKE claude) — Home and the unfolded sidebar show one thumbnail per space workspace and a
-//     tile for each plain one (none in the sidebar), the renderer fetched once; #/w/spc2's hero draws, named; down → after
+//   · the workspace drawn, chat still on: the first load (Home with only plain workspaces) draws demo from its record — the
+//     renderer alone of the editor's tree, no tile, no problem marker —, its bytes printed, the two glue modules at most 16 KB;
+//     `spc2` brought up from a space file (a fenced worker running the FAKE claude) — Home shows a thumbnail for every
+//     workspace (plain ones from their records, none a problem), the unfolded sidebar spc2's, demo's and the wizard's wiz1's,
+//     the renderer fetched once; plain wiz1's Home draws the full hero (no marker, not the compact band, no link, `doz
+//     workspace doc wiz1` beside it, its agents drawn); #/w/spc2's hero draws, named; down → after
 //     `changed` the hero's key and state sha change; 3 s without an event reads no state; the hero is a link to its
 //     space editor; dark → a new key, light again → a cache hit; at 390 px the hero fits;
 //     under reduced motion the hero has no animation; a toast does not cover the hero's drawing; a file that doesn't read → the marker and Dozable's problem line;
@@ -122,12 +124,12 @@
 //     you absent when nothing waits, the room's last messages, at most five log lines, no walk of the folders; 3 wiz2
 //     (setting up) — Needs you lists what is missing and Start, its Room tab one line; 4 an open ask in askw's room in Needs
 //     you, "Answer in the room" → #/w/askw/room, gone once decided; 5 an agent blocked (a harmless session reporting OSC 7501
-//     blocked) named; 6 #/w/demo2/room mounts the room and the brief, Back and Forward keep the surface and the draft; 7 spc2's
+//     blocked) named; 6 #/w/demo2/room mounts the room and the brief (the empty chat status box not drawn), Back and Forward keep the surface and the draft; 7 spc2's
 //     hero on Home (a link to its space editor), off on Agents with no state read in 3 s; 8 a message arriving on Home is not
 //     marked seen, and Home holds no chat stream.
 //   · the Workspaces page: 1 the sidebar's heading opens #/workspaces, every workspace under Every with the listing's counts,
-//     Show resets on a new visit; 2 Rows → Grid kept across a reload, Sort by Name and Last activity; 3 an <img> only for
-//     space workspaces, plain tiles ≤ 40 px here and on Home, a plain card's band ≤ 30 % of a drawn one's, the renderer fetched once, the sidebar's box 0 px until drawn;
+//     Show resets on a new visit; 2 Rows → Grid kept across a reload, Sort by Name and Last activity; 3 an <img> for every
+//     workspace (plain ones from their records), no tile here or on Home, every grid band 16:10, the renderer fetched once, the sidebar's box 0 px until drawn;
 //     4 390 px; 5 the keyboard order and Space on the layout; 6 no CSP violation, the leak sweep. Pictures: ws-home-light,
 //     ws-home-390, ws-home-needs, workspaces-rows-light, workspaces-rows-390, workspaces-grid-light, workspaces-grid-390.
 //   · with the daemon stopped, opening Home, Sandboxes, a workspace's page and its agents starts none (no daemon.pid).
@@ -2605,8 +2607,11 @@ async function walkSpaceWindow(name) {
 const RENDERER = /\/assets\/vendor-space-editor-[0-9a-f]{16}\/space-render\.js/;
 let firstLoad = null;
 async function walkFirstLoad() {
-  check(!requested.some((u) => EDITOR_ANY.test(u)), 'pictures: the first load (Home with only plain workspaces) fetches no byte of the space editor (its renderer included)');
-  check(await waitFor(`!!document.querySelector('[data-ws="demo"] [data-pic-tile="Made without a space file"]')`, 8000), 'pictures: …a plain tile for demo, made without a space file');
+  // Every workspace is drawn (781): Home with only plain workspaces draws them from their documents — the renderer alone, never
+  // the editor's other modules.
+  check(await waitFor(`!!document.querySelector('[data-ws="demo"] .sp-thumb img.sp-img:not([hidden])')`, 20000), 'pictures: the first load draws demo (made without a space file) from its record');
+  check(!requested.some((u) => EDITOR_ANY.test(u) && !RENDERER.test(u)), 'pictures: …and fetches no byte of the space editor but its renderer');
+  check(await evaluate(`!document.querySelector('[data-pic-tile]') && !document.querySelector('[data-ws="demo"] .sp-thumb.is-problem')`), 'pictures: …no plain tile, no problem marker');
   firstLoad = await evaluate(`(() => { const all = performance.getEntriesByType('navigation').concat(performance.getEntriesByType('resource'))
     .filter((e) => !e.name.includes('/api/'));
     return { files: all.length, bytes: all.reduce((n, e) => n + (e.encodedBodySize || 0), 0) }; })()`);
@@ -2639,7 +2644,7 @@ async function walkPictures() {
   const up = doz(['workspace', 'up', '-f', SPACE + '/spc2.space.yaml', '--yes']);
   if (up.status === 0) pictureSessions.push('spc2-w1');
   check(up.status === 0, 'pictures: workspace up -f spc2.space.yaml (a fenced worker running the FAKE claude)');
-  // Home, read again on a reload: one thumbnail per space workspace on screen, a tile for each plain one.
+  // Home, read again on a reload: one thumbnail per workspace — a plain one's drawn from its record (781).
   const mark = requested.length;
   await send('Page.reload');
   await waitFor(`typeof state === 'object' && !!state.csrf`, 30000);
@@ -2652,12 +2657,24 @@ async function walkPictures() {
   await sleep(800);
   const home = await evaluate(`[...document.querySelectorAll('tr[data-ws]')].map((r) => ({ name: r.dataset.ws, img: !!r.querySelector('.sp-thumb[data-pic] img.sp-img:not([hidden])'),
     tile: !!r.querySelector('[data-pic-tile]') }))`);
-  const wrong = home.filter((r) => { const w = rows.find((x) => x.name === r.name); return !w || (w.space ? !r.img : !r.tile); });
-  check(home.length > 2 && !wrong.length, `pictures: Home — a thumbnail for each space workspace, a tile for each plain one (${home.length} rows${wrong.length ? '; wrong: ' + wrong.map((r) => r.name).join(', ') : ''})`);
-  // The sidebar: spc2 unfolded shows its picture; demo (plain) unfolded shows none.
-  for (const n of ['spc2', 'demo']) await evaluate(`(() => { const c = document.querySelector('[data-ws-fold="${n}"]'); if (c && c.getAttribute('aria-expanded') !== 'true') c.click(); })()`);
+  // (only pictures on screen are read: each row brought into view in turn)
+  for (const r of home) { await evaluate(`document.querySelector('tr[data-ws="${r.name}"]')?.scrollIntoView({ block: 'center' })`); await waitFor(`!!document.querySelector('tr[data-ws="${r.name}"] .sp-thumb img.sp-img:not([hidden])')`, 8000); }
+  const drawnRows = await evaluate(`[...document.querySelectorAll('tr[data-ws]')].map((r) => ({ name: r.dataset.ws, img: !!r.querySelector('.sp-thumb[data-pic] img.sp-img:not([hidden])'),
+    tile: !!r.querySelector('[data-pic-tile]'), problem: !!r.querySelector('.sp-thumb.is-problem') }))`);
+  const wrong = drawnRows.filter((r) => !rows.find((x) => x.name === r.name) || !r.img || r.tile || r.problem);
+  check(home.length > 2 && !wrong.length, `pictures: Home — a thumbnail for every workspace, plain ones from their records, no tile, no problem marker (${drawnRows.length} rows${wrong.length ? '; wrong: ' + wrong.map((r) => r.name).join(', ') : ''})`);
+  await evaluate(`window.scrollTo(0, 0)`);
+  // The sidebar: spc2 and demo (plain) and wiz1 (the wizard's, plain) unfolded each show their picture.
+  for (const n of ['spc2', 'demo', 'wiz1']) await evaluate(`(() => { const c = document.querySelector('[data-ws-fold="${n}"]'); if (c && c.getAttribute('aria-expanded') !== 'true') c.click(); })()`);
   check(await waitFor(`!!document.querySelector('[data-nav-ws="spc2"] .nav-ws-thumb img.sp-img:not([hidden])')`, 15000), 'pictures: the unfolded sidebar draws spc2');
-  check(await evaluate(`!!document.querySelector('[data-nav-ws="demo"] [data-ws-inside]') && !document.querySelector('[data-nav-ws="demo"] .nav-ws-thumb')`), 'pictures: …and nothing for demo, made without a space file');
+  check(await waitFor(`!!document.querySelector('[data-nav-ws="demo"] .nav-ws-thumb img.sp-img:not([hidden])')`, 15000), 'pictures: …and demo, made without a space file, from its record');
+  const plainThumbs = {};
+  for (const n of ['demo', 'wiz1']) {
+    await evaluate(`document.querySelector('[data-nav-ws="${n}"]')?.scrollIntoView({ block: 'center' })`);
+    check(plainThumbs[n] = await waitFor(`(() => { const t = document.querySelector('[data-nav-ws="${n}"] .nav-ws-thumb .sp-thumb'); return !!t && !!t.dataset.picKey && !t.classList.contains('is-problem') && /drawn from its record/.test(t.querySelector('img').alt); })()`, 15000),
+      `pictures: plain ${n}'s sidebar thumbnail draws from its record (no problem marker)`);
+  }
+  for (const n of ['demo', 'wiz1']) await evaluate(`(() => { const c = document.querySelector('[data-ws-fold="${n}"]'); if (c && c.getAttribute('aria-expanded') === 'true') c.click(); })()`);
   check(requested.slice(mark).filter((u) => RENDERER.test(u)).length === 1, `pictures: the renderer is fetched once (${requested.slice(mark).filter((u) => RENDERER.test(u)).length})`);
   // Pictures for a person: Home light, the sidebar with spc2 unfolded, Home at 390 px.
   await evaluate(`document.documentElement.dataset.theme = 'light'`);
@@ -2668,6 +2685,26 @@ async function walkPictures() {
   await sleep(1200);
   await shot('pictures-home-390');
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  await evaluate(`delete document.documentElement.dataset.theme`);
+  // 781: a plain wizard-made workspace (wiz1): its Home draws the full hero from its record — not the compact band, no problem
+  // marker, no link (no file to edit), the command that prints its document beside it.
+  await goHash('#/w/wiz1');
+  const wizHero = await waitFor(`!!${HERO('wiz1')}?.dataset.picKey && !!${HERO('wiz1')}.querySelector('svg.space-render')`, 20000);
+  check(wizHero, 'pictures: plain wiz1 (made by the wizard) draws its hero on Home');
+  const wizClean = await evaluate(`!${HERO('wiz1')}.querySelector('svg.space-render.problem') && !document.querySelector('[data-ws-hero-none]') && ${HERO('wiz1')}.tagName === 'DIV'
+    && ${HERO('wiz1')}.hasAttribute('data-ws-hero-plain') && /wiz1, drawn from its record/.test(${HERO('wiz1')}.getAttribute('aria-label') || '')`);
+  check(wizClean, 'pictures: …no problem marker, not the compact band, no link, named "drawn from its record"');
+  // The acceptance row (PICTURE2, P23.3): a plain workspace's Home picture and sidebar thumbnail draw.
+  check(wizHero && wizClean && plainThumbs.wiz1, 'dashboard walk: a plain workspace\'s Home picture and sidebar thumbnail draw (wiz1, made by the wizard)');
+  check(await evaluate(`!!document.querySelector('[data-ws-hero-band="wiz1"] [data-ws-hero-doc] [data-cmd="doz workspace doc wiz1"]') && document.querySelector('[data-ws-hero-problem]').hidden`),
+    'pictures: …its head says doz workspace doc wiz1, no problem line');
+  const wizAgents = ((dozJSON(['workspace', 'show', 'wiz1']) || {}).agents || []).filter((a) => !a.endedAt).map((a) => a.name);
+  const wizText = await evaluate(`${HERO('wiz1')}.querySelector('svg').textContent`);
+  console.log(`  wiz1: agents ${wizAgents.join(', ') || '(none)'}`);
+  check(wizAgents.every((a) => wizText.includes(a)), `pictures: …each of its agents drawn (${wizAgents.join(', ') || 'none'})`);
+  await evaluate(`document.documentElement.dataset.theme = 'light'`);
+  await sleep(800);
+  await shot('pictures-plain-hero', `[data-ws-hero-band="wiz1"]`);
   await evaluate(`delete document.documentElement.dataset.theme`);
   // The hero on #/w/spc2.
   await goHash('#/w/spc2');
@@ -3182,6 +3219,9 @@ async function walkHome() {
   await goHash('#/w/demo2/room');
   check(await waitFor(`state.chat.room === 'demo2' && !!document.querySelector('#ws-room #chat-surface') && !!document.querySelector('#ws-brief [data-ws-brief="demo2"]')`, 15000),
     'home 6 #/w/demo2/room mounts the room and the brief');
+  // The chat view's status box, with nothing to say, is not drawn (an empty card read as a spinner above the room).
+  check(await evaluate(`(() => { const n = document.getElementById('chat-notice'); return !!n && !n.childElementCount && n.getBoundingClientRect().height === 0 && getComputedStyle(n).display === 'none'; })()`),
+    'home 6 …the empty chat status box is not drawn');
   await evaluate(`window.__surf = document.getElementById('chat-surface'); window.__draft = 'a draft kept ' + Date.now(); document.getElementById('chat-text').value = window.__draft`);
   await goHash('#/w/demo2');
   await waitFor(`state.wsTab === 'home'`, 5000);
@@ -3274,31 +3314,28 @@ async function walkWorkspacesList() {
     'workspaces 2 Sort by Last activity: newest first, per each row\'s lastAt (doz workspace ls --json\'s)');
   await evaluate(`(() => { const s = document.querySelector('[data-wsl-sort]'); s.value = 'state'; s.dispatchEvent(new Event('change')); })()`);
   await sleep(500);
-  // 3. Pictures only for space workspaces; a plain one a small tile here and on Home; the sidebar's box 0 px until drawn.
+  // 3. A picture for every workspace (781: a plain one from its record), no tile; every grid band a drawing's 16:10.
   await waitFor(`!!document.querySelector('[data-wsl="spc2"] img.sp-img:not([hidden])')`, 20000);
   const pics = await evaluate(`[...document.querySelectorAll('[data-wsl]')].map((e) => ({ name: e.dataset.wsl, img: !!e.querySelector('img.sp-img'),
-    tile: [...e.querySelectorAll('[data-pic-tile]')].map((t) => Math.round(t.getBoundingClientRect().width)) }))`);
-  const spaced = new Set(ls.filter((w) => w.space).map((w) => w.name));
-  const off = pics.filter((p) => (spaced.has(p.name) ? !p.img : p.img || !p.tile.length || p.tile.some((x) => x > 40)));
-  check(!off.length, `workspaces 3 an <img> only for each space workspace, a tile ≤ 40 px for each plain one (${pics.length}${off.length ? '; wrong: ' + JSON.stringify(off) : ''})`);
-  // In the grid a plain card's band is thin: at most 30 % of a drawn one's.
-  const bands = await evaluate(`(() => { const hs = (sel) => [...document.querySelectorAll('.wsl-grid ' + sel)].map((e) => e.getBoundingClientRect().height);
-    return { drawn: hs('.wsl-pic:not(.is-plain)'), plain: hs('.wsl-pic.is-plain') }; })()`);
-  check(bands.drawn.length > 0 && bands.plain.length > 0 && Math.max(...bands.plain) <= 0.3 * Math.min(...bands.drawn),
-    `workspaces 3 a plain card's band is thin: ≤ 30 % of a drawn one's (${Math.round(Math.max(...bands.plain))} / ${Math.round(Math.min(...bands.drawn))} px)`);
+    tile: [...e.querySelectorAll('[data-pic-tile]')].length }))`);
+  const off = pics.filter((p) => !p.img || p.tile);
+  check(!off.length, `workspaces 3 an <img> for every workspace, a plain one's from its record, no tile (${pics.length}${off.length ? '; wrong: ' + JSON.stringify(off) : ''})`);
+  const bands = await evaluate(`[...document.querySelectorAll('.wsl-grid .wsl-pic')].map((e) => { const r = e.getBoundingClientRect(); return r.width / Math.max(1, r.height); })`);
+  check(bands.length > 0 && bands.every((x) => Math.abs(x - 1.6) < 0.1), `workspaces 3 every grid card's band is a drawing's 16:10 (${bands.length})`);
   await evaluate(`document.documentElement.dataset.theme = 'light'`);
   await sleep(1200);
   await shot('workspaces-grid-light');
   await evaluate(`delete document.documentElement.dataset.theme`);
   await goHash('#/home');
   await waitFor(`state.view === 'home' && !!document.querySelector('tr[data-ws]')`, 10000);
-  const homeTiles = await evaluate(`[...document.querySelectorAll('tr[data-ws] [data-pic-tile]')].map((t) => Math.round(t.getBoundingClientRect().width))`);
-  check(homeTiles.length > 0 && homeTiles.every((x) => x <= 40), `workspaces 3 …Home's plain tiles are small too (${homeTiles.join(', ')} px)`);
+  check(await evaluate(`!document.querySelector('tr[data-ws] [data-pic-tile]')`), 'workspaces 3 …and no tile on Home either');
   check(requested.slice(mark).filter((u) => RENDERER.test(u)).length === 1, `workspaces 3 the renderer fetched once since the reload (${requested.slice(mark).filter((u) => RENDERER.test(u)).length})`);
   // (spc2 is down now: it may sit under a folded group)
   for (const g of ['~asleep', '~done']) await evaluate(`(() => { const b = document.querySelector('[data-ws-group="${g}"]'); if (b && b.getAttribute('aria-expanded') !== 'true') b.click(); })()`);
   await waitFor(`!!document.querySelector('[data-ws-fold="spc2"]')`, 8000);
   await evaluate(`(() => { const c = document.querySelector('[data-ws-fold="spc2"]'); if (c && c.getAttribute('aria-expanded') !== 'true') c.click(); })()`);
+  // (every unfolded workspace has a picture now: spc2's brought into view — only pictures on screen are read)
+  await evaluate(`document.querySelector('[data-nav-ws="spc2"]')?.scrollIntoView({ block: 'center' })`);
   const navDrawn = await waitFor(`!!document.querySelector('[data-nav-ws="spc2"] .sp-thumb-nav[data-pic-key] img:not([hidden])')`, 15000);
   check(navDrawn, 'workspaces 3 the sidebar\'s box, 0 px tall until drawn, is still seen and drawn');
   const nav = !navDrawn ? { before: -1, drawn: 0 } : await evaluate(`(() => { const t = document.querySelector('[data-nav-ws="spc2"] .sp-thumb-nav'); const r = t.getBoundingClientRect(); const drawn = r.height / r.width;

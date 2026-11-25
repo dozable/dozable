@@ -2675,6 +2675,9 @@ dialog.dlg.ak-flow[open] { display: flex; flex-direction: column; max-height: ca
   font-size: var(--fs-sm); overflow-wrap: anywhere; }
 .chat-notice.sev-warning { --tone: var(--warn); --tone-t: var(--warn-tint); }
 .chat-notice.sev-critical { --tone: var(--bad); --tone-t: var(--bad-tint); }
+/* The chat view's status box (#chat-notice, views/chat.js) shares the class: with nothing to say it is not drawn — an empty
+   card read as a spinner above the room. */
+#chat-notice:empty { display: none; }
 .chat-notice-top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); color: var(--ink-2); }
 .chat-notice-top .icon { width: 14px; height: 14px; color: var(--tone); }
 .chat-feed-mark, .chat-notice-sev { padding: 0 var(--sp-1); border-radius: var(--r-xs); background: var(--tone-t, var(--info-tint)); color: var(--tone, var(--info));
@@ -3021,7 +3024,7 @@ a.ws-iso:hover { color: var(--ink); text-decoration: underline; }
 .ws-brief-err { margin: 0; color: var(--bad); font-size: var(--fs-sm); }
 .ws-brief-over { font-size: var(--fs-sm); }
 /* ── 742: the workspace drawn (components/space-picture.js) — the hero band on a workspace's page, the thumbnails on Home
-   and in the sidebar, the plain tile, the full-window view. The drawing brings its own style, scoped to its ids; this
+   and in the sidebar — every workspace, one made without a space file from its document —, the plain tile, the full-window view. The drawing brings its own style, scoped to its ids; this
    lays it out. The hero is a still: its live pulse stops (the drawing's style is unlayered, so it takes !important). ── */
 .ws-hero-band { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
 .ws-hero-head { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); color: var(--ink-2); }
@@ -3029,8 +3032,11 @@ a.ws-iso:hover { color: var(--ink); text-decoration: underline; }
 .ws-hero-label .icon { width: 14px; height: 14px; flex: none; }
 .ws-hero { display: block; width: 100%; height: clamp(160px, 28vh, 320px); padding: 0; border: var(--bw) solid var(--line); border-radius: var(--r-lg);
   background: var(--surface); color: var(--ink); cursor: pointer; overflow: hidden; }
-.ws-hero-open { margin-left: auto; }
+.ws-hero-open, .ws-hero-doc { margin-left: auto; }
 .ws-hero:hover { border-color: var(--line-strong); }
+/* Made without a space file: drawn from its document, no file to open — not a link. */
+.ws-hero.is-plain { cursor: default; }
+.ws-hero.is-plain:hover { border-color: var(--line); }
 .ws-hero-pic { display: flex; align-items: center; justify-content: center; gap: var(--sp-2); width: 100%; height: 100%; }
 .ws-hero-pic .space-render { display: block; width: 100%; height: 100%; }
 .ws-hero .live-pulse { animation: none !important; }
@@ -3041,9 +3047,6 @@ body.ws-hero-on .notes-stack { position: fixed; top: auto; right: var(--sp-3); b
 .ws-hero-problem { display: flex; flex-direction: column; gap: var(--sp-1); }
 .ws-hero-problem-text { display: flex; align-items: center; gap: var(--sp-1); margin: 0; color: var(--bad); font-size: var(--fs-sm); }
 .ws-hero-problem-text .icon { width: 14px; height: 14px; flex: none; }
-.ws-hero-none { flex-direction: row; align-items: center; flex-wrap: wrap; min-height: 48px; padding: var(--sp-2) var(--sp-3);
-  border: var(--bw) dashed var(--line); border-radius: var(--r-lg); }
-.ws-hero-none .sp-tile { width: 32px; height: 32px; }
 .sp-thumb { display: inline-flex; flex: none; overflow: hidden; border-radius: var(--r-md); background: var(--well); }
 .sp-thumb-home { width: 128px; height: 80px; }
 .sp-thumb-nav { width: 160px; max-width: 100%; height: auto; background: none; }
@@ -3056,9 +3059,6 @@ body.ws-hero-on .notes-stack { position: fixed; top: auto; right: var(--sp-3); b
   background: var(--well); color: var(--ink-3); }
 .sp-tile .icon { width: 22px; height: 22px; }
 .sp-tile.sp-tile-hero { width: 64px; height: 64px; }
-/* Made without a space file: a small tile on Home and the Workspaces page, never a big empty box. */
-.sp-tile.sp-tile-sm { flex: none; width: 32px; height: 32px; }
-.sp-tile.sp-tile-sm .icon { width: 18px; height: 18px; }
 .hm-ws-cell { display: flex; align-items: flex-start; gap: var(--sp-3); min-width: 0; }
 .hm-ws-cell .hm-ws { min-width: 8rem; }
 .hm-thumb-link { display: flex; flex: none; justify-content: flex-start; width: 128px; }
@@ -3186,8 +3186,6 @@ a.ng-label:hover { text-decoration: underline; }
 .wsl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); align-items: stretch; gap: var(--gap); }
 .wsl-card { display: flex; flex-direction: column; min-width: 0; overflow: hidden; border: var(--bw) solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
 .wsl-grid .wsl-pic { flex-direction: column; justify-content: center; gap: var(--sp-1); aspect-ratio: 16 / 10; background: var(--well); }
-/* Made without a space file: a thin band, a quarter of a drawing's (16:10 → 16:2.5), the small tile on the card's own surface. */
-.wsl-grid .wsl-pic.is-plain { align-items: center; aspect-ratio: 16 / 2.5; background: none; border-bottom: var(--bw) solid var(--sep); }
 .wsl-grid .sp-thumb-list { width: 100%; height: 100%; border-radius: 0; }
 .wsl-card-body { flex: 1; padding: var(--sp-2) var(--sp-3) var(--sp-3); }
 .wsl-card .wsl-next { margin-top: auto; padding-top: var(--sp-1); }

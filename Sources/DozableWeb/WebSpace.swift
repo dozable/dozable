@@ -1,3 +1,4 @@
+import DozableChat
 import DozableHost
 import Foundation
 
@@ -84,5 +85,30 @@ public struct WebSpaceFile: Codable, Equatable, Sendable {
         self.canSave = canSave
         command = canSave ? nil : "doz workspace edit \(f.workspace) --space-file \(f.shownPath) --if-match \(f.sha256)"
         self.picture = picture
+    }
+}
+
+/// 781: `POST /api/v1/workspace-doc`'s answer — a workspace made with no space file, as the pictures draw it: its document
+/// (`RecordDocument`, the one `doz workspace doc` writes) in the renderer's words (`SpacePicture.recordDocument`), its sha256
+/// (of what is drawn: the text and the subjects), and `subjects` — what the record's state calls each thing → its key in the
+/// document, so the live marks land on the right box. While this browser may not see this Mac's sessions, the agents on this
+/// Mac are left out of the drawing and of `subjects`. Never a path from the request, never a token (the document holds none).
+public struct WebWorkspaceDoc: Codable, Equatable, Sendable {
+    public var workspace: String
+    /// `record` or `space-file` (the record's document is what the page asks for).
+    public var from: String
+    public var picture: String
+    public var sha256: String
+    public var subjects: [String: String]
+
+    public init(_ a: WorkspaceDocumentAnswer, macAllowed: Bool) throws {
+        let doc = try ChatJSON.parse(Data(a.document.utf8))
+        let hidden = macAllowed ? Set<String>() : Set(a.macAgents ?? [])
+        workspace = a.workspace
+        from = a.from
+        picture = SpacePicture.recordDocument(doc, hiding: hidden)
+        subjects = (a.subjects ?? [:]).filter { !hidden.contains($0.value) || !($0.key.hasPrefix("agent:") || $0.key.hasPrefix("member:")) }
+        let keyed = subjects.sorted { $0.key < $1.key }.map { $0.key + "=" + $0.value }.joined(separator: "\n")
+        sha256 = WorkspaceStore.sha256(Data((picture + "\u{0}" + keyed).utf8))
     }
 }

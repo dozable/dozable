@@ -35,6 +35,7 @@ extension HostCore {
         let inputs = RecordDocument.Inputs(record: rec, briefText: workspaceBriefText(rec) ?? "", owner: (try? ChatDirectory.load(chatPaths))?.human,
                                            host: host, roomsMade: made, roomOwners: owners)
         let g = RecordDocument.generate(inputs)
-        return WorkspaceDocumentAnswer(workspace: n, from: "record", document: SpaceDoc.text(RecordDocument.view(g.document)), notes: notes + g.notes)
+        return WorkspaceDocumentAnswer(workspace: n, from: "record", document: SpaceDoc.text(RecordDocument.view(g.document)), notes: notes + g.notes,
+                                       subjects: g.subjects, macAgents: g.macAgents)
     }
 }
