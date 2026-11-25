@@ -134,6 +134,8 @@ public enum MacFenceProfile {
         if let d = f.dozExecutable { s.append("(allow file-read* (literal \(lit(d))))") }
         // dozchat (the chat-room member), the same way: only its one file, run through the session's shim.
         if let d = f.dozchatExecutable { s.append("(allow file-read* (literal \(lit(d))))") }
+        // The chat skills START names by path: these files alone, read only.
+        if !f.chatSkillFiles.isEmpty { s.append("(allow file-read* " + f.chatSkillFiles.map { "(literal \(lit($0)))" }.joined(separator: " ") + ")") }
         if !f.readable.isEmpty {
             s.append("(allow file-read* " + f.readable.map { "(subpath \(lit($0)))" }.joined(separator: " ") + ")")
         }

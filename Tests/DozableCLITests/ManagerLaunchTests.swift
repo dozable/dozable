@@ -125,7 +125,7 @@ final class ManagerLaunchTests: XCTestCase {
     func testAnInboxBotsStartNeverSaysPoll() {
         let i = ManagerKickoff.startText(bot: "dozboss1", workspace: "ws", room: "ws", isolation: .unfenced, skills: [], instructions: nil,
                                          brief: "B", refs: [], inbox: true)
-        XCTAssertFalse(i.contains("`dozchat receive --wait 60 --ack` to collect"))
+        XCTAssertFalse(i.contains("dozchat receive"), "an inbox bot's START names no dozchat receive")
         XCTAssertTrue(i.contains("arrives in this session by itself"))
         XCTAssertTrue(i.contains("dozchat send ws"))
         let p = ManagerKickoff.startText(bot: "otto", workspace: "ws", room: "ws", isolation: .unfenced, skills: [], instructions: nil,
@@ -133,7 +133,7 @@ final class ManagerLaunchTests: XCTestCase {
         XCTAssertTrue(p.contains("`dozchat receive --wait 60 --ack` to collect what is said to you."))
         let w = WorkerKickoff.startText(name: "b", workspace: "ws", room: "ws", task: "T", director: nil, place: .unfenced, skills: [],
                                         instructions: nil, inbox: true)
-        XCTAssertFalse(w.contains("`dozchat receive --wait 60 --ack` to collect"))
+        XCTAssertFalse(w.contains("dozchat receive"))
         XCTAssertTrue(w.contains("arrives in this session by itself"))
     }
 

@@ -13,7 +13,7 @@ public enum WorkerKickoff {
     }
 
     public static func startText(name: String, workspace: String, room: String, task: String, director: String?, place: Where,
-                                 skills: [String], instructions: String?, inbox: Bool = false) -> String {
+                                 skills: [String], instructions: String?, inbox: Bool = false, skillFiles: [String: String] = [:]) -> String {
         let t = task.trimmingCharacters(in: .whitespacesAndNewlines)
         let firstLine = WorkerLaunch.shortTask(t, limit: 200)
         var s = "You are \(name), a worker in the workspace \(workspace). Your task: \(firstLine)\n"
@@ -26,7 +26,7 @@ public enum WorkerKickoff {
         s += "Use `dozchat` (on your PATH): `dozchat send \(room) \"…\"` to post, " + ManagerKickoff.receiveText(inbox: inbox) + " "
         s += "Your token is in the file named by $\(ManagerLaunch.tokenFileVariable); never print it, never put it in a message or a file.\n\n"
         s += "## Skills\n\n"
-        s += (["chat-worker", "chat-room-member"] + skills).map { "- " + $0 }.joined(separator: "\n") + "\n\n"
+        s += ManagerKickoff.skillLines(AgentSkillFiles.worker, files: skillFiles, others: skills)
         if let i = instructions?.trimmingCharacters(in: .whitespacesAndNewlines), !i.isEmpty {
             s += "## Your instructions\n\n" + i + "\n\n"
         }

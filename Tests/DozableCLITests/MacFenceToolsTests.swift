@@ -211,6 +211,24 @@ final class MacFenceToolsProfileTests: XCTestCase {
         XCTAssertNotEqual(w.sandboxed(MacFenceProfile.render(f), ["/bin/cat", lib + "/dozchat-mac"]).code, 0, "without the rule it does not")
     }
 
+    /// The chat skills START names by path: the profile reads exactly those files (sandbox-exec), never their folder, and
+    /// the session cannot write them.
+    func testTheChatSkillFilesAreReadableAndNothingBesideThem() throws {
+        var f = try w.fence()
+        let skills = w.root + "/bundle/skills"
+        try FileManager.default.createDirectory(atPath: skills + "/chat-room-member", withIntermediateDirectories: true)
+        w.write(skills + "/chat-room-member/SKILL.md", "---\nname: chat-room-member\n---\n")
+        w.write(skills + "/other.txt", "not for the session")
+        let file = try XCTUnwrap(MacFencePaths.resolve(skills + "/chat-room-member/SKILL.md"))
+        XCTAssertNotEqual(w.sandboxed(MacFenceProfile.render(f), ["/bin/cat", file]).code, 0, "without the rule it does not read")
+        f.chatSkillFiles = [file]
+        let p = MacFenceProfile.render(f)
+        XCTAssertTrue(p.contains("(allow file-read* (literal \"\(file)\"))"), p)
+        XCTAssertEqual(w.sandboxed(p, ["/bin/cat", file]).code, 0, "the skill reads")
+        XCTAssertNotEqual(w.sandboxed(p, ["/bin/cat", skills + "/other.txt"]).code, 0, "a file beside it stays closed")
+        XCTAssertNotEqual(w.sandboxed(p, ["/bin/sh", "-c", "echo x > '\(file)'"]).code, 0, "the session cannot rewrite it")
+    }
+
     func testDozchatIsLocatedBesideDozOnly() throws {
         let lib = w.root + "/keg/libexec"
         try FileManager.default.createDirectory(atPath: lib, withIntermediateDirectories: true)

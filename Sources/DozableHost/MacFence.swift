@@ -351,6 +351,9 @@ public struct MacFence: Sendable, Equatable {
     /// dozchat for this Mac (`MacDozchat`): readable as this ONE file, run through the `etc/bin/dozchat` shim (nil: this build
     /// carries none — no shim, no rule).
     public var dozchatExecutable: String? = nil
+    /// The chat skills' files doz carries (`AgentSkillFiles.forFence`): readable as these files alone, so START can name
+    /// them by path (never copied into the session or any agent config).
+    public var chatSkillFiles: [String] = []
     /// 683 M4: the folder is a git worktree — its repository's common git folder (resolved), writable but its hooks.
     public var gitCommon: [String] = []
 

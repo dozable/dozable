@@ -395,15 +395,26 @@ running, or its start is under way (`startingWorkspaces`, marked under the gate,
 
 **The start's order** (`workspaceStart`): the check and the mark under `workspaces`; then, under `workspace:W`: (1) the bot
 invited to the main room as you (`ChatOwnerRooms.invite`, `/invite @BOT`, nothing when a member; `bot-invited`); (2) the
-kick-off, only while `flags.startedAt == nil`: `ManagerKickoff.briefPost` (the brief, then its references) posted as you
-(`ChatOwnerRooms.post`), then `startedAt` and `kicked-off` — a post that fails starts nothing and leaves `startedAt` nil;
-(3) the token; (4) the session or sandbox (`ManagerLauncher.launch`); (5) the entry's place, `stoppedAt` cleared,
-`manager-started`. A launch failure after the kick-off leaves it started with the manager down and says "doz workspace
-start W again (the brief is not posted twice)". No manager: the start ends after the kick-off (you drive).
+first run opened, only while `flags.startedAt == nil` (`run-opened`); (3) the token; (4) the session or sandbox
+(`ManagerLauncher.launch`); (5) the entry's place, `stoppedAt` cleared, `manager-started`; (6) the kick-off, only while
+`flags.startedAt == nil`: the opening message (the brief, then its references) posted as you (`ChatOwnerRooms.post`), then
+`startedAt` and `kicked-off`. The brief goes AFTER the manager's session is started, for every manager: a manager reached by
+inbox has a session to be handed it (an unfenced inbox manager's start waits, at most 20 s, for its Claude Code to record
+itself — `ClaudeSessionRecords`), where before it was marked failed; a polling manager collects it with its first receive
+either way (its "is up" may come before the brief in the room). A launch failure posts nothing ("nothing was posted; doz
+workspace start W again"); a post that fails after the launch leaves the manager running and `startedAt` nil, and the next
+start (finding it running) posts the brief — never twice. No manager: the kick-off right after the run opens (you drive).
 
 **Each isolation.** The first prompt is `Read START and do what it says.` (START's path in it); START
 (`ManagerKickoff.startText`) says who it is and its room, how to use `dozchat` with `CHAT_TOKEN_FILE`, the
-`chat-room-member` skill and the bot's skills by name, its instructions, what it can do, to say it is up, and the brief.
+`chat-room-member` skill's FILE to read and the bot's skills by name, its instructions, what it can do, to say it is up,
+and the brief. **The chat skills are read by path, never installed** (`AgentSkillFiles`): doz carries
+`chat-room-member` and `chat-worker` in its resource bundle (`Sources/DozableKit/Resources/skills/`, byte-for-byte
+`docs/chat/skills/` — `AgentSkillFilesTests`; a release's tarball checks them, `Scripts/release.sh`), and START names the
+resolved absolute path beside the running doz — unfenced as it is; fenced too, its profile reading exactly those files
+(`MacFence.chatSkillFiles`); in a VM the files are copied by the exec that puts START there, to
+`~/.doz-workspace/skills/NAME/SKILL.md`, and START names that path. A skill this install does not carry is said plainly,
+the dozchat commands kept. Nothing is written into `~/.claude` or any agent's config.
 
 - **Fenced** (`macOpen` with `botSecrets:` and `managerStart:` → `macOpenFenced`): permissions the workspace's network
   default else `locked`; the chat page port as a host port; `CHAT_URL=http://host.dozable.internal:PORT`; the account the
@@ -486,8 +497,8 @@ host port. Agent: `claude-code` by default; only Claude Code and Codex (`Manager
 **Its launch** (`WorkerLaunch.plan` on `AgentLaunch.plan`, the manager's builders): the first prompt `Read START and do
 what it says.`; START (`WorkerKickoff.startText`) begins `You are NAME, a worker in the workspace W. Your task: <its first
 line>` / `Your room in chat: ROOM` (the manager's shape, which the tests' FAKE claude reads), then who directs it (the
-manager while one runs, else the person), `dozchat` with `CHAT_TOKEN_FILE`, the skills `chat-worker`,
-`chat-room-member` and a bot's own, a bot's instructions, what it can do where it runs, to say it is up with its task in
+manager while one runs, else the person), `dozchat` with `CHAT_TOKEN_FILE`, the skills `chat-worker` and
+`chat-room-member` by their files' paths (as a manager's, above) and a bot's own, a bot's instructions, what it can do where it runs, to say it is up with its task in
 a few words, and the task in full. Fenced: START at `etc/worker/start.md`; argv `claude "<prompt>" --permission-mode
 dontAsk --allowedTools "Bash(dozchat:*)" [--allow-tool …]` — `WorkerLaunch.defaultAllowedTools` is the ONE constant of
 the default list (the allow-list last). Unfenced: no dontAsk. VM: START at `~/.doz-workspace/NAME/start.md`, approvals
