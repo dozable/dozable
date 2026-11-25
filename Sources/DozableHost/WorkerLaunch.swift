@@ -10,9 +10,9 @@ public enum WorkerIsolation {
     /// bot) the bot's default is vm; else fenced. Never unfenced unless named (`--isolation unfenced`), whatever a default
     /// says.
     public static func resolve(asked: String?, workspaceDefault: String?, botDefault: String?) throws -> ManagerIsolation {
-        if let a = asked {
+        if let a = IsolationWord.stored(asked) {
             guard let i = ManagerIsolation(rawValue: a) else {
-                throw HostError(.invalid, "--isolation is fenced, vm or unfenced, not \(a.prefix(40))")
+                throw HostError(.invalid, "--isolation is fenced, sandbox or unfenced, not \(a.prefix(40))")
             }
             return i
         }
@@ -91,9 +91,9 @@ public enum WorkerLaunch {
             if f.session != nil { return ("session", "--session names a session on this Mac; in --sandbox X the worker's session is its name") }
         }
         else if isolation != .vm, f.cpus != nil || f.memory != nil {
-            return (sizeField, "--cpus and --memory go with --isolation vm (a sandbox of its own)")
+            return (sizeField, "--cpus and --memory go with --isolation sandbox (a Sandbox of its own)")
         } else if isolation == .vm, f.session != nil {
-            return ("session", "--session names a session on this Mac; a VM worker's sandbox is named for it")
+            return ("session", "--session names a session on this Mac; a worker in a Sandbox of its own has it named for it")
         }
         if let b = f.fromBot {
             if f.agent != nil { return ("agent", "--agent goes with an anonymous worker; \(b) runs its own agent") }
@@ -128,7 +128,7 @@ public enum WorkerLaunch {
     public static func control(isolation: String?, shares: String? = nil) -> String {
         let base: String
         switch isolation {
-        case "vm": base = "micro VM · proxy · placeholders"
+        case "vm": base = "Sandbox · proxy · placeholders"
         case "unfenced": base = "no proxy · no placeholders · no guard · acts as you"
         case "fenced": base = "proxy · placeholders · guard"
         default: base = "—"

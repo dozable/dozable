@@ -31,21 +31,20 @@ final class WorkspaceSetupCheckTests: XCTestCase {
 
     func testOneRowPerGap() {
         let rows: [((inout C.Input) -> Void, String)] = [
-            ({ $0.briefBytes = 0 }, "the brief is empty — doz workspace edit demo --prompt-file F"),
             ({ $0.chat = .off }, "a manager needs chat — doz chat on"),
             ({ $0.chat = .notReady("starting") }, "chat is on but its server is not ready (starting) — doz chat status"),
             ({ $0.mainRoom = nil }, "no main room — doz workspace edit demo --make-room"),
             ({ $0.mainRoomExists = false }, "the room demo is gone from the chat server — doz chat room demo, then start again"),
             ({ $0.folders = [C.Folder(path: "/tmp/x", exists: false)] }, "folder /tmp/x is gone — doz workspace edit demo --remove-folder /tmp/x"),
             ({ $0.agents = [C.Agent(name: "wsa", place: "wsa", kind: "sandbox", exists: false)] }, "agent wsa: sandbox wsa is gone — doz workspace release demo wsa"),
-            ({ $0.manager?.deliver = "inbox" }, "mira is reached by inbox, which only an unfenced session gets; a fenced or VM manager polls — doz bot set mira --deliver poll"),
+            ({ $0.manager?.deliver = "inbox" }, "mira is reached by inbox, which only an unfenced session gets; a fenced or sandboxed manager polls — doz bot set mira --deliver poll"),
             ({ $0.manager?.deliver = "inbox"; $0.manager?.isolation = "vm"; $0.manager?.programOnPath = nil },
-             "mira is reached by inbox, which only an unfenced session gets; a fenced or VM manager polls — doz bot set mira --deliver poll"),
+             "mira is reached by inbox, which only an unfenced session gets; a fenced or sandboxed manager polls — doz bot set mira --deliver poll"),
             ({ $0.manager?.deliver = "webhook" }, "mira is reached by webhook; a manager Dozable starts collects its own messages — doz bot set mira --deliver poll"),
             ({ $0.manager?.keeper = "elsewhere" }, "mira's token is not held by Dozable — doz bot token mira --new"),
             ({ $0.manager?.keychainReadable = false }, "mira's token cannot be read from the login keychain (locked, or changed underneath) — unlock it, or doz bot token mira --new"),
             ({ $0.manager?.agent = "pi" }, "Dozable does not start a manager running pi yet — make a Claude Code or Codex bot its manager: doz workspace edit demo --manager BOT"),
-            ({ $0.manager?.programOnPath = false }, "claude is not on this Mac's PATH — install it, or doz workspace edit demo --manager mira --manager-isolation vm"),
+            ({ $0.manager?.programOnPath = false }, "claude is not on this Mac's PATH — install it, or doz workspace edit demo --manager mira --manager-isolation sandbox"),
             ({ $0.manager?.placeTaken = true }, "a session called demo already exists on this Mac — doz sessions end @mac demo, or rename the workspace"),
             ({ $0.manager?.placeTaken = true; $0.manager?.isolation = "vm" }, "a sandbox called demo already exists — doz rm demo, or rename the workspace"),
             ({ $0.manager?.known = false }, "mira is not a bot — doz workspace edit demo --manager BOT (doz bot ls)"),
@@ -53,6 +52,11 @@ final class WorkspaceSetupCheckTests: XCTestCase {
             ({ $0.manager?.botIsolation = "elsewhere" }, "a bot elsewhere runs on its own machine; Dozable never starts it — doz workspace edit demo --no-manager"),
         ]
         for (edit, want) in rows { XCTAssertEqual(lines(ready(edit)), [want]) }
+    }
+
+    /// 782: an empty description is no gap.
+    func testAnEmptyDescriptionIsNoGap() {
+        XCTAssertEqual(C.gaps(ready { $0.briefBytes = 0 }), [])
     }
 
     func testAnUnfencedInboxManagerIsFine() {
@@ -66,7 +70,7 @@ final class WorkspaceSetupCheckTests: XCTestCase {
             $0.folders = [C.Folder(path: "/tmp/x", exists: false), C.Folder(path: "/tmp/y", exists: false)]
             $0.manager?.deliver = "inbox"
         })
-        XCTAssertEqual(g.map(\.item), ["brief", "chat", "folder", "folder", "manager"])
+        XCTAssertEqual(g.map(\.item), ["chat", "folder", "folder", "manager"], "782: an empty description is no gap")
         XCTAssertTrue(g.allSatisfy { !$0.fix.isEmpty })
     }
 

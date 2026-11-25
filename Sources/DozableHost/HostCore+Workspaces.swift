@@ -411,9 +411,10 @@ extension HostCore {
         }
     }
 
-    func workspaceCheckBrief(_ text: String) throws -> Data {
+    /// `allowEmpty` (782: a new workspace's description is optional — `new`, a space's): an empty one is no refusal.
+    func workspaceCheckBrief(_ text: String, allowEmpty: Bool = false) throws -> Data {
         let d = Data(text.utf8)
-        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw HostError(.invalid, "the brief is empty") }
+        guard allowEmpty || !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw HostError(.invalid, "the brief is empty") }
         guard d.count <= WorkspaceStore.maximumBriefBytes else {
             throw HostError(.invalid, "the brief is \(d.count) bytes — at most \(WorkspaceStore.maximumBriefBytes >> 10) KiB")
         }
@@ -466,20 +467,25 @@ extension HostCore {
     /// `space`: made by `up` from a space file — its brief is the file's (read under `SpaceBriefFile`'s rules; the store's
     /// `brief.md` stays empty, never a copy) and the record carries the space's reference from its first write.
     func workspaceNewDraft(_ w: WorkspaceRequest, look: Bool, space: (ref: SpaceRecordRef, brief: SpaceBriefFile.Read)? = nil) async -> WorkspaceNewDraft {
+        var w = w
+        w.workerIsolation = IsolationWord.stored(w.workerIsolation)
+        w.managerIsolation = IsolationWord.stored(w.managerIsolation)
         var refusals: [HostError] = []
         func refuse(_ e: HostError) { refusals.append(e) }
         func attempt(_ f: () throws -> Void) { do { try f() } catch { refuse(HostError.from(error)) } }
+        // 782: no name given — the next free workspaceN (`workspaceSuggestion`).
+        if (w.name ?? "").isEmpty, space == nil { w.name = await workspaceSuggestion().name }
         var name = w.name ?? ""
         do { name = try workspaceName(w) } catch { refuse(HostError.from(error)) }
         let named = WorkspaceName.isValid(name)
         if named, workspaces.exists(name) { refuse(HostError(.exists, "there is already a workspace \(name)")) }
         var brief = Data((w.brief ?? "").utf8)
         if let space {
-            attempt { _ = try workspaceCheckBrief(space.brief.text) }
+            attempt { _ = try workspaceCheckBrief(space.brief.text, allowEmpty: true) }
             // A brief held in the space file itself (755: no path) is kept in brief.md; a brief FILE is never copied.
             brief = (space.ref.brief?.path ?? "").isEmpty ? Data(space.brief.text.utf8) : Data()
         }
-        else { attempt { brief = try workspaceCheckBrief(w.brief ?? "") } }
+        else { attempt { brief = try workspaceCheckBrief(w.brief ?? "", allowEmpty: true) } }
         // The folders: `<projects_dir>/NAME` first when it is made now, then each given one.
         var folders: [WorkspaceFolder] = []
         var makeFolder: String?
@@ -534,11 +540,11 @@ extension HostCore {
             } catch { refuse(HostError.from(error)) }
         }
         // New workers' default and the network preset.
-        if let i = w.workerIsolation {
+        if let i = IsolationWord.stored(w.workerIsolation) {
             if i == "unfenced" {
                 refuse(HostError(.invalid, "new workers are never unfenced by default — name one: doz worker add W --isolation unfenced"))
             } else if !WorkspaceNetworks.workerIsolations.contains(i) {
-                refuse(HostError(.invalid, "--worker-isolation is vm or fenced, not \(i)"))
+                refuse(HostError(.invalid, "--worker-isolation is sandbox or fenced, not \(i)"))
             }
         }
         if let n = w.network, !(WorkspaceNetworks.presets + WorkspaceNetworks.projectWords).contains(n) {
@@ -548,6 +554,16 @@ extension HostCore {
         do { _ = try WorkspaceNetworks.checkedSites(w.sites) } catch { refuse(HostError.from(error)) }
         // The room: made, linked, or none — checked before anything is written.
         if w.noRoom == true, w.room != nil { refuse(HostError(.invalid, "--room or --no-room, not both")) }
+        // 782: the new room under another name, and who is invited to it.
+        if let r = w.roomName {
+            if w.room != nil || w.noRoom == true { refuse(HostError(.invalid, "--room-name names a room made now: not with --room or --no-room")) }
+            else if !WorkspaceName.isValid(r) { refuse(HostError(.invalid, "--room-name \(r.prefix(64)): 1–40 characters of a-z, 0-9 and -")) }
+        }
+        for i in w.invite ?? [] {
+            if let why = ChatNames.refusal(i) { refuse(HostError(.invalid, "--invite: " + why)) }
+        }
+        if (w.invite ?? []).count > 16 { refuse(HostError(.invalid, "--invite: at most 16")) }
+        let roomFor = w.roomName.flatMap { WorkspaceName.isValid($0) ? $0 : nil } ?? name
         var rooms: [WorkspaceRoom] = []
         var log = [WorkspaceLogEntry(at: now, action: "created")]
         var notes: [String] = []
@@ -586,14 +602,17 @@ extension HostCore {
                 refuse(HostError(.unavailable, "chat is on but its server is not ready (\(why)) — doz chat status, or pass --no-room"))
             case .ready:
                 if assumed {
-                    notes.append("whether a room \(name) exists already is checked when it is made")
-                } else if (try? workspaceChat?.rooms().contains(name)) == true {
-                    refuse(HostError(.exists, "there is already a room \(name) — pass --room \(name) to make it this workspace's room, or choose another name"))
+                    notes.append("whether a room \(roomFor) exists already is checked when it is made")
+                } else if (try? workspaceChat?.rooms().contains(roomFor)) == true {
+                    refuse(HostError(.exists, "there is already a room \(roomFor) — pass --room \(roomFor) to make it this workspace's room, or choose another name"))
                 }
-                if named, let owner = workspaceRoomOwner(name) { refuse(HostError(.exists, "the room \(name) is already the room of \(owner)")) }
-                rooms.append(WorkspaceRoom(label: "main", chatRoom: name, main: true, owned: true))
-                log.append(WorkspaceLogEntry(at: now, action: "room-made", room: name))
-                makeRoom = name
+                if named, let owner = workspaceRoomOwner(roomFor) { refuse(HostError(.exists, "the room \(roomFor) is already the room of \(owner)")) }
+                rooms.append(WorkspaceRoom(label: "main", chatRoom: roomFor, main: true, owned: true))
+                log.append(WorkspaceLogEntry(at: now, action: "room-made", room: roomFor))
+                makeRoom = roomFor
+                for i in w.invite ?? [] where ChatNames.refusal(i) == nil {
+                    log.append(WorkspaceLogEntry(at: now, action: "bot-invited", agent: i, room: roomFor))
+                }
             }
         }
         // The workers declared now: recorded, started by the start (a worker talks in the room — none, none declared).
@@ -657,26 +676,41 @@ extension HostCore {
             if let p = d.makeFolder { try? FileManager.default.removeItem(atPath: p) }
             throw error
         }
+        // 782: who was asked for, invited as you into the room made now (as `doz chat room R --invite`); one that cannot be
+        // invited is a note, never a failure — the workspace is made.
+        var notes = d.notes
+        if let room = d.makeRoom, let chat = workspaceChat {
+            for i in w.invite ?? [] where ChatNames.refusal(i) == nil {
+                do { try chat.invite(room: room, name: i) } catch { notes.append("\(i) was not invited to #\(room): \(HostError.from(error).message)") }
+            }
+        }
         // Its room's id in the room index (its owner when the workspace made it) — the index's own gate; the record takes the
         // id when its first run opens.
         for r in d.record.rooms { _ = try? await roomIndexUpdate { $0.ensure(r.chatRoom, owner: r.owned == true ? name : nil) } }
         let rec = d.record
         note(nil, "workspace \(name) made (\(rec.agents.count) agent\(rec.agents.count == 1 ? "" : "s"), \(rec.rooms.isEmpty ? "no room" : "room \(rec.rooms[0].chatRoom)"))")
-        return await workspaceDetail(rec, withBrief: false, notes: d.notes)
+        return await workspaceDetail(rec, withBrief: false, notes: notes)
     }
 
     /// `workspace-plan`: the draft, its gaps and its commands — nothing written.
     func workspacePlan(_ w: WorkspaceRequest) async -> WorkspacePlan {
         let d = await workspaceNewDraft(w, look: true)
-        let gaps = WorkspaceSetupCheck.gaps(await workspaceSetupInput(d.record, look: true, brief: d.brief.count,
-                                                                      roomWillBeMade: d.makeRoom != nil || d.roomLinked,
-                                                                      foldersMadeNow: d.makeFolder.map { [$0] } ?? []))
-        let name = w.name ?? ""
-        return WorkspacePlan(name: name, refusals: d.refusals.map(\.message), refusalCode: d.refusals.first?.code.rawValue, gaps: gaps,
-                             notes: d.notes,
-                             lines: WorkspacePlanLines.lines(d.record, roomMade: d.makeRoom != nil, roomLinked: d.roomLinked,
-                                                             newFolder: d.makeFolder, workerIsolation: w.workerIsolation),
-                             commands: WorkspaceNewCommand.text(w), startCommand: WorkspaceNewCommand.startText(name.isEmpty ? "NAME" : name))
+        let input = await workspaceSetupInput(d.record, look: true, brief: d.brief.count, roomWillBeMade: d.makeRoom != nil || d.roomLinked,
+                                              foldersMadeNow: d.makeFolder.map { [$0] } ?? [])
+        let gaps = WorkspaceSetupCheck.gaps(input)
+        // No name given: the draft took the next free one (782), and the plan names it.
+        let name = d.record.name
+        var named = w
+        if (named.name ?? "").isEmpty, !name.isEmpty { named.name = name }
+        var p = WorkspacePlan(name: name, refusals: d.refusals.map(\.message), refusalCode: d.refusals.first?.code.rawValue, gaps: gaps,
+                              notes: d.notes,
+                              lines: WorkspacePlanLines.lines(d.record, roomMade: d.makeRoom != nil, roomLinked: d.roomLinked,
+                                                              newFolder: d.makeFolder, workerIsolation: named.workerIsolation),
+                              commands: WorkspaceNewCommand.text(named), startCommand: WorkspaceNewCommand.startText(name.isEmpty ? "NAME" : name))
+        p.suggested = await workspaceSuggestion()
+        p.managers = await workspaceManagerFits(name: name)
+        p.findings = await workspaceFindings(d, gaps: gaps, input: input)
+        return p
     }
 
     func workspaceAdopt(_ w: WorkspaceRequest) async throws -> WorkspaceDetail {

@@ -36,7 +36,7 @@ final class StubAgentTests: XCTestCase {
     func testAVMAgentIsRefusedUnderTheStub() {
         let e = StubAgent.vmRefusal("vic")
         XCTAssertEqual(e.code, .invalid)
-        XCTAssertTrue(e.message.contains("vic") && e.message.contains("no VM is started"))
+        XCTAssertTrue(e.message.contains("vic") && e.message.contains("no Sandbox is started"))
     }
 
     // MARK: its argv and environment

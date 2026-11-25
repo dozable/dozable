@@ -133,7 +133,7 @@ enum WorkerPlanLines {
         var out: [String] = []
         out.append("worker \(name) in \(p.workspace)" + (p.director.map { " — directed by \($0)" } ?? ""))
         out.append("agent: \(p.agent ?? "claude-code") · account: \(p.account ?? "yours (it acts as you)")")
-        let iso = p.isolation == "vm" ? "micro VM" : p.isolation == "unfenced" ? "unfenced · acts as you" : p.isolation ?? "fenced"
+        let iso = p.isolation == "vm" ? "Sandbox" : p.isolation == "unfenced" ? "unfenced · acts as you" : p.isolation ?? "fenced"
         out.append("runs: \(iso) — \(p.place ?? "?")" + (p.shares != nil ? " (shared)" : ""))
         out.append("control: \(p.control ?? "—")")
         out.append("folder: \(DisplayPath.tilde(p.folder ?? "—"))")

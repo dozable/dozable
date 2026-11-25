@@ -1,0 +1,29 @@
+# One agent: one Claude Code agent, fenced on this Mac, works in the folder; you talk to it in the room.
+doz: space/3.1
+space: {{space}}
+owner: {{owner}}
+about:
+  title: One agent
+  summary: One Claude Code agent works in the folder. You talk to it in the room.
+brief: { file: DESCRIPTION.md }
+network: { preset: standard }
+
+folders:
+  work: { external: {{folder}}, main: true }
+
+agents:
+  agent:
+    kind: claude-code
+    role: worker
+    where: desk
+    prompt: Say hello in the room, then wait for the first task.
+
+chat:
+  rooms:
+    {{space}}: { main: true, members: [owner, agent] }
+
+x-dozable:
+  lifetime: standing
+  places:
+    desk:
+      isolation: fenced

@@ -1,0 +1,45 @@
+# Build & review: your bot manages; a builder works in a Sandbox; a reviewer, fenced on this Mac, only reads.
+doz: space/3.1
+space: {{space}}
+owner: {{owner}}
+about:
+  title: Build & review
+  summary: A manager, a builder in a Sandbox and a reviewer that only reads.
+brief: { file: DESCRIPTION.md }
+network: { preset: standard }
+
+folders:
+  work: { external: {{folder}}, main: true }
+
+agents:
+  manager:
+    external: { bot: {{manager}} }
+    role: manager
+  builder:
+    kind: claude-code
+    role: worker
+    where: box
+    prompt: Build what is asked in the room, in /workspace, and say what changed after each change.
+  reviewer:
+    kind: claude-code
+    role: reviewer
+    where: desk
+    access: ro
+    network: { preset: locked, allow: [github.com] }
+    prompt: Review each change the builder reports, read-only, and post your findings in the room.
+
+chat:
+  rooms:
+    {{space}}: { main: true, members: [owner, manager, builder, reviewer] }
+
+x-dozable:
+  lifetime: standing
+  places:
+    box:
+      isolation: vm
+      image: claude-code
+    desk:
+      isolation: fenced
+      network: { preset: standard, allow: [github.com] }
+  permissions:
+    reviewer: [reviewer]

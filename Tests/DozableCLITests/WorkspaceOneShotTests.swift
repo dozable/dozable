@@ -31,12 +31,10 @@ extension WorkspacePlanTests {
     }
 
     func testAPresetFillsOnlyWhatTheFlagsLeaveUnset() throws {
-        var cmd = try WorkspaceNew.parse(["app", "--preset", "research", "--brief", "x", "--folder", work.path, "--folder", work.path + "/b:rw"])
-        var w = try cmd.request(brief: "x")
-        XCTAssertEqual(w.folders?.map(\.mode), ["ro", "rw"], "read-only unless the mode is given")
-        XCTAssertEqual(w.network, "locked")
-        XCTAssertEqual(w.workerIsolation, "fenced")
-        XCTAssertNil(w.managerIsolation, "no manager: its isolation is left out")
+        // 782 (D7): a retired preset is refused before anything is sent.
+        var cmd = try WorkspaceNew.parse(["app", "--preset", "research", "--brief", "x", "--folder", work.path])
+        XCTAssertEqual(exitCode { _ = try cmd.request(brief: "x") }, 65)
+        var w: WorkspaceRequest
         cmd = try WorkspaceNew.parse(["app", "--preset", "remotion-video", "--brief", "x", "--network", "open", "--manager", "mira"])
         w = try cmd.request(brief: "x")
         XCTAssertEqual(w.network, "open", "the flag wins")
@@ -61,7 +59,9 @@ extension WorkspacePlanTests {
         let file = root.appendingPathComponent("brief.md").path
         try "From a file.\n".write(toFile: file, atomically: true, encoding: .utf8)
         XCTAssertEqual(exitCode { _ = try WorkspaceNew.parse(["app", "--brief", "x", "--prompt-file", file]).briefText() }, 65)
-        XCTAssertEqual(exitCode { _ = try WorkspaceNew.parse(["app"]).briefText() }, 64, "no brief at all: usage")
+        XCTAssertEqual(try WorkspaceNew.parse(["app"]).briefText(), "", "782: no description at all is the empty one")
+        XCTAssertNil(try WorkspaceNew.parse([]).name, "782: no name — the daemon takes the next free workspaceN")
+        XCTAssertEqual(try WorkspaceNew.parse(["--worker-isolation", "sandbox"]).request(brief: "").workerIsolation, "vm", "sandbox, stored as vm")
         XCTAssertEqual(try WorkspaceNew.parse(["app", "--prompt-file", file]).briefText(), "From a file.\n", "a file as it is")
     }
 

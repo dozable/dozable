@@ -112,7 +112,8 @@ func cliWorkspacePlanRows(_ h: CLIHarness, root: URL, store: DozableStore, start
 
     // 44. the plan as JSON
     let p44 = h.json(["workspace", "new", "dry2", "--prompt-file", brief, "--manager", "mira", "--no-room", "--dry-run"], WorkspacePlan.self)
-    check(p44?.gaps.contains { $0.item == "room" } == true && p44?.presets.map(\.id).contains("blank") == true && p44?.startCommand == "doz workspace start dry2",
-          "44 --dry-run --json: the plan with its gaps, presets and commands")
+    check(p44?.gaps.contains { $0.item == "room" } == true && p44?.managers?.contains { $0.bot == "mira" } == true
+          && p44?.suggested?.name.hasPrefix("workspace") == true && p44?.startCommand == "doz workspace start dry2",
+          "44 --dry-run --json: the plan with its gaps, the managers' fitness, the next free name and its commands")
     check(!ws.exists("dry2"), "44 …nothing written")
 }

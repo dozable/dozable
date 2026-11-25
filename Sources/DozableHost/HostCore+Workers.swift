@@ -99,7 +99,8 @@ extension HostCore {
     var workerLauncher: any WorkerLauncher { workerLauncherOverride ?? DaemonWorkerLauncher(core: self) }
 
     func performWorker(_ r: HostRequest) async throws -> JSONValue {
-        let q = r.workerRequest ?? WorkerRequest()
+        var q = r.workerRequest ?? WorkerRequest()
+        q.isolation = IsolationWord.stored(q.isolation)              // 782: `sandbox`, stored as vm
         if r.op == .workerList { return try JSONValue(encoding: await workerListing(q)) }
         if r.op == .workerPlan { return try JSONValue(encoding: await workerPlan(q)) }
         guard !readOnly else { throw HostError(.unavailable, "\(r.op.rawValue) needs the daemon") }
@@ -356,7 +357,7 @@ extension HostCore {
             throw no("permissionMode", HostError(.invalid, "--permissions is standard or bypass, not \(pm.prefix(40)) — not a preset Dozable holds yet"))
         }
         if let ns = q.newSandbox {
-            guard iso == .vm, q.sandbox == nil else { throw no("newSandbox", HostError(.invalid, "a new sandbox's name goes with --isolation vm")) }
+            guard iso == .vm, q.sandbox == nil else { throw no("newSandbox", HostError(.invalid, "a new sandbox's name goes with --isolation sandbox")) }
             if let why = Self.sandboxNameRefusal(ns) { throw no("newSandbox", HostError(.invalid, why)) }
         }
         if iso != .vm, buildFlavor.isHelper { throw no("isolation", HostError(.notImplemented, BuildFlavor.helperLeavesOut("sessions on this Mac"))) }
@@ -369,7 +370,7 @@ extension HostCore {
             }
             guard b.holdsToken else { throw no("fromBot", HostError(.invalid, "\(b.name)'s token is not held by Dozable — doz bot token \(b.name) --new")) }
             if b.deliver == "inbox", iso != .unfenced {
-                throw no("fromBot", HostError(.invalid, "\(b.name) is reached by inbox, which only an unfenced session gets; a fenced or VM worker polls — doz bot set \(b.name) --deliver poll"))
+                throw no("fromBot", HostError(.invalid, "\(b.name) is reached by inbox, which only an unfenced session gets; a fenced or sandboxed worker polls — doz bot set \(b.name) --deliver poll"))
             }
             if b.deliver == "webhook" {
                 throw no("fromBot", HostError(.invalid, "\(b.name) is reached by webhook; a worker Dozable starts collects its own messages — doz bot set \(b.name) --deliver poll"))
@@ -883,7 +884,7 @@ extension HostCore {
             return try await launchAgentOnMac(launch)
         case .vm:
             if let no = stubVMRefusal(o.name, isolation: .vm) { throw no }
-            guard let secret = o.plan.secret else { throw HostError(.invalid, "a VM worker needs its token's launch secret") }
+            guard let secret = o.plan.secret else { throw HostError(.invalid, "a worker in a Sandbox needs its token's launch secret") }
             // The guarded seams: the lab image and a FAKE worker program (its first prompt appended, so it finds START).
             let seams = TestSafety.workerSeams()
             let session = o.session ?? o.name

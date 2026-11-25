@@ -1977,6 +1977,10 @@ public struct WorkspaceRequest: Codable, Equatable, Sendable {
     public var journal: WorkspaceJournalRequest?
     /// FEEDS: the routes, a dry run, or the test door's notice (`workspace-feeds`, `-feeds-emit`). Additive.
     public var feeds: FeedsRequest?
+    /// 782, new: the room made under another name (nil: the workspace's), and the bots or people invited to it as you when it
+    /// is made (`doz workspace new --room-name R --invite NAME`). Additive: an older daemon ignores them.
+    public var roomName: String?
+    public var invite: [String]?
 
     public init(name: String? = nil) { self.name = name }
 }

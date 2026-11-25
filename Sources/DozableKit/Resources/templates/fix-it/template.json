@@ -1,0 +1,16 @@
+{
+  "id": "fix-it",
+  "version": 1,
+  "title": "Fix-it team",
+  "summary": "A builder and a tester share a Sandbox; a reviewer reads; a helper keeps notes.",
+  "needs": { "manager": true },
+  "agents": [
+    { "name": "manager", "role": "manager", "where": "manager" },
+    { "name": "builder", "role": "builder", "where": "sandbox" },
+    { "name": "tester", "role": "tester", "where": "sandbox" },
+    { "name": "reviewer", "role": "reviewer", "where": "fenced", "readOnly": true },
+    { "name": "helper", "role": "helper", "where": "fenced" }
+  ],
+  "room": "you and all 5 agents · its history kept between runs",
+  "network": "Standard + npm"
+}

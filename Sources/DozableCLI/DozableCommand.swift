@@ -38,7 +38,7 @@ public struct DozableCommand: AsyncParsableCommand {
           doz workspace new NAME --brief "…" --folder PATH [--worker "TASK"]
           doz workspace state NAME                 see it: each agent's condition
           doz worker add NAME --task "TASK"        add a helper to a started workspace
-        One sandbox on its own (a single Linux VM): doz create NAME, or doz new.
+        One sandbox on its own (a small Linux machine): doz create NAME, or doz new.
 
         A coding agent running doz for someone: doz skill show doz (the skill to load), and this version's manual, \
         carried inside doz — doz docs (offline; doz docs letting-another-agent-drive: --json, exit codes, --yes, and what \

@@ -1,0 +1,14 @@
+{
+  "id": "video",
+  "version": 1,
+  "title": "Remotion video",
+  "summary": "A manager and two workers make a video with Remotion in a Sandbox.",
+  "needs": { "manager": true },
+  "agents": [
+    { "name": "manager", "role": "manager", "where": "manager" },
+    { "name": "editor", "role": "editor", "where": "sandbox" },
+    { "name": "renderer", "role": "renderer", "where": "sandbox" }
+  ],
+  "room": "you and all 3 agents",
+  "network": "Standard + remotion.media"
+}

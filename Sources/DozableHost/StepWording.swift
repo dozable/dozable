@@ -50,7 +50,7 @@ public enum StepWording {
         }
         if m(#"base disk ready \(cached, [0-9a-f]+\)"#) != nil { return w("Finding the unpacked base image", "The base image was already unpacked") }
         if head == "cloned the base disk (APFS clone)" { return w("Copying the base image", "Copied the base image (an instant copy)") }
-        if head == "booted the bake VM" { return w("Starting a VM to prepare the image", "Started a VM to prepare the image") }
+        if head == "booted the bake VM" { return w("Starting a machine to prepare the image", "Started a machine to prepare the image") }
         if head.hasPrefix("bake network: ") { return w("Connecting it through this Mac's network rules", "Connected it through this Mac's network rules") }
         if let g = m(#"step: (.+)"#) {
             let name = g[0]
@@ -68,7 +68,7 @@ public enum StepWording {
             return w("Checking the image (\(what))", "Checked the image (\(what))" + (result.map { ": \($0)" } ?? ""))
         }
         if head == "trimmed the disk (fstrim /)" { return w("Giving unused disk space back to the Mac", "Gave unused disk space back to the Mac") }
-        if head == "stopped the bake VM cleanly" { return w("Stopping the preparation VM", "Stopped the preparation VM") }
+        if head == "stopped the bake VM cleanly" { return w("Stopping the preparation machine", "Stopped the preparation machine") }
         if let g = m(#"flattened (.+) to one ext4 disk \((.+)\)"#) {
             return w("Unpacking the \(baseTitle(g[0])) image — first time only; later sandboxes reuse it", "Unpacked the \(baseTitle(g[0])) image (\(g[1]))", true)
         }
@@ -76,7 +76,7 @@ public enum StepWording {
         if let g = m(#"downloaded (.+) \((.+)\)"#) { return w("Downloading \(g[0])", "Downloaded \(g[0]) (\(g[1]))", true) }
         if let g = m(#"verified and extracted (.+)"#) { return w("Checking and unpacking \(g[0])", "Checked and unpacked \(g[0])") }
         if head.hasPrefix("kernel ") && head.contains(" ready") { return w("Getting the Linux kernel ready", "Linux kernel ready") }
-        if head.hasPrefix("guest init image ready") { return w("Getting the VM's start-up image ready", "VM start-up image ready") }
+        if head.hasPrefix("guest init image ready") { return w("Getting the start-up image ready", "Start-up image ready") }
         // Starting, waking, stopping.
         if head == "VM created and booted (VZ start + Linux kernel + vminitd)" { return w("Starting the virtual machine", "Started the virtual machine", true) }
         if head == "container process started" { return w("Starting its first process", "Started its first process") }

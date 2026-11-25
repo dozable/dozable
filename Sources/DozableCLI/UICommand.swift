@@ -659,6 +659,11 @@ struct UIRunner {
         // The workspace drawn: a space file in the renderer's words (Dozable's places and feeds translated), read here.
         WebSpace.installPictureReader { text in SpaceDashboardPlan.picture(text) }
         data.spacePlanner = { store, workspace, text, send in try await SpaceDashboardPlan.plan(store: store, workspace: workspace, text: text, send: send) }
+        // 782: a workspace from a template — its files written and planned here (the CLI's resolver), then up.
+        WebTemplates.installMaker { q, send in
+            try JSONValue(encoding: try await WorkspaceTemplateMaker.make(id: q.template, name: q.workspace, manager: q.manager, folder: q.folder,
+                                                                          confirmed: q.actsAsYou, store: store, send: send))
+        }
         return data
     }
 

@@ -23,7 +23,7 @@ final class WorkerKickoffTests: XCTestCase {
         let t = WorkerKickoff.startText(name: "otto", workspace: "wk", room: "wk", task: "review the PR", director: "mira", place: .vm,
                                         skills: ["review"], instructions: "Be brief.")
         XCTAssertTrue(t.hasPrefix("You are otto, a worker in the workspace wk. Your task: review the PR\n"))
-        for s in ["mira, the workspace's manager, in wk", "- review", "## Your instructions\n\nBe brief.", "micro VM of your own"] {
+        for s in ["mira, the workspace's manager, in wk", "- review", "## Your instructions\n\nBe brief.", "Sandbox of your own"] {
             XCTAssertTrue(t.contains(s), s)
         }
     }

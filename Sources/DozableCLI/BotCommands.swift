@@ -17,7 +17,7 @@ struct BotCommand: AsyncParsableCommand {
         abstract: "Agents / Bots: lasting identities in chat — each with its agent, where it runs, and its own token.",
         discussion: """
         An Agent / Bot is a participant in chat that keeps its name: its agent program (--agent), its model and account, \
-        where it runs (--isolation: vm, fenced — the default —, unfenced, which acts as you, or elsewhere) and how the chat \
+        where it runs (--isolation: sandbox, fenced — the default —, unfenced, which acts as you, or elsewhere) and how the chat \
         server reaches it (--deliver: poll — the default —, inbox or webhook).
 
         Dozable keeps the token of a bot that runs on this Mac in your login keychain and never shows it. A bot elsewhere \
@@ -151,7 +151,7 @@ func botFinish(_ c: BotChange, _ dest: TokenDestination?, _ g: GlobalOptions, sa
 struct BotNew: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "new", abstract: "Make an Agent / Bot: a new participant in chat with its own token.",
         discussion: """
-        Its token is made by the daemon. For a bot that runs on this Mac (--isolation vm, fenced or unfenced) it is kept in \
+        Its token is made by the daemon. For a bot that runs on this Mac (--isolation sandbox, fenced or unfenced) it is kept in \
         your login keychain and never shown; for a bot elsewhere it is shown once on a terminal, or written to a new file \
         with --to-file. Example: doz bot new mira --agent claude-code --deliver inbox
         """)
@@ -159,7 +159,7 @@ struct BotNew: AsyncParsableCommand {
     @Argument(help: "Its name in chat: a lower-case letter, then lower-case letters, digits and -.") var name: String
     @Option(name: .long, help: "Its agent program: claude-code, codex, … (doz search).") var agent: String
     @Option(name: .long, help: "Its model.") var model: String?
-    @Option(name: .long, help: "Where it runs: vm, fenced (the default), unfenced (acts as you — only when named) or elsewhere.") var isolation: String?
+    @Option(name: .long, help: "Where it runs: sandbox, fenced (the default), unfenced (acts as you — only when named) or elsewhere (vm is the same as sandbox).") var isolation: String?
     @Option(name: .long, help: "How the chat server reaches it: poll (the default), inbox (a Claude Code bot) or webhook.") var deliver: String?
     @Option(name: .customLong("webhook-entry"), help: "With --deliver webhook: the entry it uses (default: its own name).") var webhookEntry: String?
     @Option(name: .long, help: "With --deliver inbox: the Claude Code session's name (default: its own name).") var session: String?
@@ -172,7 +172,7 @@ struct BotNew: AsyncParsableCommand {
     func run() async throws {
         if let why = ChatNames.refusal(name) { throw fail(HostError(.invalid, why), g) }
         var b = BotRequest(name: name)
-        b.agent = agent; b.model = model; b.isolation = isolation; b.deliver = deliver; b.webhookEntry = webhookEntry; b.session = session
+        b.agent = agent; b.model = model; b.isolation = IsolationWord.stored(isolation); b.deliver = deliver; b.webhookEntry = webhookEntry; b.session = session
         b.skills = skills.map(botSkills); b.account = account; b.avatar = avatar
         if let f = instructionsFile { b.instructions = try botInstructions(f, g) }
         let (c, dest) = try botChangeCall(.botNew, b, tokenComes: isolation == "elsewhere", toFile: toFile, g)
@@ -246,7 +246,7 @@ struct BotSet: AsyncParsableCommand {
     @Option(name: .long, help: "Its avatar.") var avatar: String?
     @Option(name: .long, help: "Its skills, comma-separated (replaces the list).") var skills: String?
     @Option(name: .customLong("instructions-file"), help: "New instructions: a file, or - for standard input.") var instructionsFile: String?
-    @Option(name: .long, help: "Where it runs: vm, fenced, unfenced (acts as you) or elsewhere.") var isolation: String?
+    @Option(name: .long, help: "Where it runs: sandbox, fenced, unfenced (acts as you) or elsewhere.") var isolation: String?
     @Option(name: .long, help: "How the chat server reaches it: poll, inbox or webhook.") var deliver: String?
     @Option(name: .customLong("webhook-entry"), help: "With --deliver webhook: the entry it uses (default: its own name).") var webhookEntry: String?
     @Option(name: .long, help: "With --deliver inbox: the Claude Code session's name (default: its own name).") var session: String?
@@ -255,7 +255,7 @@ struct BotSet: AsyncParsableCommand {
     func run() async throws {
         let now = try await botLook(name, g)
         var b = BotRequest(name: name)
-        b.model = model; b.account = account; b.avatar = avatar; b.skills = skills.map(botSkills); b.isolation = isolation
+        b.model = model; b.account = account; b.avatar = avatar; b.skills = skills.map(botSkills); b.isolation = IsolationWord.stored(isolation)
         b.deliver = deliver; b.webhookEntry = webhookEntry; b.session = session
         if let f = instructionsFile { b.instructions = try botInstructions(f, g) }
         let toElsewhere = isolation == "elsewhere" && now.isolation.default != "elsewhere" && now.retiredAt == nil
@@ -290,7 +290,7 @@ struct BotAdopt: AsyncParsableCommand {
     @Argument(help: "The participant (doz chat who).") var name: String
     @Option(name: .long, help: "Its agent program: claude-code, codex, … (doz search).") var agent: String
     @Option(name: .long, help: "Its model.") var model: String?
-    @Option(name: .long, help: "Where it runs: vm, fenced (the default), unfenced (acts as you) or elsewhere.") var isolation: String?
+    @Option(name: .long, help: "Where it runs: sandbox, fenced (the default), unfenced (acts as you) or elsewhere.") var isolation: String?
     @Option(name: .long, help: "How the chat server reaches it from now on: poll, inbox or webhook (default: as it is).") var deliver: String?
     @Option(name: .customLong("webhook-entry"), help: "With --deliver webhook: the entry it uses (default: its own name).") var webhookEntry: String?
     @Option(name: .long, help: "With --deliver inbox: the Claude Code session's name (default: its own name).") var session: String?
@@ -304,7 +304,7 @@ struct BotAdopt: AsyncParsableCommand {
     func run() async throws {
         if let why = ChatNames.refusal(name) { throw fail(HostError(.invalid, why), g) }
         var b = BotRequest(name: name)
-        b.agent = agent; b.model = model; b.isolation = isolation; b.deliver = deliver; b.webhookEntry = webhookEntry; b.session = session
+        b.agent = agent; b.model = model; b.isolation = IsolationWord.stored(isolation); b.deliver = deliver; b.webhookEntry = webhookEntry; b.session = session
         b.skills = skills.map(botSkills); b.account = account; b.avatar = avatar
         if let f = instructionsFile { b.instructions = try botInstructions(f, g) }
         if !g.json {

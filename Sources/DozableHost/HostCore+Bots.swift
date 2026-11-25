@@ -260,6 +260,8 @@ extension HostCore {
     // MARK: changing
 
     func botNew(_ b: BotRequest, _ chat: BotChat) async throws -> BotChange {
+        var b = b
+        b.isolation = IsolationWord.stored(b.isolation)
         let name = try botName(b)
         var file = try bots.read()
         let dir = try chat.directory()
@@ -303,6 +305,8 @@ extension HostCore {
     }
 
     func botSet(_ b: BotRequest, _ chat: BotChat) async throws -> BotChange {
+        var b = b
+        b.isolation = IsolationWord.stored(b.isolation)
         let name = try botName(b)
         var file = try bots.read()
         var rec = try botRecord(name, in: file)
@@ -413,6 +417,8 @@ extension HostCore {
     }
 
     func botAdopt(_ b: BotRequest, _ chat: BotChat) async throws -> BotChange {
+        var b = b
+        b.isolation = IsolationWord.stored(b.isolation)
         let name = try botName(b)
         var file = try bots.read()
         let dir = try chat.directory()

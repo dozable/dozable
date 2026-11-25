@@ -113,7 +113,7 @@ func printFolders(_ f: WorkspaceFolders) {
         if x.truncated { s += "  … \(x.count) changed in the \(x.scanned) entries looked at (cut short at its limits)\n" }
     }
     s += "\nRestore points\n"
-    if f.points.isEmpty { s += "  none — a restore point is per micro VM agent (its disk)\n" }
+    if f.points.isEmpty { s += "  none — a restore point is per Sandbox agent (its disk)\n" }
     for p in f.points {
         s += "  \(p.agent) (\(p.sandbox)): " + (p.rows.isEmpty ? "none yet — doz point take \(p.sandbox) NAME" : "") + "\n"
         for r in p.rows.sorted(by: { $0.createdAt > $1.createdAt }) {

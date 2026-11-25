@@ -1050,7 +1050,7 @@ public struct DozableSettings: Sendable {
                   "Clean up (the Resources page, doz resources clean) removes a baked image no sandbox was created from in this many days; it is baked again when next needed.",
                   applies: .now),
             .init("sandbox", "agent_sudo", .bool, .bool(true),
-                  "The agent (the image's user in claude-code and pi sandboxes) has passwordless sudo inside its sandbox, so it can install system packages (sudo apt-get install …). The VM, the network policy and the absent credentials are the boundary — root inside reaches no more than the agent does. Applied at every boot and every agent session start (no image is rebuilt); a sandbox's own choice (doz create --no-agent-sudo, agent_sudo in doz_project.yaml) wins over this.",
+                  "The agent (the image's user in claude-code and pi sandboxes) has passwordless sudo inside its sandbox, so it can install system packages (sudo apt-get install …). The Sandbox (its own virtual machine), the network policy and the absent credentials are the boundary — root inside reaches no more than the agent does. Applied at every boot and every agent session start (no image is rebuilt); a sandbox's own choice (doz create --no-agent-sudo, agent_sudo in doz_project.yaml) wins over this.",
                   flag: "doz create --no-agent-sudo / --agent-sudo", applies: .nextSession),
             .init("sandbox", "timezone", .timeZone, .string("mac"),
                   "The sandboxes' time zone: mac (this Mac's, read again at every boot and wake — a laptop that travels while a sandbox sleeps is followed) or a zone like Australia/Sydney. Written to the guest's /etc/localtime; the agent's facts say it.",

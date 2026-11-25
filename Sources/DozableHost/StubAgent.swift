@@ -48,7 +48,7 @@ public enum StubAgent {
 
     /// A VM manager or worker under the stub: refused, nothing made or started (the stub never starts a VM).
     public static func vmRefusal(_ who: String) -> HostError {
-        HostError(.invalid, "\(who) would run in a micro VM, and the stub agent (\(variable)=1) runs on this Mac only — no VM is started under it; "
+        HostError(.invalid, "\(who) would run in a Sandbox, and the stub agent (\(variable)=1) runs on this Mac only — no Sandbox is started under it; "
                   + "make it fenced (or unfenced) for the test")
     }
 

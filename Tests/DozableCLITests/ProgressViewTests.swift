@@ -99,7 +99,7 @@ final class ProgressViewTests: XCTestCase {
         XCTAssertEqual(v.apply(ev(.started, "booted the bake VM"), now: t0), "", "no line for a start")
         XCTAssertEqual(v.apply(ev(.output, "\u{1B}]52;c;x\u{07}added"), now: t0), "", "no output tail")
         XCTAssertEqual(v.tick(now: t0 + 1), "", "no ticks")
-        XCTAssertEqual(v.apply(ev(.step, "booted the bake VM", ms: 812), now: t0), "  · Started a VM to prepare the image — 812 ms\r\n")
+        XCTAssertEqual(v.apply(ev(.step, "booted the bake VM", ms: 812), now: t0), "  · Started a machine to prepare the image — 812 ms\r\n")
         _ = v.apply(ev(.progress, "pulling node@1a2b3c4d5e6f", done: 0, total: 142_000_000), now: t0)
         XCTAssertEqual(v.apply(ev(.progress, "pulling node@1a2b3c4d5e6f", done: 142_000_000, total: 142_000_000), now: t0 + 23), "  · Downloaded node@1a2b3c4d5e6f: 142 MB in 23.0 s\r\n")
         for s in [v.apply(ev(.step, "x", ms: 1)), v.finish()] {

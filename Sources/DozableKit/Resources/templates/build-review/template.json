@@ -1,0 +1,14 @@
+{
+  "id": "build-review",
+  "version": 1,
+  "title": "Build & review",
+  "summary": "A manager, a builder in a Sandbox and a reviewer that only reads.",
+  "needs": { "manager": true },
+  "agents": [
+    { "name": "manager", "role": "manager", "where": "manager" },
+    { "name": "builder", "role": "builder", "where": "sandbox" },
+    { "name": "reviewer", "role": "reviewer", "where": "fenced", "readOnly": true }
+  ],
+  "room": "you and all 3 agents",
+  "network": "Standard"
+}
