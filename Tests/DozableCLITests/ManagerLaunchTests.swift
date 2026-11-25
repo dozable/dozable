@@ -83,6 +83,60 @@ final class ManagerLaunchTests: XCTestCase {
         XCTAssertEqual(ManagerKickoff.briefPost(brief: "Make it.", refs: ["https://a.example"]), "Make it.\n\nReferences:\n- https://a.example")
     }
 
+    /// An unfenced Claude Code is named after its session: the chat server finds an inbox bot's session by the NAME in its
+    /// record, and one started without `--name` records a name it derives (its folder's and some hex) — the 0.60.0 bug: the
+    /// manager ran, but its presence said not running, every message to it failed and its `/protocol` was refused.
+    func testAnUnfencedClaudeIsNamedAfterItsSession() throws {
+        let u = try ManagerLaunch.plan(isolation: .unfenced, agent: "claude-code", model: "opus", bot: "dozboss1", startFile: start, pagePort: 8790,
+                                       fingerprint: BotTokens.fingerprint(token), tokenFile: "/t/doz-1/manager-ws/chat-token", session: "ws")
+        XCTAssertEqual(Array(u.argv.prefix(5)), ["claude", "--name", "ws", "--model", "opus"])
+        XCTAssertEqual(u.argv.suffix(2), ["--allowedTools", "Bash(dozchat:*)"], "the allow-list stays last")
+        // Fenced and VM are not named (their records are not the person's, and never an inbox's).
+        for i in [ManagerIsolation.fenced, .vm] {
+            let p = try ManagerLaunch.plan(isolation: i, agent: "claude-code", model: nil, bot: "m", startFile: start, pagePort: 8790,
+                                           fingerprint: "x", session: "ws")
+            XCTAssertFalse(p.argv.contains("--name"), "\(i)")
+        }
+        // Codex is not Claude Code: never named.
+        let c = try ManagerLaunch.plan(isolation: .unfenced, agent: "codex", model: nil, bot: "m", startFile: start, pagePort: 8790,
+                                       fingerprint: "x", tokenFile: "/t/f", session: "ws")
+        XCTAssertFalse(c.argv.contains("--name"))
+        // A worker the same way.
+        let w = try WorkerLaunch.plan(isolation: .unfenced, agent: "claude-code", model: nil, bot: "b", startFile: start, pagePort: 8790,
+                                      fingerprint: "x", tokenFile: "/t/f", name: "b", shared: false, session: "ws-b")
+        XCTAssertEqual(Array(w.argv.prefix(3)), ["claude", "--name", "ws-b"])
+        // namedArgv: a session opened before (no name) is named at its next start; a name already there is kept; env kept.
+        XCTAssertEqual(AgentLaunch.namedArgv(["claude", "Read x.", "--allowedTools", "Bash(dozchat:*)"], session: "ws"),
+                       ["claude", "--name", "ws", "Read x.", "--allowedTools", "Bash(dozchat:*)"])
+        XCTAssertEqual(AgentLaunch.namedArgv(["env", "A=1", "/usr/local/bin/claude", "-c"], session: "ws"),
+                       ["env", "A=1", "/usr/local/bin/claude", "--name", "ws", "-c"])
+        for named in [["claude", "--name", "other"], ["claude", "-n", "other"], ["claude", "--name=other"]] {
+            XCTAssertEqual(AgentLaunch.namedArgv(named, session: "ws"), named)
+        }
+        XCTAssertEqual(AgentLaunch.namedArgv(["codex", "resume", "--last"], session: "ws"), ["codex", "resume", "--last"])
+        XCTAssertEqual(AgentLaunch.namedArgv(["claude"], session: ""), ["claude"])
+        // A restart keeps the name (a value flag: its value is never read as a flag).
+        let r = MacPlace.restartArgv(["claude", "--name", "ws", "Read x."], fresh: false, knownID: nil, transcriptExists: { _ in false },
+                                     hasConversation: true)
+        XCTAssertEqual(Array(r.argv.prefix(3)), ["claude", "--name", "ws"])
+    }
+
+    /// START of an inbox bot never tells it to poll: `dozchat receive` is refused for an inbox participant.
+    func testAnInboxBotsStartNeverSaysPoll() {
+        let i = ManagerKickoff.startText(bot: "dozboss1", workspace: "ws", room: "ws", isolation: .unfenced, skills: [], instructions: nil,
+                                         brief: "B", refs: [], inbox: true)
+        XCTAssertFalse(i.contains("`dozchat receive --wait 60 --ack` to collect"))
+        XCTAssertTrue(i.contains("arrives in this session by itself"))
+        XCTAssertTrue(i.contains("dozchat send ws"))
+        let p = ManagerKickoff.startText(bot: "otto", workspace: "ws", room: "ws", isolation: .unfenced, skills: [], instructions: nil,
+                                         brief: "B", refs: [])
+        XCTAssertTrue(p.contains("`dozchat receive --wait 60 --ack` to collect what is said to you."))
+        let w = WorkerKickoff.startText(name: "b", workspace: "ws", room: "ws", task: "T", director: nil, place: .unfenced, skills: [],
+                                        instructions: nil, inbox: true)
+        XCTAssertFalse(w.contains("`dozchat receive --wait 60 --ack` to collect"))
+        XCTAssertTrue(w.contains("arrives in this session by itself"))
+    }
+
     func testSessionNames() {
         XCTAssertEqual(ManagerLaunch.sessionName(workspace: "demo"), "demo")
         let w32 = String(repeating: "a", count: 32)

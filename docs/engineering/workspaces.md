@@ -418,7 +418,12 @@ start W again (the brief is not posted twice)". No manager: the start ends after
   before the open and deleted when it fails, at stop, and by the sweep at a daemon's start (`sweepManagerTokenFiles`: every
   folder of a session not running); START beside it; `CHAT_URL=http://127.0.0.1:PORT` only off 8790; no dontAsk (anything
   beyond dozchat asks: "waiting on you"). An inbox bot whose inbox names another session is pointed at S
-  (`BotChat.set`), said and logged. `TestSafety.managerTokenViolation` stops a test writing one for the default store.
+  (`BotChat.set`), said and logged. Its Claude Code is named S (`claude --name S`, `AgentLaunch.namedArgv`; an unfenced
+  worker likewise after its session, and a restart names one opened without it): the chat server finds an inbox's session
+  by the name in its record, and a Claude Code started unnamed records one it derives (its folder's name and some hex) —
+  0.60.0 started it so, and its presence said not running, every message to it failed and its `/protocol` was refused.
+  START of an inbox bot says what is said to it arrives in its session, never to poll (`dozchat receive` is refused for
+  it). `make test-cli-workspace` row 19i (`CLI_WORKSPACE_ROWS=inbox` alone). `TestSafety.managerTokenViolation` stops a test writing one for the default store.
 - **A start after a stop** re-opens the same session (`macReopen` with the environment, a fresh bot-held secret and START:
   Claude Code resumes the conversation recorded at the stop — `MacPlace.restartArgv`) or starts the same sandbox
   (`claude --continue`); no kick-off.

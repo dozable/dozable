@@ -373,7 +373,7 @@ extension HostCore {
         let start = Data(ManagerKickoff.startText(bot: bot, workspace: rec.name, room: rec.mainRoom?.chatRoom ?? rec.name, isolation: iso,
                                                   skills: b.skills, instructions: instructions,
                                                   brief: WorkDescription.goal(brief: workspaceBriefText(rec) ?? "", addenda: rec.addenda),
-                                                  refs: rec.brief.refs).utf8)
+                                                  refs: rec.brief.refs, inbox: iso == .unfenced && b.deliver == "inbox").utf8)
         var notes: [String] = []
         let fingerprint: String
         let plan: ManagerLaunch.Plan
@@ -390,7 +390,7 @@ extension HostCore {
             fingerprint = prepared.fingerprint
             notes += prepared.notes
             plan = try ManagerLaunch.plan(isolation: iso, agent: b.agent, model: b.model, bot: bot, startFile: prepared.startFile,
-                                          pagePort: pagePort, fingerprint: fingerprint, tokenFile: prepared.tokenFile)
+                                          pagePort: pagePort, fingerprint: fingerprint, tokenFile: prepared.tokenFile, session: place)
         }
         let order = ManagerLaunchOrder(workspace: rec.name, bot: bot, isolation: iso, place: place, workdir: workdir, plan: plan, start: start,
                                        restart: restart, agent: b.agent, account: b.account, model: b.model,
@@ -501,7 +501,10 @@ extension HostCore {
             let held = await macLearnClaudeID(o.place)
             let how = try await mac.end(o.place)
             if how == .stuck { throw HostError(.failed, "session \(o.place) on this Mac did not end, even after SIGKILL") }
-            let r = try await macReopen(o.place, rec: mac.records().sessions[o.place] ?? rec, holder: holder, fresh: false,
+            var now = mac.records().sessions[o.place] ?? rec
+            // An unfenced Claude Code is named after its session (an inbox finds it by that name) — also one opened unnamed.
+            if !fenced { now.argv = AgentLaunch.namedArgv(now.argv, session: o.place) }
+            let r = try await macReopen(o.place, rec: now, holder: holder, fresh: false,
                                         size: TermSize(cols: 120, rows: 40), knownID: held, ended: how.rawValue,
                                         request: HostRequest(.sessionRestart, name: MacPlace.name), extra: agentMacReopenEnvironment(o.plan.environment),
                                         botSecrets: secrets, managerStart: fenced ? o.start : nil)
