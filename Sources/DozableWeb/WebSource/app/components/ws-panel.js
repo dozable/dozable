@@ -19,9 +19,9 @@ export const programName = (p) => PROGRAMS[p] || p || '';
 /// says its place (a sandbox is a micro VM; a session on this Mac is on this Mac).
 export function isolationWords(a) {
   if (a.kind === 'elsewhere') return 'elsewhere';
-  if (a.isolation === 'vm') return 'micro VM';
+  if (a.isolation === 'vm') return 'Sandbox';
   if (a.isolation === 'fenced' || a.isolation === 'unfenced') return a.isolation;
-  return a.kind === 'sandbox' ? 'micro VM' : 'on this Mac';
+  return a.kind === 'sandbox' ? 'Sandbox' : 'on this Mac';
 }
 
 /// The meta line under a sender's name in the room: role · agent program · isolation · session — the program from the

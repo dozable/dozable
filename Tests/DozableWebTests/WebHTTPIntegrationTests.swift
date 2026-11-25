@@ -994,14 +994,18 @@ final class FakeData: DozableWebData, @unchecked Sendable {
         }
         return p
     }
-    /// The New workspace wizard's plan: one gap (the brief) when it is empty, the request's name echoed back.
+    /// The New workspace wizard's plan: one gap (no room) when it says no room, the request's name echoed back, the next free
+    /// name, one fitting manager and the gap as a finding (782).
     func workspacePlan(_ w: WorkspaceRequest) async throws -> WorkspacePlan {
         lock.withLock { _workspaceCalls.append("plan \(w.name ?? "")") }
-        let empty = (w.brief ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        return WorkspacePlan(name: w.name ?? "", refusals: empty ? ["the brief is empty"] : [], refusalCode: empty ? "invalid" : nil,
-                             gaps: empty ? [WorkspaceSetupCheck.Gap(item: "brief", why: "the brief is empty", fix: "doz workspace edit W --prompt-file F")] : [],
-                             notes: [], lines: ["workspace \(w.name ?? "")"], commands: WorkspaceNewCommand.text(w),
-                             startCommand: WorkspaceNewCommand.startText(w.name ?? "NAME"))
+        let gap = w.noRoom == true ? [WorkspaceSetupCheck.Gap(item: "room", why: "no main room", fix: "doz workspace edit W --make-room")] : []
+        var p = WorkspacePlan(name: w.name ?? "", refusals: [], refusalCode: nil, gaps: gap,
+                              notes: [], lines: ["workspace \(w.name ?? "")"], commands: WorkspaceNewCommand.text(w),
+                              startCommand: WorkspaceNewCommand.startText(w.name ?? "NAME"))
+        p.suggested = WorkspaceSuggestion(name: "workspace1", folder: "/tmp/workspace1")
+        p.managers = [WorkspaceManagerFit(bot: "mira", fits: true)]
+        p.findings = gap.compactMap(WorkspaceWizard.gap)
+        return p
     }
     func workspaceBrief(_ name: String) async throws -> WorkspaceDetail {
         lock.withLock { _workspaceCalls.append("show \(name) --brief") }

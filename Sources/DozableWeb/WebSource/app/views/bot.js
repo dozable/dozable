@@ -81,7 +81,7 @@ export function adoptDialog(name) {
     'Yes, make ' + name + ' a bot and replace its token', { action: 'bot-adopt', name }, 'Make it a bot', {
       icon: 'bot',
       fields: [{ name: 'agent', label: 'Its agent program', type: 'select', options: agents, value: 'claude-code' },
-        { name: 'isolation', label: 'Where it runs', type: 'select', options: [['fenced', 'fenced on this Mac'], ['vm', 'micro VM'], ['unfenced', 'unfenced on this Mac — acts as you']], value: 'fenced' },
+        { name: 'isolation', label: 'Where it runs', type: 'select', options: [['fenced', 'fenced on this Mac'], ['vm', 'Sandbox'], ['unfenced', 'unfenced on this Mac — acts as you']], value: 'fenced' },
         { name: 'elsewhere', type: 'custom', get: () => null,
           el: h('p', { class: 'muted bf-elsewhere-note' }, 'Elsewhere (another machine with its own token) is done in a terminal on this Mac: ',
             cmdLine('doz bot adopt ' + name + ' --agent codex --isolation elsewhere --to-file ~/' + name + '.token')) }],

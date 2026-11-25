@@ -22,7 +22,7 @@ final class ServeExposureTests: XCTestCase {
             .recipes, .macSessions, .macSessionScreen("agent"), .macTerminalTicket, .macTerminalSocket,
             .macSessionNetwork("agent"), .macSessionTranscripts("agent"), .macSessionTranscript("agent", "20261113T101500Z", "x.jsonl"),
             .macSessionQuarantine("agent"), .macSessionPlan, .workspacePlan, .workerPlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .workspaceActivity, .workspaceRuns, .workspaceRunChat, .workspaceSpace, .workspaceSpacePlan, .workspaceState, .workspaceRunFrames, .workspaceDoc, .chatRoomPlan, .chat(.status), .workspaces, .workspace("demo"), .workspaceBrief("demo"),
-            .workspaceLog("demo", nil), .loose, .bots, .botsRetired, .bot("mira"), .macs,
+            .workspaceLog("demo", nil), .loose, .bots, .botsRetired, .bot("mira"), .macs, .templates,
         ]
         for r in all { _ = covered(r) }
         return all
@@ -39,7 +39,7 @@ final class ServeExposureTests: XCTestCase {
              .serveStatus, .serveDevices, .serveShare, .serveRevoke, .serveRename, .serveProbe, .files, .filesWatch, .filesTree, .filesTreeSet, .filesOpen, .editors, .grids,
              .dotfilesResolve, .portOpen, .recipes, .macSessions, .macSessionScreen, .macTerminalTicket, .macTerminalSocket,
              .macSessionNetwork, .macSessionTranscripts, .macSessionTranscript, .macSessionQuarantine, .macSessionPlan, .workspacePlan, .workerPlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .workspaceActivity, .workspaceRuns, .workspaceRunChat, .workspaceSpace, .workspaceSpacePlan, .workspaceState, .workspaceRunFrames, .workspaceDoc, .chatRoomPlan, .chat,
-             .workspaces, .workspace, .workspaceBrief, .workspaceLog, .loose, .bots, .botsRetired, .bot, .macs:
+             .workspaces, .workspace, .workspaceBrief, .workspaceLog, .loose, .bots, .botsRetired, .bot, .macs, .templates:
             return true
         }
     }
@@ -226,6 +226,17 @@ final class ServeExposureTests: XCTestCase {
         XCTAssertEqual(WebRejection.macOnlyStart.code, WebRejection.macOnly.code)
         XCTAssertEqual(WebRejection.macOnlyStart.status, 403)
         XCTAssertTrue(WebRejection.macOnlyStart.message.contains("doz workspace start"))
+    }
+
+    /// 782: the templates' list is a read (what doz carries, the same for every browser); making a workspace from one is
+    /// filing AND starting — this Mac's own browser only, whatever the serve settings.
+    func testTemplatesAreReadEverywhereAndMadeOnlyOnThisMac() throws {
+        XCTAssertEqual(WebRoute.parse(method: .get, target: "/api/v1/templates"), .templates)
+        XCTAssertEqual(WebExposure.kind(.templates), .read)
+        for p: WebExposure.Principal in [.mac, .remote(secure: true)] { XCTAssertNil(WebExposure.decide(.templates, p)) }
+        let a = try WebAction.decode(Data(#"{"action":"workspace-from-template","template":"solo","workspace":"w"}"#.utf8))
+        XCTAssertTrue(a.isFiling && a.isStarting)
+        XCTAssertEqual(WebExposure.decideFilingAction(.remote(secure: true)), .macOnlyFiling)
     }
 
     /// Agents / Bots: the reads are reads (kind `read`, every browser); every change is this Mac's own browser only, whatever

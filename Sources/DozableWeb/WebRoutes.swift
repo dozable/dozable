@@ -219,6 +219,9 @@ public enum WebRoute: Equatable, Sendable {
     case bot(String)                    // GET  /api/v1/bots/{name}       (bot-show --instructions; the name checked before any call — 400)
     // Your Macs (WebMacs.swift): a read only, exactly the read-only HostOp `doz ui macs ls` sends.
     case macs                           // GET  /api/v1/macs              (macs-ls)
+    // 782: the workspace templates doz carries (the New workspace wizard's gallery) — each template.json with its drawing in
+    // the renderer's words; nothing of this Mac's (WebTemplates).
+    case templates                      // GET  /api/v1/templates
 
     public var isStatic: Bool {
         switch self { case .index, .asset, .terminalFrame, .offline, .serviceWorker, .chatPage: true; default: false }
@@ -357,6 +360,7 @@ public enum WebRoute: Equatable, Sendable {
                 // The only query: `retired=1` (the roster's "Show retired"); anything else there is not a route.
                 switch query { case nil: return .bots; case "retired=1": return .botsRetired; default: return nil }
             case "macs": return .macs
+            case "templates": return .templates
             default: return nil
             }
         case 2 where rest[0] == "bots":

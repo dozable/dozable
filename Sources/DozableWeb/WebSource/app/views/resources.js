@@ -142,7 +142,7 @@ function resMemoryPanel(r) {
     h('td', { class: 'num' }, m.allocationBytes ? bytes(m.allocationBytes) : '—'),
     h('td', { class: 'num' }, m.cpus ?? '—')));
   return resSection('memory', 'Memory and CPUs', bytes(held) + ' held · ' + r.allocatedCPUs + ' of ' + r.machineCPUs + ' CPUs given to sandboxes',
-    panel(table(['What', 'Phase', 'Held now', 'Allocation', 'CPUs'], rows, [2, 3, 4]), 'No sandbox has a VM, and no daemon is running.'));
+    panel(table(['What', 'Phase', 'Held now', 'Allocation', 'CPUs'], rows, [2, 3, 4]), 'No sandbox is running, and no daemon is running.'));
 }
 function resNetworkPanel(r) {
   const rows = r.network.map((n) => h('tr', { 'data-net': n.sandbox },

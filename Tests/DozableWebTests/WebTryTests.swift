@@ -349,13 +349,13 @@ final class WebTryTests: XCTestCase {
     func testAStartsProgressIsStepsInPlainWordsAndATail() {
         var p = WebOpProgress()
         p.apply(HostEvent(kind: .started, sandbox: "s", text: "booted the bake VM"))
-        XCTAssertEqual(p.current, "Starting a VM to prepare the image")
+        XCTAssertEqual(p.current, "Starting a machine to prepare the image")
         XCTAssertNotNil(p.since)
         for i in 1...5 { p.apply(HostEvent(kind: .output, sandbox: "s", text: "Get:\(i) http://deb.debian.org/debian bookworm\u{1b}[0m")) }
         XCTAssertEqual(p.tail.count, 3, "a short tail")
         XCTAssertEqual(p.tail.last, "Get:5 http://deb.debian.org/debian bookworm", "inert text")
         p.apply(HostEvent(kind: .step, sandbox: "s", text: "booted the bake VM", milliseconds: 500))
-        XCTAssertEqual(p.steps.last?.text, "Started a VM to prepare the image")
+        XCTAssertEqual(p.steps.last?.text, "Started a machine to prepare the image")
         XCTAssertEqual(p.steps.last?.seconds, 0.5)
         XCTAssertNil(p.current)
     }

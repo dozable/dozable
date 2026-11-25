@@ -179,7 +179,7 @@ final class WebModulesTests: XCTestCase {
         XCTAssertEqual(room, ["app/views/workspace.js"])
         XCTAssertTrue(try read("app/views/chat.js").contains("chatOnForm("))
         XCTAssertTrue(try read("app/components/ws-gaps.js").contains("chatOnInline("))
-        XCTAssertTrue(try read("app/views/new-workspace.js").contains("chatOnForm({ onOn: chatCameOn })"))
+        XCTAssertTrue(try read("app/views/wsn-custom.js").contains("chatOnForm({ onOn: async () => { await chatNavCheck(); changed(true); } })"), "the wizard's How they chat")
         XCTAssertTrue(try read("app/views/ws-home.js").contains("gapsList(gaps, { onChatOn: cur.o.onChatOn })"), "Home's setting-up checklist")
         XCTAssertTrue(try read("app/views/workspace.js").contains("onChatOn: chatCameOn"))
     }
@@ -369,15 +369,16 @@ final class WebModulesTests: XCTestCase {
         XCTAssertEqual(sent, ["workspace-adopt", "workspace-new", "workspace-release"])
     }
 
-    /// The New workspace wizard: its modules ship; `#/new-workspace[?bot=NAME]` is a modal address (routes.js in JavaScriptCore);
-    /// `core/ws-new.js` is pure and its `slugFrom`, `gapStep`, `briefText` and `requestFrom` do what the wizard relies on; the
-    /// two actions it sends are exactly `workspace-new` and `workspace-start`, and only the wizard and a workspace's page start
-    /// one.
+    /// The New workspace wizard (782): its modules ship; `#/new-workspace[?bot=NAME|?template=ID]` is a modal address;
+    /// `core/ws-new.js` is pure and its steps, name rule, requests and drawing do what the wizard relies on (in
+    /// JavaScriptCore); what it sends is exactly `workspace-new`, `workspace-start`, `workspace-from-template` and (the
+    /// inline bot, at Create) `bot-new`; only the wizard and a workspace's page start one; nothing leaves the wizard; no
+    /// "micro VM" in its words.
     func testTheNewWorkspaceWizard() throws {
         let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource")
         let read = { (f: String) in try String(contentsOf: src.appendingPathComponent(f), encoding: .utf8) }
         let a = try WebAssets.load()
-        for m in ["views/new-workspace", "components/ws-gaps", "core/ws-new"] {
+        for m in ["views/new-workspace", "views/wsn-custom", "views/wsn-state", "components/wsn-picture", "core/ws-new"] {
             XCTAssertTrue(a.assets.keys.contains { $0.hasPrefix("/assets/app/\(m)-") }, "\(m) is served")
         }
         let ctx = try XCTUnwrap(JSContext())
@@ -389,46 +390,52 @@ final class WebModulesTests: XCTestCase {
         ctx.evaluateScript(pure.replacingOccurrences(of: "export ", with: ""))
         XCTAssertNil(thrown, thrown ?? "")
         func js(_ expr: String) -> String { ctx.evaluateScript("JSON.stringify(" + expr + ")")?.toString() ?? "?" }
-        XCTAssertEqual(js("parse('#/new-workspace').view"), "\"new-workspace\"")
         XCTAssertEqual(js("parse('#/new-workspace').modal"), "true")
         XCTAssertEqual(js("parse('#/new-workspace?bot=mira').param"), "\"mira\"")
-        XCTAssertEqual(js("parse('#/new-workspace?bot=Mira')"), "null", "a bot's name by the chat rule")
+        XCTAssertEqual(js("parse('#/new-workspace?template=fix-it').template"), "\"fix-it\"")
         XCTAssertEqual(js("MODAL_VIEWS.has('new-workspace')"), "true")
-        XCTAssertEqual(js("parse('#/new').view"), "\"new\"", "#/new stays New sandbox")
-        XCTAssertEqual(js("slugFrom('A 60-second launch video for MyApp 2.0 in Remotion')"), "\"a-60-second-launch-video\"")
-        XCTAssertEqual(js("slugFrom('  Écrire la doc!  ')"), "\"ecrire-la-doc\"")
-        XCTAssertEqual(js("slugFrom('')"), "\"\"")
-        XCTAssertEqual(js("slugFrom('x'.repeat(60))"), "\"\"", "a first word over 40 makes no name")
-        XCTAssertEqual(js("slugFrom('aaaaaaaaaa bbbbbbbbbb cccccccccc dddddddddd eeeeee').length <= 40"), "true")
-        XCTAssertEqual(js("[gapStep('brief'), gapStep('folder'), gapStep('manager'), gapStep('chat'), gapStep('room')]"), "[0,0,1,3,3]")
-        XCTAssertEqual(js("[briefText('a'), briefText('a\\n'), briefText('')]"), #"["a\n","a\n",""]"#)
-        let r = js("requestFrom({name:'w', brief:'b', refs:[], folders:[{path:'/x', mode:'ro'}], newFolder:true, fromProject:true, network:'open', manager:'mira', managerIsolation:'vm', workerIsolation:'fenced', noRoom:true})")
-        XCTAssertEqual(r, #"{"workspace":"w","brief":"b\n","folders":[{"path":"/x","mode":"ro"}],"newFolder":true,"fromProject":true,"noRoom":true,"manager":"mira","managerIsolation":"vm","workerIsolation":"fenced"}"#,
-                       "the project fills the network in: none sent with fromProject")
-        XCTAssertEqual(js("requestFrom({name:'w', brief:'b', managerIsolation:'unfenced', network:'locked'})"), #"{"workspace":"w","brief":"b\n","network":"locked"}"#,
-                       "an isolation only with a manager")
-        // 775: a preset's sites go with the request (none: no field).
-        XCTAssertEqual(js("requestFrom({name:'w', brief:'b', network:'standard', sites:['remotion.media']})"),
-                       #"{"workspace":"w","brief":"b\n","network":"standard","sites":["remotion.media"]}"#)
-        XCTAssertEqual(js("requestFrom({name:'w', brief:'b', network:'standard', sites:[]})"), #"{"workspace":"w","brief":"b\n","network":"standard"}"#)
-        XCTAssertTrue(pure.contains("export const WORKSPACE_DEFINITION = 'A workspace is an environment set up for getting work done: its agents, its rooms, the brief that says what the work is for, and any folders it works on (usually projects). Work starts only once it is fully set up.';"))
-        // What the pages send: the wizard exactly new and start; a workspace's page start; no other module starts one.
+        XCTAssertEqual(js("WSN_STEPS.map((s) => s.title)"), #"["Name","Manager","Workers","How they chat","Confirm"]"#)
+        XCTAssertEqual(js("[nameProblem('', []), nameProblem('Bad', []), nameProblem('w3', ['w3']), nameProblem('w4', ['w3'])]"),
+                       #"["Give it a name","1–40 characters of a-z, 0-9 and -, not starting with -","w3 is taken",null]"#)
+        XCTAssertEqual(js("[nextFree('boss', []), nextFree('boss', ['boss1', 'boss2'])]"), #"["boss1","boss3"]"#)
+        XCTAssertEqual(js("[descriptionText(''), descriptionText('  '), descriptionText('a'), descriptionText('a\\n')]"), #"["","","a\n","a\n"]"#)
+        // Custom's request: the defaults (a new empty folder, nothing else), a description, a manager where its bot runs,
+        // the project's preset (fromProject, no network), a room under another name with invites, an existing room, none.
+        XCTAssertEqual(js("requestFrom({name:'w', newFolder:true, network:'locked', workerIsolation:'fenced', room:{mode:'new',name:''}, invite:[]})"),
+                       #"{"workspace":"w","newFolder":true,"network":"locked","workerIsolation":"fenced"}"#)
+        XCTAssertEqual(js("requestFrom({name:'w', description:'Make it', folder:{path:'/x', mode:'ro'}, fromProject:true, network:'open', manager:'otto', managerIsolation:'unfenced', workerIsolation:'vm', room:{mode:'new',name:'team'}, invite:['vera']})"),
+                       #"{"workspace":"w","brief":"Make it\n","folders":[{"path":"/x","mode":"ro"}],"fromProject":true,"manager":"otto","managerIsolation":"unfenced","workerIsolation":"vm","roomName":"team","invite":["vera"]}"#)
+        XCTAssertEqual(js("requestFrom({name:'w', newFolder:true, room:{mode:'existing',name:'general'}})"), #"{"workspace":"w","newFolder":true,"room":"general"}"#)
+        XCTAssertEqual(js("requestFrom({name:'w', newFolder:true, room:{mode:'none'}, invite:['x']})"), #"{"workspace":"w","newFolder":true,"noRoom":true}"#)
+        XCTAssertEqual(js("templateRequestFrom({template:'solo', name:'w3', folder:null, manager:null, actsAsYou:false})"), #"{"template":"solo","workspace":"w3"}"#)
+        // The drawing: the renderer's words — the version line first; the manager where its bot runs; new workers' place.
+        let pic = js("pictureText({name:'w3', managerName:'mira', managerWhere:'vm', workerIsolation:'fenced', room:{mode:'new',name:'w3'}, invite:['vera']})")
+        XCTAssertTrue(pic.hasPrefix("\"doz: space/3.1\\n"), pic)
+        XCTAssertTrue(pic.contains("sandbox:box") && pic.contains("new-workers") && pic.contains("vera"), pic)
+        XCTAssertEqual(js("templateAgentWords({name:'reviewer', role:'reviewer', where:'fenced', readOnly:true})"), #"["reviewer","reviewer — reads only","Fenced on this Mac"]"#)
+        // What the pages send: the wizard's four actions; only the wizard and a workspace's page start one.
         let files = (FileManager.default.enumerator(atPath: src.appendingPathComponent("app").path)?.allObjects as? [String] ?? [])
             .filter { $0.hasSuffix(".js") }.map { "app/" + $0 } + ["app.js"]
-        let action = try NSRegularExpression(pattern: #"action: '(workspace-[a-z]+)'"#)
+        let action = try NSRegularExpression(pattern: #"action: '([a-z-]+)'"#)
         func sent(_ f: String) throws -> Set<String> {
             let t = try read(f)
             return Set(action.matches(in: t, range: NSRange(t.startIndex..., in: t)).map { (t as NSString).substring(with: $0.range(at: 1)) })
         }
-        XCTAssertEqual(try sent("app/views/new-workspace.js"), ["workspace-new", "workspace-start"])
+        XCTAssertEqual(try sent("app/views/new-workspace.js"), ["workspace-new", "workspace-start", "workspace-from-template", "bot-new"])
+        XCTAssertEqual(try sent("app/views/wsn-custom.js"), ["bot-set", "bot-token"], "a folded bot's one fix")
         for f in files where !["app/views/new-workspace.js", "app/views/workspace.js"].contains(f) {
             XCTAssertFalse(try sent(f).contains("workspace-start"), "\(f) starts a workspace")
+            XCTAssertFalse(try sent(f).contains("workspace-from-template"), "\(f) makes a workspace from a template")
         }
-        let wiz = try read("app/views/new-workspace.js")
+        let wiz = try ["app/views/new-workspace.js", "app/views/wsn-custom.js", "app/views/wsn-state.js", "app/components/wsn-picture.js"].map(read).joined()
         XCTAssertTrue(wiz.contains("api('workspace-plan'"), "the plan route")
+        XCTAssertTrue(wiz.contains("api('templates')"), "the templates route")
         XCTAssertTrue(wiz.contains("new AbortController()"), "the latest plan wins")
-        XCTAssertTrue(wiz.contains("sessionStorage"), "its choices kept for the trip to the bot editor")
-        XCTAssertFalse(wiz.lowercased().contains("'draft") || wiz.contains("as draft"), "the state is setting up")
+        XCTAssertFalse(wiz.contains("location.replace('#/bots") || wiz.contains("'#/bots/~new'"), "nothing leaves the wizard")
+        XCTAssertFalse(wiz.lowercased().contains("micro vm"), "Sandbox, never micro VM")
+        XCTAssertFalse(wiz.contains("'Brief'") || wiz.contains("References"), "description, never brief")
+        XCTAssertTrue(wiz.contains("loadRenderer()"), "drawn with the dashboard's own renderer")
+        XCTAssertTrue(try read("app/components/bot-form.js").contains("field('Bot name'"), "the owner's label")
     }
 
     /// Leaving a modal for an address: the page under it is kept as it was ONLY when the history entry is that page's own
@@ -492,7 +499,8 @@ final class WebModulesTests: XCTestCase {
         for iso in ["vm", "fenced", "unfenced"] {
             XCTAssertEqual(js("isolationById('\(iso)').control"), "\"\(WorkerLaunch.control(isolation: iso))\"", "\(iso): worker ls's words")
         }
-        XCTAssertEqual(js("[isolationIdOf('micro VM'), isolationIdOf('fenced'), isolationIdOf('on this Mac')]"), #"["vm","fenced",null]"#)
+        XCTAssertEqual(js("[isolationIdOf('Sandbox'), isolationIdOf('micro VM'), isolationIdOf('fenced'), isolationIdOf('on this Mac')]"), #"["vm","vm","fenced",null]"#)
+        XCTAssertEqual(js("isolationById('vm').chip"), "\"Sandbox\"", "782: Sandbox, never micro VM")
         XCTAssertEqual(js("isolationById('unfenced').rows.manager"), #""✕ always asks you""#)
         XCTAssertEqual(js("CLOUD.later"), "true")
         let guide = try read("app/views/isolation-guide.js")

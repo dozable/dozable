@@ -66,6 +66,8 @@ final class WebActionHTTPTests: XCTestCase {
     /// Every action over HTTP: refused without CSRF, then accepted with it and sent to the host as
     /// exactly its one HostOp.
     func testEveryActionOverHTTP() throws {
+        // 782: a template's workspace is made by doz ui's maker (the CLI's resolver), which acts through the one HostOp, the up.
+        WebTemplates.installMaker { q, send in try await send(WebTemplates.hostRequestForTests(q)) }
         let workspace = FileManager.default.temporaryDirectory.path
         for (name, sample) in WebActionTests.samples.sorted(by: { $0.key < $1.key }) {
             let body = sample.replacingOccurrences(of: "\"image\":\"lab\",", with: "\"image\":\"lab\",\"folder\":\"\(workspace)\",")

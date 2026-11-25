@@ -38,7 +38,7 @@ function item(i) {
     i.bytes ? h('span', { class: 'wl-size' }, sizeWords(i.bytes)) : null);
 }
 
-const ISO = { vm: 'micro VM', fenced: 'fenced', unfenced: 'unfenced · acts as you', elsewhere: 'elsewhere' };
+const ISO = { vm: 'Sandbox', fenced: 'fenced', unfenced: 'unfenced · acts as you', elsewhere: 'elsewhere' };
 
 /// The plan as the dialog shows it: the table (a card per agent on a phone), kept and goes, the queue, the refusals, the
 /// notes, and the command.

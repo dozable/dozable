@@ -126,6 +126,10 @@ public enum WebAction: Equatable, Sendable {
     /// `fromProject` is the flag, and the web layer on the Mac fills `project` and `network` (`WorkspaceProjectFill`). The
     /// room is made as with the CLI when chat is on;
     case workspaceNew(WorkspaceRequest, fromProject: Bool)
+    /// 782: `doz workspace new NAME --template ID [--manager BOT] [--folder DIR]` — a workspace made from a template this
+    /// build carries: its files written in `~/doz-workspaces/NAME/` in doz ui's process, then exactly one acting HostOp,
+    /// `workspace-up`, on the plan it read (`WebTemplates`). This Mac's own browser only (filing and starting).
+    case workspaceFromTemplate(WebTemplates.Request)
     /// `doz workspace start W` — this Mac's own browser only (`isStarting`, `WebExposure.decideStartAction`): it posts the
     /// brief as you and starts a program holding a bot's token, maybe an unfenced manager acting as you. It sets
     /// `confirmRequired`, so the daemon refuses an unfenced manager unless `actsAsYou` confirms it.
@@ -206,7 +210,7 @@ public enum WebAction: Equatable, Sendable {
              .resourcesRemove, .resourcesClean, .resourcesKernel, .hostStart, .hostRestart, .builderStart, .builderInstall,
              .macSessionEnd, .macSessionRestart, .macSessionResume, .macSessionBridges, .macNetPolicy,   // this Mac is no sandbox
              .macSessionForget, .macSessionsForgetEnded,
-             .workspaceBrief, .workspaceAdopt, .workspaceNew, .workspaceRelease, .workspaceStart,   // nor is a workspace
+             .workspaceBrief, .workspaceAdopt, .workspaceNew, .workspaceFromTemplate, .workspaceRelease, .workspaceStart,   // nor is a workspace
              .botNew, .botSet, .botRetire, .botAdopt, .botToken,                          // nor is a bot
              .workerAdd, .workerEnd,                                                      // nor a worker (its place is the daemon's)
              .workspaceLifecycle, .chatRoomArchive, .chatRoomRm, .workspaceRunArchive, .workspaceSpaceSave, .chat:
@@ -226,12 +230,12 @@ public enum WebAction: Equatable, Sendable {
 
     /// Filing an agent into a workspace or out of one: this Mac's own browser only (`WebExposure.decideFilingAction`).
     public var isFiling: Bool {
-        switch self { case .workspaceAdopt, .workspaceNew, .workspaceRelease: true; default: false }
+        switch self { case .workspaceAdopt, .workspaceNew, .workspaceFromTemplate, .workspaceRelease: true; default: false }
     }
 
     /// A workspace started: this Mac's own browser only (`WebExposure.decideStartAction`).
     public var isStarting: Bool {
-        if case .workspaceStart = self { true } else { false }
+        switch self { case .workspaceStart, .workspaceFromTemplate: true; default: false }
     }
 
     /// An Agent / Bot changed: this Mac's own browser only (`WebExposure.decideBotAction`).
@@ -319,7 +323,7 @@ public enum WebAction: Equatable, Sendable {
         if let q = r.chatAsk { return [r.op.rawValue, q.room ?? "", q.ask ?? ""].joined(separator: "|") }
         if let w = r.workspaceRequest?.name {
             // A workspace is made or started once at a time: its name is the key.
-            if r.op == .workspaceNew || r.op == .workspaceStart { return [r.op.rawValue, "workspace:" + w].joined(separator: "|") }
+            if r.op == .workspaceNew || r.op == .workspaceStart || r.op == .workspaceUp { return [r.op.rawValue, "workspace:" + w].joined(separator: "|") }
             // Filing names its agent: two agents put in one workspace at once are two operations.
             let agent = r.workspaceRequest?.agent ?? r.workspaceRequest?.adopt?.joined(separator: ",") ?? ""
             return [r.op.rawValue, "workspace:" + w, agent].joined(separator: "|")
@@ -367,6 +371,7 @@ public enum WebAction: Equatable, Sendable {
         case .workspaceNew(let w, _):
             let n = w.name ?? "?"
             return w.adopt?.count == 1 ? "make \(n) with \(w.adopt![0])" : "make \(n)"
+        case .workspaceFromTemplate(let q): return "make \(q.workspace) from the template \(q.template)"
         case .workspaceStart(let w, _): return "start \(w)"
         case .workspaceRelease(let w, let a): return "take \(a) out of \(w)"
         case .botNew(let b): return "make Agent / Bot \(b.name ?? "?")"
@@ -621,6 +626,8 @@ public enum WebAction: Equatable, Sendable {
             var r = HostRequest(.workspaceNew)
             r.workspaceRequest = w
             return r
+        case .workspaceFromTemplate(let q):
+            return WebTemplates.hostRequest(q)
         case .workspaceStart(let w, let actsAsYou):
             // What `doz workspace start W` sends, plus the confirmation the daemon then requires of an unfenced manager.
             var e = WorkspaceRequest(name: w)
@@ -769,6 +776,7 @@ public enum WebAction: Equatable, Sendable {
             "workspace-brief": ["workspace", "brief", "ifBrief"],
             "workspace-adopt": ["workspace", "agent", "as"],
             "workspace-new": WebWorkspaceNew.fields,
+            "workspace-from-template": WebTemplates.fields,
             "workspace-start": ["workspace", "actsAsYou"],
             "workspace-release": ["workspace", "agent"],
             "bot-new": ["name", "agent", "model", "account", "avatar", "isolation", "deliver", "webhookEntry", "session", "skills", "instructions"],
@@ -799,6 +807,14 @@ public enum WebAction: Equatable, Sendable {
     }()
 
     public static var actionNames: [String] { fields.keys.sorted() }
+
+    /// 782: inbox reaches only a Claude Code session run without a fence — a bot made or changed here to be reached by inbox
+    /// runs unfenced (a Sandbox or fenced bot polls; the wizard never makes one that could not manage).
+    static func inboxOnlyUnfenced(_ b: BotRequest) throws {
+        if b.deliver == "inbox", let i = b.isolation, i != "unfenced" {
+            throw Invalid("deliver: inbox reaches only a bot that runs unfenced — a bot in a Sandbox or fenced on this Mac polls")
+        }
+    }
 
     /// 650: `POST /api/v1/actions`'s body — the action, and the envelope's `batch` (true from the page's bulk controls:
     /// such an operation waits behind a person's own; any action may carry it, and it is the only field beside the
@@ -1042,6 +1058,8 @@ public enum WebAction: Equatable, Sendable {
         case "workspace-new":
             let (w, fromProject) = try WebWorkspaceNew.decode(f, forPlan: false)
             a = .workspaceNew(w, fromProject: fromProject)
+        case "workspace-from-template":
+            a = .workspaceFromTemplate(try WebTemplates.decode(f))
         case "workspace-start":
             a = .workspaceStart(workspace: try f.workspaceName("workspace"), actsAsYou: try f.flag("actsAsYou") == true)
         case "workspace-release":
@@ -1055,11 +1073,13 @@ public enum WebAction: Equatable, Sendable {
             b.agent = try f.botAgent("agent")
             // The isolation is chosen in the form, never assumed (unfenced only when picked: it acts as you).
             b.isolation = try f.required(try f.botIsolation("isolation", n, verb: "new", agent: b.agent), "isolation")
+            try Self.inboxOnlyUnfenced(b)
             a = .botNew(b)
         case "bot-set":
             let n = try f.botName("name")
             var b = try f.botFields(n)
             b.isolation = try f.botIsolation("isolation", n, verb: "set", agent: nil)
+            try Self.inboxOnlyUnfenced(b)
             guard b.model != nil || b.account != nil || b.avatar != nil || b.skills != nil || b.instructions != nil || b.isolation != nil
                     || b.deliver != nil else { throw Invalid("bot-set: nothing to change") }
             a = .botSet(b)
@@ -1200,8 +1220,8 @@ public enum WebAction: Equatable, Sendable {
                 let rest = verb == "set" ? "" : " --agent \(plain ?? "AGENT")"
                 throw Invalid("\(key): a bot elsewhere gets its token in a terminal on this Mac: doz bot \(verb) \(name)\(rest) --isolation elsewhere --to-file F")
             }
-            guard ["vm", "fenced", "unfenced"].contains(s) else { throw Invalid("\(key): vm, fenced or unfenced") }
-            return s
+            guard ["sandbox", "vm", "fenced", "unfenced"].contains(s) else { throw Invalid("\(key): sandbox, fenced or unfenced") }
+            return IsolationWord.stored(s)
         }
 
         /// The fields `new` and `set` share: model, account, avatar, delivery (and its entry or session), skills, instructions.
