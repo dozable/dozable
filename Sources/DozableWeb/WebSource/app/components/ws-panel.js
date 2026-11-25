@@ -87,9 +87,11 @@ export function foldersBox(d, opts = {}) {
   return h('section', { class: 'ws-box', 'aria-label': 'Folders' }, h('h2', { class: 'ws-box-h' }, icon('folder'), 'Folders'), body);
 }
 
-/// Its agents' network preset.
+/// Its agents' network: the preset, and the sites on top (a space file's `network:` is the workspace's).
 export function networkBox(d, opts = {}) {
-  const body = h('p', { class: 'ws-net', 'data-ws-network': d.network || 'locked' }, d.network ? d.network + ' — its agents’ preset' : 'locked — its agents’ preset (the default)');
+  const sites = (d.sites || []).length ? ' + ' + d.sites.join(', ') : '';
+  const body = h('p', { class: 'ws-net', 'data-ws-network': d.network || 'locked' },
+    d.network ? d.network + sites + ' — its agents’ network' : 'locked' + sites + ' — its agents’ network (the default)');
   if (opts.compact) return h('div', { class: 'ws-box-in' }, body);
   return h('section', { class: 'ws-box', 'aria-label': 'Network' }, h('h2', { class: 'ws-box-h' }, icon('shield'), 'Network'), body);
 }

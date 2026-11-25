@@ -194,6 +194,15 @@ public struct SpacePlan: Codable, Equatable, Sendable {
 }
 
 public enum SpaceUp {
+    /// 779: how the file's network (`SpaceIntent.network`/`sites`) differs from the workspace's default as recorded — the
+    /// plan's diff line, and what the edit step writes; nil: the same (none on either side is `locked`).
+    public static func networkChange(_ rec: WorkspaceRecord, _ i: SpaceIntent) -> String? {
+        let have = WorkspaceDefaults(network: rec.defaults.network, sites: rec.defaults.sites)
+        let want = WorkspaceDefaults(network: i.network, sites: i.sites)
+        guard (have.network ?? "locked") != (want.network ?? "locked") || (have.sites ?? []) != (want.sites ?? []) else { return nil }
+        return "network \(have.networkWords ?? "locked") → \(want.networkWords ?? "locked")"
+    }
+
     /// An agent's task when the file gives it no prompt.
     public static let defaultTask = "Read the brief (BRIEF.md beside the space file, posted in the room) and do the work it describes."
 
@@ -338,6 +347,7 @@ public enum SpaceUp {
                 for x in want.subtracting(have).sorted() { diff.append("+ folder \(DisplayPath.tilde(x))") }
                 for x in have.subtracting(want).sorted() { diff.append("- folder \(DisplayPath.tilde(x))") }
                 if rec.manager?.bot != manager?.bot { diff.append("manager \(rec.manager?.bot ?? "none") → \(manager?.bot ?? "none")") }
+                if let c = Self.networkChange(rec, i) { diff.append(c) }
                 if let a = ref?.brief?.sha256, let b = f.brief?.sha256, a != b { diff.append("the brief changed since the last up") }
                 let edits = diff.contains { !$0.hasPrefix("the brief") }
                 step("workspace-edit", "workspace \(i.space)", "persisted", diff.isEmpty ? "the workspace \(i.space): as the file says" : "the workspace \(i.space): " + diff.joined(separator: "; "),
@@ -351,6 +361,7 @@ public enum SpaceUp {
         } else {
             var text = "make the workspace \(i.space)"
             var parts: [String] = []
+            if let net = i.network { parts.append("network " + (WorkspaceDefaults(network: net, sites: i.sites).networkWords ?? net)) }
             if !folderPaths.isEmpty { parts.append("folders " + folderPaths.map { DisplayPath.tilde($0.path) + ($0.mode == "ro" ? " (read-only)" : "") }.joined(separator: ", ")) }
             if let m = i.mainRoom { parts.append(m.external ? "its room: the existing \(m.chatRoom), linked" : "its room \(m.chatRoom), made as you") }
             if let m = manager?.bot { parts.append("managed by \(m)") }

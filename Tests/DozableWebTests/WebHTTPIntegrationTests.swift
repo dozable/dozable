@@ -401,6 +401,13 @@ final class WebHTTPIntegrationTests: XCTestCase {
         XCTAssertTrue(file.canSave, "this Mac's own browser saves")
         XCTAssertNil(file.command)
         XCTAssertEqual(file.shownPath, "~/work/demo.space.yaml")
+        XCTAssertNil(file.picture, "no picture reader, or a file the renderer reads as it is: the picture draws the text")
+        // The workspace drawn: the installed reader's words for the file (doz ui installs the CLI's — SpacePictureTests).
+        WebSpace.installPictureReader { "drawn: " + $0 }
+        defer { WebSpace.installPictureReader { _ in nil } }
+        let drawn = try JSONDecoder().decode(WebSpaceFile.self, from: try get("/api/v1/workspace-space", h, method: "POST", body: #"{"workspace":"demo"}"#).body)
+        XCTAssertEqual(drawn.picture, "drawn: " + drawn.text)
+        XCTAssertEqual(drawn.text, file.text, "the editor and the plan keep the file's own text")
         let raw = try get("/api/v1/workspace-space", h, method: "POST", body: #"{"workspace":"demo"}"#).text
         XCTAssertFalse(raw.contains("/Users/someone"), "the path is shown with ~, never the absolute one: \(raw)")
         let state = try JSONDecoder().decode(SpaceState.self, from: try get("/api/v1/workspace-state", h, method: "POST", body: #"{"workspace":"demo"}"#).body)

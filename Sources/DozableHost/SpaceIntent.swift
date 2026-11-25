@@ -108,6 +108,11 @@ public struct SpaceIntent: Codable, Equatable, Sendable {
     public var lifetime: String? = nil
     public var briefText: String? = nil
     public var briefRefs: [String]? = nil
+    /// 779: the workspace's network — the top-level `network:` (`x-dozable.network` too): its preset and the sites on top,
+    /// recorded as the workspace's default (`WorkspaceDefaults.network`/`sites`: every agent it starts; a place with no
+    /// network of its own). nil: none written — Dozable's default, `locked`. Optional (an older plan decodes).
+    public var network: String? = nil
+    public var sites: [String]? = nil
     /// 756: the owned resources whose own `x-dozable.lifetime` is `run` — inside a standing workspace, the ones its finish
     /// removes (archived first): `agent:NAME`, `room:CHATROOM`, `sandbox:PLACE`, `folder:NAME`. Optional (an older plan decodes).
     public var runLifetime: [String]? = nil
@@ -163,6 +168,13 @@ extension SpaceIntent {
         var run: [String] = []
         i.briefText = model.briefText
         i.briefRefs = model.briefRefs.isEmpty ? nil : model.briefRefs
+        if case .network(let preset, let allow)? = WorkspacePlaces.network(SpaceDozable.member(doc, "network", at: .top)) {
+            i.network = preset
+            do { i.sites = try WorkspaceNetworks.checkedSites(allow) } catch {
+                let m = HostError.from(error).message.replacingOccurrences(of: "--site", with: "network.allow")
+                i.refusals.append(Refusal(pointer: "/network/allow", message: m, code: "invalid"))
+            }
+        }
         i.archiveKeep = model.archiveKeep
         i.risks = model.risks
         i.skipped = model.skipped.map(\.name)

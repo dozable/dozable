@@ -35,8 +35,12 @@ struct SpaceResolver {
 
         var locator: SpaceLocator { SpaceLocator(sources: sources, origins: origins) }
         var spaceName: String { SpaceDoc.string(SpaceDoc.member(merged, "space")) ?? "" }
-        /// What the daemon receives: `{space}` filled (`{run}` stays).
-        var filled: JValue { SpaceDoc.fillSpace(merged, space: spaceName) }
+        /// What `~` stood for when it was read (the resolver's `home`).
+        var home: String = TestSafety.spaceHome()
+        /// What the daemon receives: `{space}` filled (`{run}` stays), the brief's references absolute (`absoluteRefs`).
+        var filled: JValue {
+            SpaceResolver.absoluteRefs(SpaceDoc.fillSpace(merged, space: spaceName), dir: (file as NSString).deletingLastPathComponent, home: home)
+        }
 
         /// Every problem: the resolver's, each source's and the merged document's (the CLI's look before it sends anything).
         func check(profiles: [String] = []) -> (problems: [SpaceProblem], model: SpaceModel?) {
@@ -85,6 +89,7 @@ struct SpaceResolver {
         let file = URL(fileURLWithPath: file0).standardizedFileURL.path
         var r = Resolved()
         r.file = file
+        r.home = home
         let name = (file as NSString).lastPathComponent
         guard let text = read(file) else {
             r.problems.append(SpaceProblem(pointer: "", message: "cannot read \(DisplayPath.tilde(file)) (a UTF-8 file of at most 256 KiB)", file: name, line: 1))
@@ -199,6 +204,32 @@ struct SpaceResolver {
                                            file: place.file, line: place.line))
         }
         return r
+    }
+
+    /// The brief's references (`brief.refs`, `x-dozable.brief.refs`) as the daemon takes them — an absolute path or an
+    /// http(s) address: a relative path is the space file's folder's (as `brief.file` is), `~` and `~/…` are the home
+    /// (`TestSafety.expandSpaceTilde`: a guarded run's `DOZ_TEST_HOME`). The daemon never reads the file, so the CLI says
+    /// where each one is; plan and up send the same document, so the plan shows them as up records them.
+    static func absoluteRefs(_ doc: JValue, dir: String, home: String) -> JValue {
+        func absolute(_ r: String) -> String {
+            if r.hasPrefix("http://") || r.hasPrefix("https://") || r.isEmpty { return r }
+            let x = TestSafety.expandSpaceTilde(r, home: home)
+            return URL(fileURLWithPath: x, relativeTo: URL(fileURLWithPath: dir, isDirectory: true)).standardizedFileURL.path
+        }
+        func brief(_ b: JValue) -> JValue {
+            guard case .object(var m) = b, let i = m.lastIndex(where: { $0.key == "refs" }), case .array(let a) = m[i].value else { return b }
+            m[i].value = .array(a.map { v in SpaceDoc.string(v).map { .string(absolute($0)) } ?? v })
+            return .object(m)
+        }
+        guard case .object(var top) = doc else { return doc }
+        for i in top.indices {
+            if top[i].key == "brief" { top[i].value = brief(top[i].value) }
+            if top[i].key == SpaceDozable.key, case .object(var x) = top[i].value {
+                for j in x.indices where x[j].key == "brief" { x[j].value = brief(x[j].value) }
+                top[i].value = .object(x)
+            }
+        }
+        return .object(top)
     }
 
     // MARK: YAML → the ordered document and its lines

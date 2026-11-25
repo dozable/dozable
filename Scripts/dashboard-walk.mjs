@@ -80,6 +80,10 @@
 //     under reduced motion the hero has no animation; a toast does not cover the hero's drawing; a file that doesn't read → the marker and Dozable's problem line;
 //     no CSP violation (a listener from every document's start); the leak sweep; pictures to SHOTS (the page light, dark, 390 px
 //     and with a toast; Home light and 390 px; the sidebar with spc2 unfolded).
+//   · places (after space/3.1): `spcp` up from a space/3.1 file with x-dozable places (a vm place, a fenced one with a worker
+//     on the FAKE claude), feeds, permissions, network and brief refs: [README.md] — 1 up; 2 the reference the file's folder's;
+//     3 the Home thumbnail and 4–5 the Home tab picture draw without a problem marker; 6 the vm place as SANDBOX · build, the
+//     fenced agent in a FENCE; 7 the Network card is the file's network; 8 down; 9 no page error; the leak sweep.
 //   · the space editor's page, chat still on: `spc3` up from a space file that extends a defaults file (a fenced worker on the
 //     FAKE claude that reports itself blocked; an unused sentinel in the .env beside it); 1 nothing of the editor fetched
 //     before its page, its glue at most 16 KB; 2 the hero is a link to #/w/spc3/space, the page the whole window, a reload opens
@@ -2806,6 +2810,66 @@ async function walkSpace31() {
   await shot('space-editor-31');
 }
 
+// The Home tab picture of a workspace whose file uses x-dozable places, feeds and permissions draws without a problem
+// marker: the vendored renderer's own reader does not know them, so the picture is given the file in its words (the
+// workspace-space read's `picture`; web.md, "The workspace drawn") — the vm place drawn as its sandbox, the fenced place's
+// agent fenced. A relative brief reference (refs: [README.md]) is the file's folder's at up. The file's network is the
+// workspace's: its Network card says so.
+async function walkPlaces() {
+  await browserSocket();
+  const errorsBefore = pageErrors.length;
+  const SPACE = S + '/places';
+  mkdirSync(SPACE, { recursive: true });
+  writeFileSync(SPACE + '/BRIEF.md', 'The places walk.\n');
+  writeFileSync(SPACE + '/README.md', '# the places walk\n');
+  writeFileSync(SPACE + '/spcp.space.yaml', 'doz: space/3.1\nspace: spcp\nowner: ada\nbrief: { file: BRIEF.md, refs: [README.md] }\n'
+    + 'network: { preset: standard, allow: [registry.npmjs.org] }\n'
+    + 'agents:\n  w1: { kind: claude-code, role: worker, where: desk, prompt: watch the places walk }\n'
+    + 'chat:\n  rooms:\n    spcp: { main: true, members: [owner, w1] }\n'
+    + 'x-dozable:\n  places:\n    build: { isolation: vm, image: claude-code, cpus: 2, memory: 4G }\n    desk: { isolation: fenced }\n'
+    + '  feeds:\n    journal: { to: room }\n    health: { to: room }\n  permissions:\n    w1: [reviewer]\n');
+  const up = doz(['workspace', 'up', '-f', SPACE + '/spcp.space.yaml', '--yes']);
+  if (up.status === 0) spaceSessions.push('spcp-w1');
+  check(up.status === 0, 'places 1 workspace up -f a file with x-dozable places (a vm place, a fenced one with a worker on the FAKE claude), feeds, permissions and brief refs: [README.md]'
+    + (up.status === 0 ? '' : ' ' + (up.stderr || up.stdout || '').slice(0, 300)));
+  const show = dozJSON(['workspace', 'show', 'spcp']) || {};
+  check(JSON.stringify((show.brief || {}).refs) === JSON.stringify([realpathSync(SPACE) + '/README.md']) || JSON.stringify((show.brief || {}).refs) === JSON.stringify([SPACE + '/README.md']),
+    `places 2 the relative reference is the file's folder's (${JSON.stringify((show.brief || {}).refs)})`);
+  // Home, read again on a reload (as the pictures rows do: the setup, never done here, opens over Home on a load). The
+  // page in front first: a window an earlier row opened leaves it hidden, and a hidden page reads no picture.
+  await send('Page.bringToFront');
+  await send('Page.reload');
+  await waitFor(`typeof state === 'object' && !!state.csrf`, 30000);
+  await goHash('#/mac/sandboxes');
+  await goHash('#/home');
+  await waitFor(`state.view === 'home' && !state.modal`, 10000);
+  // (only pictures on screen are read: the row brought into view — Home holds every workspace of the walk by now)
+  await waitFor(`!!document.querySelector('[data-ws="spcp"]')`, 10000);
+  await evaluate(`document.querySelector('[data-ws="spcp"]')?.scrollIntoView({ block: 'center' })`);
+  const why = () => evaluate(`JSON.stringify({ vis: document.visibilityState, stats: (({ fileReads, stateReads, renders, hits }) => ({ fileReads, stateReads, renders, hits }))(pictureStats),
+    hero: (${HERO('spcp')}?.textContent || '').replace(/\\s+/g, ' ').slice(0, 120) })`);
+  const thumb = await waitFor(`!!document.querySelector('[data-ws="spcp"] .sp-thumb img.sp-img:not([hidden])')`, 20000)
+    && await evaluate(`!document.querySelector('[data-ws="spcp"] .sp-thumb img.sp-img').src.includes('%20problem%22')`);
+  check(thumb, 'places 3 Home draws its thumbnail, no problem marker' + (thumb ? '' : ' ' + await why()));
+  await goHash('#/w/spcp');
+  const drawn = await waitFor(`!!${HERO('spcp')}?.dataset.picKey && !!${HERO('spcp')}.querySelector('svg.space-render')`, 20000);
+  check(drawn, 'places 4 the Home tab draws its hero' + (drawn ? '' : ' ' + await why()));
+  const hero = await evaluate(`(() => { const s = ${HERO('spcp')}?.querySelector('svg.space-render');
+    if (!s) return { problem: true, labels: ['no hero drawn'] };
+    return { problem: s.classList.contains('problem'), labels: [...s.querySelectorAll('text')].map((t) => t.textContent.trim()) }; })()`);
+  check(!hero.problem, 'places 5 the Home tab picture of a workspace whose file uses x-dozable places, feeds and permissions draws without a problem marker'
+    + (hero.problem ? ' (' + hero.labels.slice(0, 3).join(' | ') + ')' : ''));
+  check(hero.labels.some((l) => /^SANDBOX · build$/i.test(l)) && hero.labels.some((l) => /^FENCE$/i.test(l)) && hero.labels.includes('w1'),
+    'places 6 …the vm place drawn as its sandbox (SANDBOX · build), the fenced place\'s agent w1 in a fence');
+  check(await waitFor(`/standard \\+ registry\\.npmjs\\.org — its agents’ network/.test(${text('[data-ws-card="network"] .ws-net')})`, 10000),
+    'places 7 its Network card is the file\'s network: "standard + registry.npmjs.org — its agents’ network"');
+  await shot('places-home', `[data-ws-hero="spcp"]`);
+  const down = doz(['workspace', 'down', 'spcp', '--yes']);
+  check(down.status === 0, 'places 8 workspace down spcp');
+  check(pageErrors.length === errorsBefore, 'places 9 no page error' + (pageErrors.length > errorsBefore ? ': ' + pageErrors.slice(errorsBefore, errorsBefore + 3).join(' | ') : ''));
+  await leakSweep('places');
+}
+
 async function walkSpace() {
   const errorsBefore = pageErrors.length;
   const SPACE = S + '/space3';
@@ -2928,12 +2992,19 @@ async function walkSpace() {
   const asked = await waitFor(`document.querySelectorAll('#space .space-editor .ask-card').length > 0`, 30000);
   check(!!askId && asked, 'space 9 a bot\'s Ask in spc3 is drawn on the canvas' + (askId ? '' : ' (no ask made)'));
   if (asked) {
+    // (an earlier row's chat-decide is done already in the full walk: this one is the next)
+    const decidedBefore = await evaluate(`[...state.ops.values()].filter((o) => o.action === 'chat-decide' && o.state === 'done').length`);
     await clickAt(`[...document.querySelectorAll('#space .space-editor #se-problems-list .prob.k-ask')].find((b) => /Ship the editor/.test(b.textContent))`);
     await waitFor(`!!${SE('dialog.ask-dlg[open] .ask-option')}`, 8000);
     await clickAt(`[...document.querySelectorAll('#space .space-editor dialog.ask-dlg .ask-option')].find((b) => b.textContent === 'Yes')`);
     await clickAt(`[...document.querySelectorAll('#space .space-editor dialog.ask-dlg .dlg-foot button')].find((b) => b.textContent === 'Send')`);
-    const answered = await waitFor(`[...state.ops.values()].some((o) => o.action === 'chat-decide' && o.state === 'done')`, 30000);
-    check(answered && !(((dozJSON(['chat', 'asks', 'spc3']) || {}).asks || []).some((a) => a.msgId === askId)), 'space 9 …answered from the drawing: the operation done, the ask no longer open');
+    const answered = await waitFor(`[...state.ops.values()].filter((o) => o.action === 'chat-decide' && o.state === 'done').length > ${decidedBefore}`, 30000);
+    const isOpen = () => ((dozJSON(['chat', 'asks', 'spc3']) || {}).asks || []).some((a) => a.msgId === askId);
+    let open = isOpen();
+    for (let i = 0; i < 20 && answered && open; i++) { await sleep(250); open = isOpen(); }
+    check(answered && !open, 'space 9 …answered from the drawing: the operation done, the ask no longer open' + (answered && !open ? ''
+      : ' ' + JSON.stringify({ answered, open, ops: await evaluate(`[...state.ops.values()].map((o) => o.action + ':' + o.state + ':' + String(o.text || '').slice(0, 80))`),
+        dialog: await evaluate(`(() => { const d = document.querySelector('#space .space-editor dialog.ask-dlg'); return d ? (d.open ? 'open: ' : 'closed: ') + d.textContent.replace(/\\s+/g, ' ').slice(0, 160) : 'none'; })()`) })));
   }
   // 11. Watch: read-only, the canvas with Live on, no bar.
   await goHash('#/w/spc3/space/watch');
@@ -3081,7 +3152,10 @@ async function walkHome() {
   const live = await waitFor(`(${text('#ws-home [data-ws-card="room"]')}).includes(${JSON.stringify(words)})`, 4000);
   await sleep(800);
   const seen = await evaluate(`localStorage.getItem('doz.chat.seen:askw')`);
-  check(seen === seenBefore && (last.seq === undefined || +seen < +last.seq), `home 8 …not marked seen (the marker ${seenBefore} → ${seen}, the message ${last.seq})` + (live ? '; the room card shows it at once' : ''));
+  const seenOk = seen === seenBefore && (last.seq === undefined || +seen < +last.seq);
+  check(seenOk, `home 8 …not marked seen (the marker ${seenBefore} → ${seen}, the message ${last.seq})` + (live ? '; the room card shows it at once' : '')
+    + (seenOk ? '' : ' ' + JSON.stringify({ vis: await evaluate('document.visibilityState'), view: await evaluate('state.view + ":" + state.wsTab'),
+      pages: (await (await fetch(`http://127.0.0.1:${devPort}/json/list`)).json()).filter((t) => t.type === 'page').map((t) => t.url.replace(/#cap=.*/, '#cap=…').replace(/^http:\/\/127\.0\.0\.1:\d+/, '')) })));
   check(await waitFor(`state.chat.live !== 'live'`, 9000), 'home 8 …and Home holds no chat stream (closed 5 s after the room was left)');
   // 5. An agent blocked: Needs you names it.
   const run = spawnSync(DOZ, ['run', '@mac', '-d', '--unfenced', '--session', 'homeblk', '--store', STORE, '--', '/bin/sh', '-c',
@@ -3482,6 +3556,7 @@ try {
     await walkSpace();
     await walkSpaceWindow('spc3');
     await walkSpace31();
+    await walkPlaces();
     failed = failures.length > 0;
     console.log(`dashboard-walk (SPACE_ONLY): ${passed} passed, ${failures.length} failed` + (failed ? '\n  ' + failures.join('\n  ') : ''));
     throw Object.assign(new Error('space only'), { spaceOnly: true });
@@ -3539,8 +3614,9 @@ try {
   // Last of the chat rows (its rooms and open asks would be in the counts the rows before read): the pictures and the
   // chat page's recalculation.
   await walkChatPictures();
-  // space/3.1 in the vendored editor (after every count above).
+  // space/3.1 in the vendored editor (after every count above), then a file with Dozable's places and feeds.
   await walkSpace31();
+  await walkPlaces();
 
   // Looking never starts the daemon: stop it, then open Home and Sandboxes.
   doz(['daemon', 'stop']);

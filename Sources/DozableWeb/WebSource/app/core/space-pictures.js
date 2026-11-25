@@ -106,9 +106,11 @@ async function readOne(e) {
       pictureStats.fileReads++;
       try {
         const f = await api('workspace-space', { method: 'POST', json: { workspace: e.name } });
-        if (f.sha256 !== e.fileSha) { e.text = f.text; e.fileSha = f.sha256; e.problems = null; }
+        // `picture`: the same file in the renderer's words (Dozable's places and feeds — web.md, "The workspace drawn");
+        // the plan's verdict always reads `text`.
+        if (f.sha256 !== e.fileSha) { e.text = f.text; e.drawn = f.picture || f.text; e.fileSha = f.sha256; e.problems = null; }
         e.shownPath = f.shownPath; e.denied = false;
-      } catch (err) { e.denied = err.status === 403; e.text = e.fileSha = null; }
+      } catch (err) { e.denied = err.status === 403; e.text = e.drawn = e.fileSha = null; }
       e.fileAt = at;
     }
     if (needsState(e)) {
@@ -191,7 +193,7 @@ async function drawNext() {
         const prefix = (v.kind === 'hero' ? 'dzh-' : 'dzt-') + v.name + '-';
         const opts = { detail: v.kind === 'thumb' ? 'thumb' : 'hero', width: v.w, height: v.h, theme: currentTheme(), idPrefix: prefix };
         const st = e.st || undefined, t0 = performance.now();
-        got = v.kind === 'thumb' ? 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(mod.render(e.text, st, opts)) : mod.renderElement(e.text, st, opts);
+        got = v.kind === 'thumb' ? 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(mod.render(e.drawn, st, opts)) : mod.renderElement(e.drawn, st, opts);
         pictureStats.ms[v.kind] = pictureStats.ms[v.kind].concat(Math.round(performance.now() - t0)).slice(-20);
         lru(key, got);
       }
