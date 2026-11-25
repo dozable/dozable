@@ -547,7 +547,9 @@ extension HostCore {
         if let m = rec.manager, let mb = m.bot, await managerRunning(m) { director = mb }
         let wherePlace: WorkerKickoff.Where = shared ? .shared(place) : iso == .vm ? .vm : iso == .unfenced ? .unfenced : .fenced
         let start = Data(WorkerKickoff.startText(name: name, workspace: n, room: room, task: a.task ?? "", director: director, place: wherePlace,
-                                                 skills: bot?.skills ?? [], instructions: bot.flatMap { bots.readInstructions($0.name) }).utf8)
+                                                 skills: bot?.skills ?? [], instructions: bot.flatMap { bots.readInstructions($0.name) },
+                                                 inbox: iso == .unfenced && bot?.deliver == "inbox",
+                                                 skillFiles: AgentSkillFiles.paths(AgentSkillFiles.worker, isolation: iso)).utf8)
         let vars = WorkerLaunch.tokenVariables(name: name, shared: shared)
         var newToken = false
         /// An anonymous worker's new token: its participant's replaced (the old one refused from now on).
@@ -599,7 +601,8 @@ extension HostCore {
             }
             let files = try writeAgentTokenFolder(workerTokenFolder(place), token: value, start: start, who: name)
             plan = try WorkerLaunch.plan(isolation: .unfenced, agent: agent, model: bot?.model, bot: bot?.name, startFile: files.startFile,
-                                         pagePort: pagePort, fingerprint: BotTokens.fingerprint(value), tokenFile: files.tokenFile, name: name, shared: false)
+                                         pagePort: pagePort, fingerprint: BotTokens.fingerprint(value), tokenFile: files.tokenFile, name: name, shared: false,
+                                         session: place)
         }
         let order = WorkerLaunchOrder(workspace: n, name: name, isolation: iso, place: place, session: shared ? name : (iso == .vm ? name : nil), shared: shared,
                                       workdir: workdir, plan: plan, start: start, agent: agent, account: bot?.account, model: bot?.model,

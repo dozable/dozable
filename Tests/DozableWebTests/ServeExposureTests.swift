@@ -21,7 +21,7 @@ final class ServeExposureTests: XCTestCase {
             .files("s", nil), .filesWatch("s", []), .filesTree("s"), .filesTreeSet("s"), .filesOpen("s"), .editors, .grids, .dotfilesResolve, .portOpen("s"),
             .recipes, .macSessions, .macSessionScreen("agent"), .macTerminalTicket, .macTerminalSocket,
             .macSessionNetwork("agent"), .macSessionTranscripts("agent"), .macSessionTranscript("agent", "20261113T101500Z", "x.jsonl"),
-            .macSessionQuarantine("agent"), .macSessionPlan, .workspacePlan, .workerPlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .workspaceActivity, .workspaceRuns, .workspaceRunChat, .workspaceSpace, .workspaceSpacePlan, .workspaceState, .workspaceRunFrames, .chatRoomPlan, .chat(.status), .workspaces, .workspace("demo"), .workspaceBrief("demo"),
+            .macSessionQuarantine("agent"), .macSessionPlan, .workspacePlan, .workerPlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .workspaceActivity, .workspaceRuns, .workspaceRunChat, .workspaceSpace, .workspaceSpacePlan, .workspaceState, .workspaceRunFrames, .workspaceDoc, .chatRoomPlan, .chat(.status), .workspaces, .workspace("demo"), .workspaceBrief("demo"),
             .workspaceLog("demo", nil), .loose, .bots, .botsRetired, .bot("mira"), .macs,
         ]
         for r in all { _ = covered(r) }
@@ -38,7 +38,7 @@ final class ServeExposureTests: XCTestCase {
              .projectWrite, .resources, .resourcesPreview, .bases, .tryCatalog, .tryList, .models, .plan, .dockerfileChoose, .access, .accessCheck, .accessGithubKey, .signup, .updatesCheck, .uiRestart,
              .serveStatus, .serveDevices, .serveShare, .serveRevoke, .serveRename, .serveProbe, .files, .filesWatch, .filesTree, .filesTreeSet, .filesOpen, .editors, .grids,
              .dotfilesResolve, .portOpen, .recipes, .macSessions, .macSessionScreen, .macTerminalTicket, .macTerminalSocket,
-             .macSessionNetwork, .macSessionTranscripts, .macSessionTranscript, .macSessionQuarantine, .macSessionPlan, .workspacePlan, .workerPlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .workspaceActivity, .workspaceRuns, .workspaceRunChat, .workspaceSpace, .workspaceSpacePlan, .workspaceState, .workspaceRunFrames, .chatRoomPlan, .chat,
+             .macSessionNetwork, .macSessionTranscripts, .macSessionTranscript, .macSessionQuarantine, .macSessionPlan, .workspacePlan, .workerPlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .workspaceActivity, .workspaceRuns, .workspaceRunChat, .workspaceSpace, .workspaceSpacePlan, .workspaceState, .workspaceRunFrames, .workspaceDoc, .chatRoomPlan, .chat,
              .workspaces, .workspace, .workspaceBrief, .workspaceLog, .loose, .bots, .botsRetired, .bot, .macs:
             return true
         }
@@ -65,6 +65,7 @@ final class ServeExposureTests: XCTestCase {
         // A space file and its plan follow serve.chat too (what its agents are set up from); its state is a read.
         t["workspaceSpace"] = (nil, .spaceRemote, .spaceRemote)
         t["workspaceSpacePlan"] = (nil, .spaceRemote, .spaceRemote)
+        t["workspaceDoc"] = (nil, .spaceRemote, .spaceRemote)          // 781: a workspace's document drawn — as its space file
         return t
     }()
 
@@ -136,8 +137,8 @@ final class ServeExposureTests: XCTestCase {
     /// (read or write) for another computer; the state is a read (this Mac's sessions as serve.mac_sessions allows); saving is
     /// an action, this Mac's own browser's only whatever the settings.
     func testTheSpaceRoutesFollowServeChatAndSavingIsThisMacsOnly() {
-        for r: WebRoute in [.workspaceSpace, .workspaceSpacePlan, .workspaceState, .workspaceRunFrames] { XCTAssertEqual(WebExposure.kind(r), .read) }
-        for r: WebRoute in [.workspaceSpace, .workspaceSpacePlan] {
+        for r: WebRoute in [.workspaceSpace, .workspaceSpacePlan, .workspaceState, .workspaceRunFrames, .workspaceDoc] { XCTAssertEqual(WebExposure.kind(r), .read) }
+        for r: WebRoute in [.workspaceSpace, .workspaceSpacePlan, .workspaceDoc] {
             XCTAssertEqual(WebExposure.decide(r, .remote(secure: true), chat: .off), .spaceRemote)
             XCTAssertNil(WebExposure.decide(r, .remote(secure: true), chat: .read))
             XCTAssertNil(WebExposure.decide(r, .remote(secure: false), chat: .write))
@@ -154,7 +155,8 @@ final class ServeExposureTests: XCTestCase {
         XCTAssertEqual(WebRejection.spaceRemote.status, 403)
         XCTAssertTrue(WebRejection.spaceRemote.message.contains("serve.chat"))
         for (path, route) in [("/api/v1/workspace-space", WebRoute.workspaceSpace), ("/api/v1/workspace-space-plan", .workspaceSpacePlan),
-                              ("/api/v1/workspace-state", .workspaceState), ("/api/v1/workspace-run-frames", .workspaceRunFrames)] {
+                              ("/api/v1/workspace-state", .workspaceState), ("/api/v1/workspace-run-frames", .workspaceRunFrames),
+                              ("/api/v1/workspace-doc", .workspaceDoc)] {
             XCTAssertEqual(WebRoute.parse(method: .post, target: path), route, path)
             XCTAssertNil(WebRoute.parse(method: .get, target: path), "\(path): POST only")
             XCTAssertNil(WebRoute.parse(method: .post, target: path + "/demo"), "\(path): never a payload in the address")

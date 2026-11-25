@@ -261,19 +261,21 @@ others were done). `doz help exit-codes` lists them all.
 
 ## The workspace drawn
 
-In the dashboard a workspace a space file made is drawn from its file and what is running now: its agents, rooms, folders
-and sandboxes in the file's layout, each marked as it is — running, asleep, missing, gone after down — and what waits for
-you. The picture is on the workspace's **Home** tab, across the page — on no other tab: click it to open the file in the
-space editor (below). Home and the Workspaces page show each workspace small beside its
+In the dashboard every workspace is drawn with what is running now: its agents, rooms, folders and sandboxes, each marked
+as it is — running, asleep, missing, gone after down — and what waits for you. One a space file made is drawn from its
+file, in the file's layout; one made without a space file (with the wizard, `doz workspace new`, by adopting agents) from
+its record — the document `doz workspace doc NAME` prints. The picture is on the workspace's **Home** tab, across the page
+— on no other tab: for a space file, click it to open the file in the space editor (below); one made without has no file
+to edit, and shows `doz workspace doc NAME` beside its picture instead. Home and the Workspaces page show each workspace small beside its
 name, and the sidebar shows it at the top of an unfolded workspace (the setting `ui.nav_thumbnails` turns the sidebar's
 pictures off; the sidebar keeps no empty box while a picture is on its way). The picture follows what happens — an up or down, a save, a
-sleep or wake from the dashboard, a sandbox starting or stopping — and is never read on a timer; a change made only in a
+sleep or wake from the dashboard, a sandbox starting or stopping, a worker added or ended — and is never read on a timer; a change made only in a
 terminal to agents on this Mac shows the next time you open a page.
 
 A file that doesn't read is drawn as a small warning, and the page adds what Dozable itself found wrong with it and the
-command that checks it, `doz workspace up -f FILE --dry-run`. A workspace made without a space file shows a small tile on
-Home and the Workspaces page and, on its Home tab, "Made without a space file — `doz workspace up -f FILE` draws it". Another computer sees the picture
-only while `serve.chat` lets it read; otherwise it sees the tile, "Shown to another computer only with serve.chat read".
+command that checks it, `doz workspace up -f FILE --dry-run`. Another computer sees the picture only while `serve.chat` lets
+it read; otherwise it sees a tile, "Shown to another computer only with serve.chat read" — and, while `serve.mac_sessions`
+is off, a workspace made without a space file is drawn without its agents on this Mac.
 
 ## Editing a space in the dashboard
 

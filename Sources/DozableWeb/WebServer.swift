@@ -1145,6 +1145,14 @@ public final class DozableWebServer: @unchecked Sendable {
             try Self.requireJSONBody(md)
             let f = try await data.workspaceSpace(try WebSpace.decodeRead(body))
             return json(WebSpaceFile(f, canSave: !ctx.principal.isRemote, picture: WebSpace.picture(f.text)))
+        case .workspaceDoc:
+            // 781: a workspace made with no space file, drawn: its document (`workspace-doc` — the one `doz workspace doc`
+            // prints, one read-only HostOp, the workspace by its rule strictly) in the renderer's words. Another computer only
+            // with serve.chat read or write (decided above, as the space file); this Mac's agents left out of the drawing while
+            // serve.mac_sessions keeps them from it. Never a path from the request; the document holds no token.
+            try Self.requireJSONBody(md)
+            let a = try await data.workspaceDoc(try WebSpace.decodeRead(body))
+            return json(try WebWorkspaceDoc(a, macAllowed: WebGridsRequest.macAllowed(ctx.principal, settings.macSessions)))
         case .workspaceSpacePlan:
             // The page's open text planned: read in doz ui under the space file's rules (the record's path; `${VAR}` from the
             // .env beside it only), then the existing read-only `workspace-up-plan` — nothing written, no daemon started.

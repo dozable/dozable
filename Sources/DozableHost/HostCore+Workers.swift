@@ -646,7 +646,9 @@ extension HostCore {
         let instructions = p.bot.flatMap { bots.readInstructions($0.name) }
         let place: WorkerKickoff.Where = p.shared ? .shared(p.place) : p.isolation == .vm ? .vm : p.isolation == .unfenced ? .unfenced : .fenced
         let start = Data(WorkerKickoff.startText(name: name, workspace: n, room: p.rooms[0], task: p.entry.task ?? "", director: p.director, place: place,
-                                                 skills: p.bot?.skills ?? [], instructions: instructions).utf8)
+                                                 skills: p.bot?.skills ?? [], instructions: instructions,
+                                                 inbox: p.isolation == .unfenced && p.bot?.deliver == "inbox",
+                                                 skillFiles: AgentSkillFiles.paths(AgentSkillFiles.worker, isolation: p.isolation)).utf8)
         let vars = WorkerLaunch.tokenVariables(name: name, shared: p.shared)
         let plan: ManagerLaunch.Plan
         switch p.isolation {
@@ -689,7 +691,7 @@ extension HostCore {
             if let b = p.bot { notes += await pointBotInbox(n, bot: b, place: p.place) }
             plan = try WorkerLaunch.plan(isolation: .unfenced, agent: p.agent, model: p.bot?.model, bot: p.bot?.name, startFile: files.startFile,
                                          pagePort: pagePort, fingerprint: made.fingerprint ?? "", tokenFile: files.tokenFile, name: name, shared: false,
-                                         permissionMode: p.permissionMode)
+                                         permissionMode: p.permissionMode, session: p.place)
         }
         if p.shared { notes.append("\(name) shares \(p.place): workers there can read each other's placeholders") }
         // 5. Its session or sandbox.
@@ -914,7 +916,10 @@ extension HostCore {
         let held = await macLearnClaudeID(o.place)
         let how = try await mac.end(o.place)
         if how == .stuck { throw HostError(.failed, "session \(o.place) on this Mac did not end, even after SIGKILL") }
-        let r = try await macReopen(o.place, rec: mac.records().sessions[o.place] ?? rec, holder: holder, fresh: false,
+        var now = mac.records().sessions[o.place] ?? rec
+        // An unfenced Claude Code is named after its session (an inbox finds it by that name) — also one opened unnamed.
+        if !fenced { now.argv = AgentLaunch.namedArgv(now.argv, session: o.place) }
+        let r = try await macReopen(o.place, rec: now, holder: holder, fresh: false,
                                     size: TermSize(cols: 120, rows: 40), knownID: held, ended: how.rawValue,
                                     request: HostRequest(.sessionRestart, name: MacPlace.name), extra: agentMacReopenEnvironment(o.plan.environment),
                                     botSecrets: o.plan.secret.map { [$0] }, managerStart: fenced ? o.start : nil, startFolder: "worker")

@@ -835,6 +835,28 @@ final class WebModulesTests: XCTestCase {
         XCTAssertTrue(try read("index.html").contains(#"<section id="space" class="space-root""#))
     }
 
+    /// 781: every workspace is drawn — one made without a space file from its document (`workspace-doc`, read again on each
+    /// state mark, its state keyed as the document is), its hero no link (no file to edit) with `doz workspace doc NAME`;
+    /// no plain-only tile or compact band left. And the chat view's empty status box is not drawn.
+    func testEveryWorkspaceIsDrawnAndTheEmptyChatNoticeIsHidden() throws {
+        let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource")
+        let read = { (f: String) in try String(contentsOf: src.appendingPathComponent(f), encoding: .utf8) }
+        let data = try read("app/core/space-pictures.js")
+        XCTAssertTrue(data.contains("api(p ? 'workspace-doc' : 'workspace-space', { method: 'POST', json: { workspace: e.name } })"), "a plain one's picture is its document")
+        XCTAssertTrue(data.contains("e.plain && !!e.text && stateDue(e)"), "its document is read again whenever its state is")
+        XCTAssertTrue(data.contains("named(e.st, e.subjects)"), "its state keyed as the document is")
+        for banned in ["setTimeout", "setInterval"] { XCTAssertFalse(data.contains(banned), "core/space-pictures.js: \(banned)") }
+        let comp = try read("app/components/space-picture.js")
+        XCTAssertFalse(comp.contains("heroNone") || comp.contains("sp-tile-sm"), "no plain-only tile or band")
+        XCTAssertTrue(comp.contains("const doc = () => 'doz workspace doc ' + cur.name;") && comp.contains("open.replaceChildren(cmdLine(doc()))"))
+        XCTAssertTrue(comp.contains("h('div', { class: 'ws-hero is-plain'"), "a plain hero is no link")
+        XCTAssertFalse(try read("app/views/ws-home.js").contains("heroNone"))
+        XCTAssertFalse(try read("app.css").contains("sp-tile-sm"))
+        XCTAssertTrue(try read("app.css").contains("#chat-notice:empty { display: none; }"), "an empty status box is not drawn")
+        let a = try WebAssets.load()
+        XCTAssertTrue(a.assets.keys.contains { $0.hasPrefix("/assets/app/core/space-pictures-") })
+    }
+
     /// 744: every token the editor's stylesheet reads (but its own --iso-* and --se-*) is the dashboard's, its own, or one its
     /// script sets on an element.
     func testTheSpaceEditorsStylesheetReadsTheDashboardsTokens() throws {

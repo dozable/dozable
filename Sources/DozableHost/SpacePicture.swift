@@ -72,6 +72,42 @@ public enum SpacePicture {
         return .object(top)
     }
 
+    // 781: a workspace made with no space file is drawn too — from its document (`RecordDocument.generate`, the one `doz
+    // workspace doc` writes). Two of the generated document's shapes do not read at the renderer's pin, so the picture says
+    // them in words it draws (only what it draws; never sent anywhere, never saved, never planned):
+    // - a linked room (`external: doz://HOST/OWNER/room/ROOM`): "unknown node" there — drawn as a room of its key;
+    // - a worker on this Mac (`isolation:` and no `where:`) beside a vm `agent_defaults` (the workspace's new workers run in
+    //   VMs): "an agent in a sandbox is never unfenced" — it is on this Mac, said with `where: mac`.
+    // `hiding`: the keys of agents the viewer may not see (another computer while serve.mac_sessions is off) — left out.
+
+    /// A record's document in the renderer's words, as the text it reads (Dozable's places and feeds too, as `document`).
+    public static func recordDocument(_ doc: JValue, hiding: Set<String> = []) -> String {
+        guard case .object(var top) = doc else { return text(doc) }
+        for i in top.indices {
+            switch top[i].key {
+            case "agents":
+                var agents: [JMember] = []
+                for m in SpaceDoc.members(top[i].value) where !hiding.contains(m.key) {
+                    guard case .object(var a) = m.value, !a.contains(where: { $0.key == "where" }),
+                          let iso = a.firstIndex(where: { $0.key == "isolation" }) else { agents.append(m); continue }
+                    a.insert(JMember("where", .string("mac")), at: iso)
+                    agents.append(JMember(m.key, .object(a)))
+                }
+                top[i].value = .object(agents)
+            case "chat":
+                guard case .object(var chat) = top[i].value, let ri = chat.firstIndex(where: { $0.key == "rooms" }) else { continue }
+                chat[ri].value = .object(SpaceDoc.members(chat[ri].value).map { m in
+                    guard case .object(let r) = m.value, r.contains(where: { $0.key == "external" }) else { return m }
+                    return JMember(m.key, .object(r.filter { $0.key != "external" }))
+                })
+                top[i].value = .object(chat)
+            default: break
+            }
+        }
+        let out = JValue.object(top)
+        return text(document(out) ?? out)
+    }
+
     /// A document as a space file's text the renderer reads: its version line first, as written (the renderer looks for
     /// `doz: space/3…` on it), then each top-level key with its value in JSON's flow form (YAML reads JSON).
     public static func text(_ doc: JValue) -> String {

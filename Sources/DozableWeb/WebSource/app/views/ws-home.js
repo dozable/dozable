@@ -1,5 +1,5 @@
-// views/ws-home — A workspace's Home tab (#/w/NAME, the page's default): the workspace drawn (its space file's picture,
-// live and read-only — a click opens the full window; a plain one says how one draws it), then its cards, each linking
+// views/ws-home — A workspace's Home tab (#/w/NAME, the page's default): the workspace drawn (its space file's picture —
+// a link to the space editor —, or, made without one, its document's; live and read-only), then its cards, each linking
 // to the tab that holds the whole of it: Needs you (only when something waits — the setting-up checklist and Start, its
 // rooms' open asks, an agent blocked or in error), State and run, Who, The room (its last two messages), Recent activity,
 // Folders, Network. Drawn from what views/workspace.js already read (the workspace, its log); two reads of its own while
@@ -18,7 +18,7 @@ import { state } from '../core/state.js';
 import { LIFECYCLE, primaryVerb } from '../core/ws-lifecycle.js';
 import { cmdLine } from '../components/cmd-line.js';
 import { onPreview } from '../components/chat-unread.js';
-import { heroNone, spaceHero } from '../components/space-picture.js';
+import { spaceHero } from '../components/space-picture.js';
 import { wsCard } from '../components/ws-card.js';
 import { gapsList } from '../components/ws-gaps.js';
 import { lifecycleCommand, lifecycleRefusal, openLifecycle, transitional } from '../components/ws-lifecycle.js';
@@ -56,17 +56,13 @@ export function homeDispose() {
   cur = null;
 }
 
-/// The workspace drawn from its space file and its live state (redrawn only when what it shows changed), or — made
-/// without a file — the compact band that says how one draws it.
+/// The workspace drawn from its space file — or, made without one, from its document — and its live state (redrawn only
+/// when what it shows changed). A workspace given a space file since gets a new hero.
 function paintHero(d) {
   const slot = cur.heroSlot;
-  if (!d.space) {
-    if (hero) { hero.dispose(); hero = null; }
-    if (!slot.querySelector('[data-ws-hero-none]')) slot.replaceChildren(heroNone(d.name));
-    return;
-  }
-  const o = { name: d.name, file: d.space.file, edit: !isRemote() };
-  if (!hero) { hero = spaceHero(o); slot.replaceChildren(hero.el); } else hero.set(o);
+  const o = { name: d.name, file: d.space ? d.space.file : null, edit: !isRemote(), plain: !d.space };
+  if (hero && hero.plain !== o.plain) { hero.dispose(); hero = null; }
+  if (!hero) { hero = spaceHero(o); hero.plain = o.plain; slot.replaceChildren(hero.el); } else hero.set(o);
 }
 
 function paint() {

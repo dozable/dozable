@@ -41,6 +41,16 @@ public enum RecordDocument {
     public struct Generated: Sendable, Equatable {
         public var document: JValue
         public var notes: [String]
+        /// 781: what the record's state calls each thing (`type:subject` — an agent and its member by its name, a sandbox by
+        /// its name, a folder by its path, a room by its name in chat) → its key in this document, so the workspace drawn
+        /// lines the state up with the document (`SpacePicture.recordDocument`). Empty for a space file's document.
+        public var subjects: [String: String] = [:]
+        /// 781: the keys of the agents on this Mac (a session, a fenced or unfenced worker, a manager there): what a browser
+        /// that may not see this Mac's sessions is not drawn.
+        public var macAgents: [String] = []
+        public init(document: JValue, notes: [String], subjects: [String: String] = [:], macAgents: [String] = []) {
+            self.document = document; self.notes = notes; self.subjects = subjects; self.macAgents = macAgents
+        }
     }
 
     /// The names a document gives: `[a-z][a-z0-9-]*`, one namespace across every section, each taken once.
@@ -114,11 +124,14 @@ public enum RecordDocument {
         }
 
         // Folders: each external, the main one marked.
+        var subjects: [String: String] = [:]
+        var macAgents: [String] = []
         var folders: [JMember] = []
         var mainFolder: String?
         let mainPath = rec.mainFolder?.path
         for f in rec.folders {
             let key = names.take((f.path as NSString).lastPathComponent, fallback: "folder")
+            subjects["folder:" + f.path] = key
             var def: [JMember] = [JMember("external", .string(f.path))]
             if f.mode == "ro" { def.append(JMember("access", .string("ro"))) }
             if f.path == mainPath {
@@ -136,12 +149,16 @@ public enum RecordDocument {
             guard let s = a.place.sandbox, sandboxKeys[s] == nil else { continue }
             let k = names.take(s, fallback: "sandbox")
             sandboxKeys[s] = k
+            subjects["sandbox:" + s] = k
             sandboxes.append(JMember(k, .object([])))
             if k != s { notes.append("the sandbox \(s) is named \(k) in the document") }
         }
         var agents: [JMember] = []
         for a in rec.agents where a.endedAt == nil {
             guard let (key, def) = agent(a, names: &names, mainFolder: mainFolder, host: i.host, sandboxKeys: sandboxKeys, notes: &notes) else { continue }
+            subjects["agent:" + a.name] = key
+            subjects["member:" + a.name] = key
+            if a.place.mac == true { macAgents.append(key) }
             agents.append(JMember(key, def))
         }
         for d in rec.declaredWorkers {
@@ -160,11 +177,13 @@ public enum RecordDocument {
             if owned {
                 let key = r.main && r.chatRoom == space ? space : names.take(r.main ? r.chatRoom : r.label, fallback: "room")
                 if r.main && r.chatRoom != space { notes.append("its main room \(r.chatRoom) is not named after the workspace") }
+                subjects["room:" + r.chatRoom] = key
                 var def: [JMember] = []
                 if r.main { def.append(JMember("main", .bool(true))) }
                 rooms.append(JMember(key, .object(def)))
             } else {
                 let key = names.take(r.main ? r.chatRoom : r.label, fallback: "room")
+                subjects["room:" + r.chatRoom] = key
                 let owner = i.roomOwners[r.chatRoom].flatMap { SpaceFormat.isName($0) ? $0 : nil } ?? "_"
                 var def: [JMember] = [JMember("external", .string("doz://\(i.host)/\(owner)/room/\(r.chatRoom)"))]
                 if r.main { def.append(JMember("main", .bool(true))) }
@@ -172,7 +191,7 @@ public enum RecordDocument {
             }
         }
         if !rooms.isEmpty { top.append(JMember("chat", .object([JMember("rooms", .object(rooms))]))) }
-        return Generated(document: .object(top), notes: notes)
+        return Generated(document: .object(top), notes: notes, subjects: subjects, macAgents: macAgents)
     }
 
     /// One agent of the record as the document says it (nil: nothing the document can say — an agent elsewhere).
@@ -342,8 +361,13 @@ public struct WorkspaceDocumentAnswer: Codable, Equatable, Sendable {
     /// The document's JSON text (the `view` form: `x-dozable.lifetime` always said).
     public var document: String
     public var notes: [String]
-    public init(workspace: String, from: String, document: String, notes: [String]) {
+    /// 781: for the workspace drawn (the dashboard only — never in `--json`'s answer): `RecordDocument.Generated`'s subjects
+    /// and agents on this Mac. nil from an older daemon, or for a space file's document.
+    public var subjects: [String: String]?
+    public var macAgents: [String]?
+    public init(workspace: String, from: String, document: String, notes: [String], subjects: [String: String]? = nil, macAgents: [String]? = nil) {
         self.workspace = workspace; self.from = from; self.document = document; self.notes = notes
+        self.subjects = subjects; self.macAgents = macAgents
     }
 
     public static let kind = "Document"

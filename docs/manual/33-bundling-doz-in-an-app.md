@@ -66,7 +66,7 @@ doz-VERSION-helper/
     ├── doz                           the program (signed, with the virtualization entitlement)
     ├── VERSION                       its version, one line
     ├── RELEASE                       helper
-    ├── DozableKit_DozableKit.bundle/ the small Linux programs each sandbox uses (deckhold, doznet, dozview, tmux), and skills/ (doz skill show)
+    ├── DozableKit_DozableKit.bundle/ the small Linux programs each sandbox uses (deckhold, doznet, dozview, tmux), and skills/ (doz skill show; the chat skills a workspace's agents read)
     ├── manual/                       this version's user manual: its pages, llms.txt, llms-full.txt, VERSION (doz docs)
     ├── kernels/vmlinux-6.18.15-186   the pinned Linux kernel (GPL-2.0, unmodified)
     └── licences/                     LICENSE, NOTICE, THIRD-PARTY-LICENSES.txt; kernel/: the kernel's source offer

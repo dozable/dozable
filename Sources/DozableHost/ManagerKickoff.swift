@@ -21,17 +21,20 @@ public enum ManagerKickoff {
 
     /// START: who it is and its room, how it talks (dozchat with `CHAT_TOKEN_FILE`), the skills by name, its instructions,
     /// what it can do in its isolation, what to do first, and the brief.
+    /// `inbox`: it is reached by inbox (an unfenced Claude Code session) — what is said to it arrives in its session, and
+    /// `dozchat receive` is refused for it, so START never tells it to poll.
     public static func startText(bot: String, workspace: String, room: String, isolation: ManagerIsolation, skills: [String],
-                                 instructions: String?, brief: String, refs: [String]) -> String {
+                                 instructions: String?, brief: String, refs: [String], inbox: Bool = false,
+                                 skillFiles: [String: String] = [:]) -> String {
         var s = "You are \(bot), the manager of the workspace \(workspace).\n"
         s += "Your room in chat: \(room)\n\n"
         s += "A workspace is an environment set up for getting work done: its agents, its rooms, the brief that says what the work is for, and any folders it works on (usually projects).\n\n"
         s += "## How you talk\n\n"
-        s += "Use `dozchat` (on your PATH): `dozchat send \(room) \"…\"` to post, `dozchat receive --wait 60 --ack` to collect what is said to you. "
+        s += "Use `dozchat` (on your PATH): `dozchat send \(room) \"…\"` to post, " + receiveText(inbox: inbox) + " "
         s += "To ask the person: `dozchat ask \(room) \"…\" --option yes=Yes --option no=No`, then `dozchat ask-show \(room) #N --wait 60` for the answer. "
         s += "Your token is in the file named by $\(ManagerLaunch.tokenFileVariable); never print it, never put it in a message or a file.\n\n"
         s += "## Skills\n\n"
-        s += "- chat-room-member" + (skills.isEmpty ? "" : "\n" + skills.map { "- " + $0 }.joined(separator: "\n")) + "\n\n"
+        s += skillLines(AgentSkillFiles.manager, files: skillFiles, others: skills)
         if let i = instructions?.trimmingCharacters(in: .whitespacesAndNewlines), !i.isEmpty {
             s += "## Your instructions\n\n" + i + "\n\n"
         }
@@ -46,5 +49,26 @@ public enum ManagerKickoff {
         s += "Say in \(room) that you are up, and the brief in one line. Then wait for the person.\n\n"
         s += "## The brief\n\n" + briefPost(brief: brief, refs: refs) + "\n"
         return s
+    }
+
+    /// START's skills: each chat skill doz carries, to READ by its path (`skillFiles`: name → where this agent reads it —
+    /// `AgentSkillFiles.paths`); one this install does not carry said plainly (the commands above are enough); then the
+    /// bot's own skills by name.
+    public static func skillLines(_ chat: [String], files: [String: String], others: [String]) -> String {
+        var s = "Read each file below before anything else — it is a skill: how to take part in a room, and what the messages you see mean.\n"
+        for n in chat {
+            if let p = files[n] { s += "- \(n): read \(p)\n" }
+            else { s += "- \(n): this install of doz does not carry its file — the dozchat commands above are what you need\n" }
+        }
+        for n in others { s += "- \(n)\n" }
+        return s + "\n"
+    }
+
+    /// How what is said to it reaches it: it collects it with dozchat, or — reached by inbox — the chat server writes it
+    /// into its session (`dozchat receive` is refused for an inbox participant: nothing is delivered twice).
+    public static func receiveText(inbox: Bool) -> String {
+        inbox
+            ? "and what is said to you arrives in this session by itself, as a note from the chat server with the room, the sender and how to answer: you are reached by inbox, so you never collect messages yourself."
+            : "`dozchat receive --wait 60 --ack` to collect what is said to you."
     }
 }

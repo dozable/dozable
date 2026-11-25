@@ -1,5 +1,5 @@
-// components/space-picture — The workspace drawn (core/space-pictures.js draws it): thumbnails and the hero — a link to the
-// space editor's page; a plain tile with no file, one not readable here or not drawn. A hero on screen moves the toasts (ws-hero-on).
+// components/space-picture — The workspace drawn (core/space-pictures.js): thumbnails and the hero, every workspace — a
+// space file's hero links to its editor; a plain one's (from its document) links nowhere. A tile when not readable or drawn.
 import { h } from '../dom/h.js';
 import { icon } from '../dom/icons.js';
 import { dropPicture, pictureProblems, pictureView, setPictureSize, setPictureVisible } from '../core/space-pictures.js';
@@ -7,7 +7,7 @@ import { spaceHash } from '../core/routes.js';
 import { cmdLine } from './cmd-line.js';
 import { watchVisible } from './grid-feed.js';
 
-const THUMB = { w: 160, h: 100 };     // Home's, the Workspaces page's and the sidebar's (CSS sizes it)
+const THUMB = { w: 160, h: 100 };     // CSS sizes it
 const slots = new Map();
 
 export function pictureTile(why, cls) {
@@ -16,13 +16,13 @@ export function pictureTile(why, cls) {
 const why = (text) => h('span', { class: 'ws-hero-why' }, text);
 const bigTile = (pic, text) => pic.replaceChildren(pictureTile(text, 'sp-tile-hero'), why(text));
 
-/// A row's thumbnail (home|list|nav), kept per place and name: a redraw moves it. With no file: a small tile (none in nav).
+/// A row's thumbnail (home|list|nav), kept per place and name: a redraw moves it.
 export function spaceThumb(row, place) {
-  const k = place + ':' + row.name;
-  if (!row.space) { forgetSlot(k); return place === 'nav' ? null : pictureTile('Made without a space file', 'sp-tile-sm'); }
+  const k = place + ':' + row.name, plain = !row.space;
   const have = slots.get(k);
-  if (have) return have.el;
-  const img = h('img', { class: 'sp-img', alt: row.name + ', drawn from its space file', width: String(THUMB.w), height: String(THUMB.h), decoding: 'async', hidden: true });
+  if (have && have.plain === plain) return have.el;
+  if (have) forgetSlot(k);
+  const img = h('img', { class: 'sp-img', alt: row.name + (plain ? ', drawn from its record' : ', drawn from its space file'), width: String(THUMB.w), height: String(THUMB.h), decoding: 'async', hidden: true });
   const el = h('span', { class: 'sp-thumb sp-thumb-' + place, 'data-pic': row.name, 'data-pic-place': place }, img);
   const view = pictureView(row.name, 'thumb', THUMB, el, (r) => {
     if (!r.src && !r.fallback) return;
@@ -32,9 +32,9 @@ export function spaceThumb(row, place) {
     if (r.src) { img.src = r.src; el.dataset.picKey = r.key; return; }
     delete el.dataset.picKey;
     if (place === 'nav') el.hidden = true; else el.append(pictureTile(r.fallback));
-  });
+  }, { plain });
   const unwatch = watchVisible(el, (v) => setPictureVisible(view, v));
-  slots.set(k, { el, view, unwatch });
+  slots.set(k, { el, view, unwatch, plain });
   return el;
 }
 function forgetSlot(k) {
@@ -49,13 +49,15 @@ export function forgetThumbs(names, place) {
 const narrow = matchMedia('(max-width: 760px)');
 const heroSize = () => (narrow.matches ? { w: 800, h: 560 } : { w: 1200, h: 500 });
 
-/// The hero (a workspace's Home only): o {name, file, edit}; a link to the space editor's page (a new tab with ⌘-click,
-/// a bookmark). → {el, set(o), dispose()}.
+/// The hero (Home only): o {name, file, edit, plain} — plain (fixed): no link, `doz workspace doc NAME` beside it.
+/// → {el, set(o), dispose()}.
 export function spaceHero(o) {
   let cur = o, view = null, unwatch = null, problemFor = null;
+  const plain = !!o.plain;
   const pic = h('div', { class: 'ws-hero-pic', 'aria-hidden': 'true' });
-  const hero = h('a', { class: 'ws-hero', href: spaceHash(o.name), 'data-ws-hero': o.name }, pic);
-  const open = h('a', { class: 'btn sm ws-hero-open', href: spaceHash(o.name), 'data-ws-hero-open': '' });
+  const hero = plain ? h('div', { class: 'ws-hero is-plain', role: 'img', 'data-ws-hero': o.name, 'data-ws-hero-plain': '' }, pic)
+    : h('a', { class: 'ws-hero', href: spaceHash(o.name), 'data-ws-hero': o.name }, pic);
+  const open = plain ? h('span', { class: 'ws-hero-doc', 'data-ws-hero-doc': '' }) : h('a', { class: 'btn sm ws-hero-open', href: spaceHash(o.name), 'data-ws-hero-open': '' });
   const problem = h('div', { class: 'ws-hero-problem', 'data-ws-hero-problem': '', hidden: true });
   const label = h('span', { class: 'ws-hero-label' });
   const el = h('section', { class: 'ws-hero-band', 'aria-label': 'The picture', 'data-ws-hero-band': o.name },
@@ -68,26 +70,34 @@ export function spaceHero(o) {
   }
   async function showProblem(on) {
     if (!on) { problem.hidden = true; problemFor = null; return; }
-    const p = await pictureProblems(cur.name);
+    const p = plain ? { sha: 1, list: [] } : await pictureProblems(cur.name);
     if (!p || problemFor === p.sha) return;
     problemFor = p.sha;
     const more = p.count > p.list.length ? ' (+' + (p.count - p.list.length) + ' more)' : '';
-    problem.replaceChildren(h('p', { class: 'ws-hero-problem-text' }, icon('triangle-alert'), 'This file doesn’t read: ',
-      p.list.length ? p.list.join(' · ') + more : p.error || 'Dozable found no problem the drawing names'),
-    cmdLine('doz workspace up -f ' + (p.shownPath || cur.file) + ' --dry-run'));
+    problem.replaceChildren(h('p', { class: 'ws-hero-problem-text' }, icon('triangle-alert'), plain ? 'Its document doesn’t draw here: ' : 'This file doesn’t read: ',
+      plain ? '' : p.list.length ? p.list.join(' · ') + more : p.error || 'Dozable found no problem the drawing names'),
+    cmdLine(plain ? doc() : 'doz workspace up -f ' + (p.shownPath || cur.file) + ' --dry-run'));
     problem.hidden = false;
   }
   const shown = (v) => { document.body.classList.toggle('ws-hero-on', v); setPictureVisible(view, v); };
+  const doc = () => 'doz workspace doc ' + cur.name;
   function draw() {
+    if (plain) {
+      label.replaceChildren(icon('boxes'), h('span', null, 'Drawn from its record — made without a space file'));
+      hero.setAttribute('aria-label', cur.name + ', drawn from its record');
+      open.replaceChildren(cmdLine(doc()));
+    } else draw2();
+    if (!view) {
+      view = pictureView(cur.name, 'hero', heroSize(), hero, paint, { plain });
+      unwatch = watchVisible(hero, shown);
+    }
+  }
+  function draw2() {
     label.replaceChildren(icon('boxes'), h('span', null, 'Drawn from ', h('code', null, cur.file)));
     const verb = cur.edit ? 'Edit the space' : 'Open the space';
     hero.href = open.href = spaceHash(cur.name);
     hero.setAttribute('aria-label', cur.name + ', drawn from its space file ' + cur.file + ' — ' + verb.toLowerCase());
     open.replaceChildren(icon(cur.edit ? 'pencil' : 'eye'), verb);
-    if (!view) {
-      view = pictureView(cur.name, 'hero', heroSize(), hero, paint);
-      unwatch = watchVisible(hero, shown);
-    }
   }
   const onNarrow = () => { if (view) setPictureSize(view, heroSize()); };
   narrow.addEventListener('change', onNarrow);
@@ -98,9 +108,4 @@ export function spaceHero(o) {
     drop() { if (unwatch) unwatch(); if (view) { shown(false); dropPicture(view); } view = null; unwatch = null; pic.replaceChildren(); problemFor = null; problem.hidden = true; },
     dispose() { this.drop(); narrow.removeEventListener('change', onNarrow); },
   };
-}
-
-export function heroNone(name) {
-  return h('section', { class: 'ws-hero-band ws-hero-none', 'aria-label': 'The picture', 'data-ws-hero-none': name },
-    pictureTile('Made without a space file'), why('Made without a space file — '), cmdLine('doz workspace up -f FILE'), why(' draws it'));
 }

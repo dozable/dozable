@@ -173,6 +173,8 @@ public enum WebExposure {
              .workspaceRunChat,         // a run's archived messages: another computer only as serve.chat lets it read (`decide`)
              .workspaceSpace, .workspaceSpacePlan,  // a space file's text and its plan: another computer only with serve.chat
                                         // read or write (`decide`) — the file is what the agents are set up from
+             .workspaceDoc,             // 781: a workspace's document drawn (its brief, agents, folders): as the space file —
+                                        // serve.chat for another computer; this Mac's agents as serve.mac_sessions allows
              .workspaceState,           // a space's state: this Mac's sessions as serve.mac_sessions allows (SpaceStateViewer)
              .workspaceRunFrames,       // a space's run in frames: the same projection, frame by frame; never a message
              .workspaceReach, .workspaceFolders, .workspaceActivity,  // the wide views: projections — this Mac's sessions follow
@@ -223,7 +225,7 @@ public enum WebExposure {
         if case .workspaceRunChat = route, who.isRemote, chat == .off { return .chatRemote }
         // A space file is what its agents are set up from, as the brief is: another computer reads it (and plans it) only as
         // serve.chat allows. Saving it is this Mac's own browser's only (`decideSpaceAction`).
-        if route == .workspaceSpace || route == .workspaceSpacePlan, who.isRemote, chat == .off { return .spaceRemote }
+        if route == .workspaceSpace || route == .workspaceSpacePlan || route == .workspaceDoc, who.isRemote, chat == .off { return .spaceRemote }
         switch (kind(route), who) {
         case (.secretEntry, .remote(secure: false)): return .secretOverHTTP
         case (.macScreen, .remote): return .macScreen

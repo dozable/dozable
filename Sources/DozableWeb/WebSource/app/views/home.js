@@ -77,7 +77,7 @@ function row(w, d, last) {
   const folders = w.folders.length ? w.folders.map((f) => h('span', { class: 'hm-folder' }, tildePath(f))) : [h('span', { class: 'hm-folder muted' }, 'no folder')];
   return h('tr', { 'data-ws': w.name },
     h('td', null, workspacePill(w.state, w.words, transitional(w.name))),
-    h('td', null, h('div', { class: 'hm-ws-cell' }, h('a', { href: workspaceHash(w.name), class: 'hm-thumb-link', tabindex: '-1', 'aria-hidden': w.space ? null : 'true' }, spaceThumb(w, 'home')),
+    h('td', null, h('div', { class: 'hm-ws-cell' }, h('a', { href: workspaceHash(w.name), class: 'hm-thumb-link', tabindex: '-1' }, spaceThumb(w, 'home')),
       h('div', { class: 'hm-ws' }, h('a', { href: workspaceHash(w.name), class: 'hm-ws-name' }, h('b', null, w.name)), h('div', { class: 'hm-folders' }, ...folders)))),
     h('td', null, driverChip(w.driver)),
     h('td', null, managerChip(w.manager)),

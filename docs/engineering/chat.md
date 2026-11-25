@@ -71,7 +71,8 @@ Beside them, Dozable's own: `client/chat_client.py` — one file, Python 3's sta
 (`send`, `receive`, `ack`, `listen`, `file get|send`, `rooms`, `protocol`); the token from a file of the user's alone or
 the environment, never argv or output; no redirects; a timeout on every call; it runs inside a sandbox or a fenced
 session through `--host-port` and `--secret … file=CHAT_TOKEN_FILE` (its header) — and the skills an agent loads
-(`chat-room-member`, `chat-lead`, `chat-worker`), which name `dozchat` inside a Dozable workspace, the Python client and
+(`chat-room-member`, `chat-lead`, `chat-worker`; doz carries the first and last in its bundle and a workspace's
+agents read them by path — workspaces.md, "Each isolation"), which name `dozchat` inside a Dozable workspace, the Python client and
 `curl` outside, and, for the person, `doz chat …`.
 The client was written from the document alone and only then run against this server; where the document did not say
 enough is recorded with the feature that published it.
@@ -333,7 +334,8 @@ socket only.
 without a fence only, so `doz workspace start` refuses a fenced or VM manager whose bot is delivered to by inbox (or
 webhook) and names the fix (`doz bot set BOT --deliver poll`); start never changes a bot's delivery itself. An UNFENCED
 manager may be an inbox bot: an inbox naming another session is pointed at the manager's (`BotChat.set`, said and
-logged). The manager is invited to the main room as you (`/invite @BOT` over the owner's socket, `ChatOwnerRooms.invite`)
+logged), and its Claude Code is started with `--name` = that session (Claude Code's record carries the name). The brief
+is posted after the manager's session is started, so an inbox manager is handed it. The manager is invited to the main room as you (`/invite @BOT` over the owner's socket, `ChatOwnerRooms.invite`)
 and the brief posted as you (`ChatOwnerRooms.post`); nothing in the server or the protocol changes.
 
 **A workspace's workers** (`doz worker add`; workspaces.md, "Workers") are participants too. An anonymous worker is a
