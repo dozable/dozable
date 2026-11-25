@@ -231,7 +231,7 @@ async function sandboxArrived(name, want) {
     const v = sview(name), home = pageTerminals(name).find((t) => t.home);
     if (home) { v.selected[0] = home.id; v.focusedPane = 0; }
     state.session = null;
-    history.replaceState(null, '', location.pathname + placeHash('sandbox', name, null, state.frame));
+    history.replaceState(history.state, '', location.pathname + placeHash('sandbox', name, null, state.frame));
     state.bgHash = location.hash;
     renderTerminals();
     return;
@@ -243,7 +243,7 @@ async function sandboxArrived(name, want) {
     else if (!running && (await savedRows(name)).some((r) => r.name === want)) openSavedTerminal(name, (await savedRows(name)).find((r) => r.name === want));
     // 617: a sandbox that is off has no sessions — its page's address (kept by a reload) drops the session quietly; a
     // notice there pushed the page down (browser-start-sequence C). A running one without it is still said.
-    else if (s.d.info.phase === 'off' || s.d.info.phase === 'failed') history.replaceState(null, '', placeHash('sandbox', name, null, state.frame));
+    else if (s.d.info.phase === 'off' || s.d.info.phase === 'failed') history.replaceState(history.state, '', placeHash('sandbox', name, null, state.frame));
     else failureFor(name, 'Session ' + want + ' is not running in ' + name);
     return;
   }

@@ -431,6 +431,34 @@ final class WebModulesTests: XCTestCase {
         XCTAssertFalse(wiz.lowercased().contains("'draft") || wiz.contains("as draft"), "the state is setting up")
     }
 
+    /// Leaving a modal for an address: the page under it is kept as it was ONLY when the history entry is that page's own
+    /// (the browser's Back, the modal's close) — every routed page stamps its entry (`history.state.dozPage`) and in-page
+    /// address changes keep the stamp; an address that replaced the modal's entry routes the page again, even when it equals
+    /// the page's (a second "new bot" trip once showed a stale editor). Every entry opens a fresh New workspace wizard.
+    func testTheRouterRoutesAPageAgainWhenTheModalsEntryWasReplaced() throws {
+        let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource")
+        let read = { (f: String) in try String(contentsOf: src.appendingPathComponent(f), encoding: .utf8) }
+        let router = try read("app/core/router.js")
+        XCTAssertTrue(router.contains("if (location.hash === state.bgHash && pageEntry()) return;"))
+        XCTAssertTrue(router.contains("history.replaceState({ dozPage: state.bgStamp }, '')"))
+        XCTAssertEqual(router.components(separatedBy: "stampPage();").count - 1, 2, "a page and an agent's page each stamp their entry")
+        for f in ["app/views/sandbox-terminals.js", "app/views/mac.js", "app/views/sandbox.js"] {
+            XCTAssertFalse(try read(f).contains("history.replaceState(null"), "\(f) keeps the page's stamp")
+        }
+        let wiz = try read("app/views/new-workspace.js")
+        XCTAssertTrue(wiz.contains("export function openNewWorkspace(bot) {\n  forgetNewWorkspace();"), "every entry is fresh")
+        XCTAssertTrue(try read("app.js").contains("openNewWorkspace();"))
+        XCTAssertTrue(try read("app/views/home.js").contains("openNewWorkspace()"))
+        XCTAssertFalse(try read("app/views/bot.js").contains("botReturn"), "no round trip through the bot editor")
+        let ctx = try XCTUnwrap(JSContext())
+        ctx.evaluateScript(try read("app/core/routes.js").replacingOccurrences(of: "export ", with: ""))
+        func js(_ expr: String) -> String { ctx.evaluateScript("JSON.stringify(" + expr + ")")?.toString() ?? "?" }
+        XCTAssertEqual(js("parse('#/new-workspace?template=fix-it').template"), "\"fix-it\"")
+        XCTAssertEqual(js("parse('#/new-workspace?template=fix-it').modal"), "true")
+        XCTAssertEqual(js("parse('#/new-workspace?template=Fix')"), "null")
+        XCTAssertEqual(js("parse('#/new-workspace').template"), "null")
+    }
+
     /// The isolation guide: its modules served; both addresses parse (and nothing else under #/guide/); core/isolation.js is
     /// pure, lists the four choices in order of isolation, and its control words are exactly `doz worker ls`'s
     /// (WorkerLaunch.control); every view that draws an isolation chip draws it through components/iso-chip.js, which links

@@ -26,7 +26,7 @@ import { renderNavWorkspaces } from '../components/ws-nav.js';
 import { forgetThumbs, spaceThumb } from '../components/space-picture.js';
 import { transitional } from '../components/ws-lifecycle.js';
 import { wsNext } from '../components/ws-next.js';
-import { newWorkspaceHash, newWorkspaceRefusal } from './new-workspace.js';
+import { newWorkspaceRefusal, openNewWorkspace } from './new-workspace.js';
 import { WORKSPACE_DEFINITION } from '../core/ws-new.js';
 
 const LAST_ROWS = 12;
@@ -120,7 +120,7 @@ async function lastLines(list) {
 /// New workspace: the wizard (#/new-workspace) — disabled with why in another computer's browser.
 function newWorkspaceButton(primary) {
   const why = newWorkspaceRefusal();
-  const b = btn('New workspace', () => { location.hash = newWorkspaceHash(); }, { primary: !!primary, icon: 'folder-plus', title: why || 'The work, who manages it, where it runs and when it starts' });
+  const b = btn('New workspace', () => openNewWorkspace(), { primary: !!primary, icon: 'folder-plus', title: why || 'The work, who manages it, where it runs and when it starts' });
   b.dataset.wsNew = 'home';
   if (why) b.disabled = true;
   return b;

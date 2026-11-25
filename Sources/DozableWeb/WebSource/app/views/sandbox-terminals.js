@@ -141,11 +141,11 @@ function drawTerminals() {
   // (603: never under a wizard's modal — its URL is #/new or #/onboarding; the page's hash follows.)
   if (sel && sel.session && state.session !== sel.session && !state.modal) {
     state.session = sel.session;
-    history.replaceState(null, '', location.pathname + placeHash('sandbox', name, sel.session, state.frame));
+    history.replaceState(history.state, '', location.pathname + placeHash('sandbox', name, sel.session, state.frame));
     state.bgHash = location.hash;
   } else if (sel && sel.home && state.session && !state.modal) {
     state.session = null;
-    history.replaceState(null, '', location.pathname + placeHash('sandbox', name, null, state.frame));
+    history.replaceState(history.state, '', location.pathname + placeHash('sandbox', name, null, state.frame));
     state.bgHash = location.hash;
   }
   if (name) paintHome(name);                          // 635: Home's facts follow the tabs ("open in tab 2"), and its pictures

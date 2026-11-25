@@ -505,8 +505,7 @@ function stepManager() {
   none.addEventListener('change', () => { if (none.checked) { w.manager = null; w.unfencedConfirmed = false; changed(true); } });
   const newBot = btn('A new agent / bot…', () => {
     save();
-    state.botReturn = 'new-workspace';
-    location.replace('#/bots/~new');
+    location.hash = '#/bots/~new';
   }, { icon: 'plus', title: 'Define one now in the Agent / Bot editor — it is kept for next time, and you come back here' });
   newBot.dataset.wsnNewBot = '';
   return [
@@ -699,7 +698,9 @@ async function create(start) {
 /// The New workspace buttons' address (`bot`: a manager chosen).
 export function newWorkspaceHash(bot) { return '#/new-workspace' + (bot ? '?bot=' + bot : ''); }
 /// Open the wizard (from Home, the sidebar's +, an Agent / Bot).
+/// Every entry opens a FRESH wizard (any draft is forgotten); the draft is kept only for a reload of the wizard's own
+/// address and for the browser's Back and Forward.
 export function openNewWorkspace(bot) {
-  if (bot && state.wsn) state.wsn.manager = null;
+  forgetNewWorkspace();
   location.hash = newWorkspaceHash(bot);
 }

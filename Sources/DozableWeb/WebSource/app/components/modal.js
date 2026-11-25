@@ -37,7 +37,8 @@ export function openWizardModal(v, fromPage) {
     document.body.classList.add('modal-open');
   }
   paintNav();
-  if (was !== v || v === 'try' || !$('wm-box').firstChild) renderModal(true);
+  // A wizard's address changed while it is open (#/new-workspace?bot=… or ?template=…): drawn again with it.
+  if (was !== v || v === 'try' || !$('wm-box').firstChild || (v === 'new-workspace' && (state.wsnBot || state.wsnTemplate))) renderModal(true);
 }
 export function closeWizardModal() {
   if (!state.modal) return;

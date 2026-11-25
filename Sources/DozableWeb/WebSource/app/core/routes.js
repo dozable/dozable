@@ -9,7 +9,7 @@
 // (one Agent / Bot: across its workspaces, or an edit tab — BOT_TABS) · #/sandbox/NAME[/SESSION|~home] · #/mac (This Mac) and its pages,
 // #/mac/here[/SESSION] (the sessions on this Mac), #/mac/sessions, #/mac/sandboxes, #/mac/loose, #/mac/macs (Your Macs), #/mac/templates[/browse |
 // /V/P], #/mac/images, accounts, resources, devices, doctor, settings, debug, #/mac/logs/<operations|activity|notifications|
-// metrics> · the modals #/new (New sandbox), #/new-workspace[?bot=NAME] (New workspace, its manager chosen), #/onboarding,
+// metrics> · the modals #/new (New sandbox), #/new-workspace[?bot=NAME|?template=ID] (New workspace: its manager chosen, or a template's screen), #/onboarding,
 // #/try[/AGENT] · #/guide/isolation[/vm|fenced|unfenced|elsewhere] (where an agent runs: the four choices, one highlighted) ·
 // #/w/NAME/agents/new (Add a worker — a page of its own, this Mac's own browser's) · #/w/NAME/space (its space editor, the whole
 // window) and #/w/NAME/space/watch (the same drawing to watch: canvas and Live, read-only).
@@ -86,7 +86,7 @@ export function canonical(hash) {
 /// sandbox's or its session's page, framed).
 export function parse(hash) {
   const r = (view, o = {}) => ({ view, param: o.param || null, session: o.session || null, recipe: o.recipe === undefined ? null : o.recipe,
-    room: o.room || null, tab: o.tab || null, agent: o.agent || null, modal: !!o.modal });
+    room: o.room || null, tab: o.tab || null, agent: o.agent || null, modal: !!o.modal, template: o.template || null });
   let m;
   if (hash === '#/home') return r('home');
   if (hash === '#/bots') return r('bots');
@@ -118,7 +118,7 @@ export function parse(hash) {
   // 635: `~home` (no session name can hold a ~) selects a sandbox page's Home tab.
   if ((m = /^#\/sandbox\/([a-z0-9-]{1,40})(?:\/(~home|[A-Za-z0-9_-][A-Za-z0-9._-]{0,63}))?$/.exec(hash))) return r('sandbox', { param: m[1], session: m[2] });
   if (hash === '#/new' || hash === '#/onboarding') return r(hash.slice(2), { modal: true });
-  if ((m = new RegExp('^#/new-workspace(?:\\?bot=(' + BOT + '))?$').exec(hash))) return r('new-workspace', { param: m[1], modal: true });
+  if ((m = new RegExp('^#/new-workspace(?:\\?bot=(' + BOT + ')|\\?template=([a-z][a-z0-9-]{0,39}))?$').exec(hash))) return r('new-workspace', { param: m[1], template: m[2], modal: true });
   if ((m = /^#\/try(?:\/([a-z0-9-]{1,40}))?$/.exec(hash))) return r('try', { param: m[1], modal: true });
   return null;
 }

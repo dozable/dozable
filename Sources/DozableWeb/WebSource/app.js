@@ -78,7 +78,7 @@ import { viewDoctor } from './app/views/doctor.js';
 import { viewImages } from './app/views/images.js';
 import { viewMetrics } from './app/views/metrics.js';
 import { newSandboxWizard, viewNew } from './app/views/new-sandbox.js';
-import { forgetNewWorkspace, newWorkspaceDirty, newWorkspaceRefusal, viewNewWorkspace } from './app/views/new-workspace.js';
+import { forgetNewWorkspace, newWorkspaceDirty, newWorkspaceRefusal, openNewWorkspace, viewNewWorkspace } from './app/views/new-workspace.js';
 import { renderWizard, viewOnboarding, wizardStopPolling, wizGo } from './app/views/onboarding.js';
 import { acknowledgeOps, renderOperations, renderOps, viewOperations } from './app/views/operations.js';
 import { viewBots } from './app/views/bots.js';
@@ -111,7 +111,7 @@ $('nav-ws-new').addEventListener('click', (ev) => {
   ev.preventDefault();
   const why = newWorkspaceRefusal();
   if (why) { toast(why, true); return; }
-  location.hash = '#/new-workspace';
+  openNewWorkspace();
 });
 $('nav-quick-add').addEventListener('click', (ev) => { ev.preventDefault(); quickAdd(ev.currentTarget); });
 // 617 (owner): TRY is a section of its own — its + opens the Quick try. 669 (owner): the section is RECIPES — the
