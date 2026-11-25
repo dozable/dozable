@@ -140,6 +140,13 @@ func cliWorkspaceSuite(binary: String) async {
         cliWorkspaceStopDownRows(h, root: root, store: store, started: &started)
         return
     }
+    // CLI_WORKSPACE_ROWS=inbox runs row 19i alone: an unfenced manager bot reached by inbox, in the manager rows' set-up.
+    if ProcessInfo.processInfo.environment["CLI_WORKSPACE_ROWS"] == "inbox" {
+        h.run(["config", "set", "chat.page_port", String(freePort())])
+        h.run(["config", "set", "chat.line_port", String(freePort())])
+        cliWorkspaceManagerRows(h, root: root, store: store, started: &started)
+        return
+    }
     // WS.04: CLI_WORKSPACE_ROWS=oneshot runs one-shot new's rows alone (O1–O7).
     if ProcessInfo.processInfo.environment["CLI_WORKSPACE_ROWS"] == "oneshot" {
         h.run(["config", "set", "chat.page_port", String(freePort())])

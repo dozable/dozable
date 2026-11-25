@@ -73,10 +73,11 @@ public enum ManagerLaunch {
 
     /// The plan for `isolation`. `startFile`: where START goes (the core knows the session folder); `pagePort`: the chat
     /// server's; `tokenFile`: an unfenced manager's token file; `fingerprint`: the bot's token's.
+    /// `session`: its session's name on this Mac (an unfenced Claude Code is named after it — `AgentLaunch.plan`).
     public static func plan(isolation: ManagerIsolation, agent: String, model: String?, bot: String, startFile: String, pagePort: Int,
-                            fingerprint: String, tokenFile: String? = nil) throws -> Plan {
+                            fingerprint: String, tokenFile: String? = nil, session: String? = nil) throws -> Plan {
         try AgentLaunch.plan(role: .manager, isolation: isolation, agent: agent, model: model, bot: bot, startFile: startFile, pagePort: pagePort,
-                             fingerprint: fingerprint, tokenFile: tokenFile, allowedTools: ["Bash(dozchat:*)"])
+                             fingerprint: fingerprint, tokenFile: tokenFile, allowedTools: ["Bash(dozchat:*)"], session: session)
     }
 
     /// A VM manager started again after a stop: its program continues the conversation it had.
@@ -98,13 +99,14 @@ public enum AgentLaunch {
     public static func plan(role: Role, isolation: ManagerIsolation, agent: String, model: String?, bot: String?, startFile: String,
                             pagePort: Int, fingerprint: String, tokenFile: String? = nil,
                             variable: String = ManagerLaunch.tokenVariable, fileVariable: String = ManagerLaunch.tokenFileVariable,
-                            allowedTools: [String], permissionMode: String? = nil) throws -> ManagerLaunch.Plan {
+                            allowedTools: [String], permissionMode: String? = nil, session: String? = nil) throws -> ManagerLaunch.Plan {
         guard let program = ManagerLaunch.program(agent: agent) else {
             throw HostError(.invalid, "Dozable does not start \(role == .manager ? "a manager" : "a worker") running \(agent) yet")
         }
         let prompt = ManagerLaunch.firstPrompt(start: startFile)
         let port = UInt16(clamping: pagePort)
         var argv = [program]
+        if isolation == .unfenced, let session { argv = namedArgv(argv, session: session) }
         if let model, isolation != .vm { argv += ["--model", model] }
         argv.append(prompt)
         if program == "claude", isolation != .vm {
@@ -131,6 +133,18 @@ public enum AgentLaunch {
             env["CHAT_URL"] = chatURL(isolation: isolation, pagePort: pagePort)
         }
         return ManagerLaunch.Plan(argv: argv, environment: env, startFile: startFile, hostPorts: ports, secret: secret)
+    }
+
+    /// An unfenced Claude Code named after its session on this Mac (`--name S` right after the program, unless its argv
+    /// names one already; any other program, or an empty name, unchanged). The chat server finds an inbox participant's
+    /// session by the NAME in its record under ~/.claude/sessions, and a Claude Code started without one records a name it
+    /// derives (its folder's name and a few hex), never the session's — so an inbox bot's messages failed "no running
+    /// Claude session with that name", its presence said not running and its `/protocol` was refused.
+    public static func namedArgv(_ argv: [String], session: String) -> [String] {
+        guard !session.isEmpty, MacPlace.isClaude(argv), let p = MacPlace.programIndex(argv) else { return argv }
+        let own = argv[(p + 1)...]
+        if own.contains(where: { $0 == "--name" || $0 == "-n" || $0.hasPrefix("--name=") }) { return argv }
+        return Array(argv[...p]) + ["--name", session] + Array(own)
     }
 
     /// 771: the chat server's address for an agent Dozable starts in a workspace place — THIS store's page port, never the

@@ -333,7 +333,7 @@ socket only.
 without a fence only, so `doz workspace start` refuses a fenced or VM manager whose bot is delivered to by inbox (or
 webhook) and names the fix (`doz bot set BOT --deliver poll`); start never changes a bot's delivery itself. An UNFENCED
 manager may be an inbox bot: an inbox naming another session is pointed at the manager's (`BotChat.set`, said and
-logged). The manager is invited to the main room as you (`/invite @BOT` over the owner's socket, `ChatOwnerRooms.invite`)
+logged), and its Claude Code is started with `--name` = that session (Claude Code's record carries the name). The manager is invited to the main room as you (`/invite @BOT` over the owner's socket, `ChatOwnerRooms.invite`)
 and the brief posted as you (`ChatOwnerRooms.post`); nothing in the server or the protocol changes.
 
 **A workspace's workers** (`doz worker add`; workspaces.md, "Workers") are participants too. An anonymous worker is a

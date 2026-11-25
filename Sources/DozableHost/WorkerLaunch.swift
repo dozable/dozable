@@ -116,12 +116,12 @@ public enum WorkerLaunch {
     /// then `--allow-tool`; only a fenced one takes any beyond the default).
     public static func plan(isolation: ManagerIsolation, agent: String, model: String?, bot: String?, startFile: String, pagePort: Int,
                             fingerprint: String, tokenFile: String? = nil, name: String, shared: Bool,
-                            allowTools: [String] = [], permissionMode: String? = nil) throws -> ManagerLaunch.Plan {
+                            allowTools: [String] = [], permissionMode: String? = nil, session: String? = nil) throws -> ManagerLaunch.Plan {
         let v = tokenVariables(name: name, shared: shared)
         return try AgentLaunch.plan(role: .worker, isolation: isolation, agent: agent, model: model, bot: bot, startFile: startFile,
                                     pagePort: pagePort, fingerprint: fingerprint, tokenFile: tokenFile, variable: v.variable,
                                     fileVariable: v.fileVariable, allowedTools: defaultAllowedTools + (isolation == .fenced ? allowTools : []),
-                                    permissionMode: permissionMode)
+                                    permissionMode: permissionMode, session: session)
     }
 
     /// What isolates it, as a person reads it (`doz worker ls`'s CONTROL).
