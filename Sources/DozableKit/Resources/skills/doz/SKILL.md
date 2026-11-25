@@ -34,7 +34,10 @@ doz workspace new NAME --brief "Fix the build" --folder ~/code/app --worker "Fix
   dropped), or `--prompt-file FILE` (not with `--brief`). A brief is required.
 - `--folder DIR` (repeatable; `DIR:ro` for read-only). The first is the main one.
 - `--worker "TASK"` (repeatable) declares a worker now; the start starts it.
-- `--preset NAME` starts from a preset: `blank`, `research`, `swift-tests`, `mac-admin`, `remotion-video`. A flag you
+- `--template ID` makes the whole team from a workspace template doz carries (`doz workspace templates`: `solo`, `solo-sandbox`,
+  `build-review`, `fix-it`, `video`), set up and started; a template with a manager takes `--manager BOT`. With no NAME,
+  `doz workspace new` takes the next free `workspaceN`; the description (`--brief`) is optional.
+- `--preset NAME` starts from a preset: `blank` or `remotion-video`. A flag you
   give wins over the preset. An unknown preset exits 65 (`invalid-value`) and its message names the real ones.
   `remotion-video` also allows `remotion.media` (Remotion's browser download); `--site HOST` adds another site.
 - `--start` starts it once it is made (or run `doz workspace start NAME --json` later). Declared workers need chat on:
@@ -68,7 +71,7 @@ doz workspace state NAME --json
   `archived`), `conditions.hot` `{value: all|some|none, sessions: {NAME: {condition, since}}}` (each session `starting`,
   `running`, `asleep`, `stopped`, `ended` or `unknown`), `conditions.run` `{open, id, since, state}` and
   `conditions.archived` `{value, at}`. `doz workspace ls --json` rows carry `conditions` `{allocated, hot: {value}, run}`.
-- `places[]` is where the agents run: `{name, isolation: vm|fenced|unfenced, external?, view, network, credentials,
+- `places[]` is where the agents run: `{name, isolation: vm|fenced|unfenced (vm is a Sandbox), external?, view, network, credentials,
   sessions: [{identity, session, state, fence}]}`. A fenced place is a policy: each session in it has its own fence (its
   own `fence`, never shared). An unfenced place says `"none: acts as you"` for its view, network and credentials. A grant
   is for an agent, never a place: `doz grant PLACE …` is refused (exit 2) — grant the agents in it.
@@ -185,7 +188,7 @@ doz worker end NAME WORKER --json
 
 - `worker add` is refused (exit 3) while the workspace is setting up: start it first, or declare the worker with
   `--worker` at `new`. `--dry-run --json` shows what it would be — or what would be refused — and adds nothing.
-- A worker runs fenced on this Mac unless told otherwise: `--isolation vm` gives it a micro VM of its own.
+- A worker runs fenced on this Mac unless told otherwise: `--isolation sandbox` gives it a Sandbox of its own.
 - `worker end` ends it; its record (or its own sandbox) is kept unless `--rm`.
 
 ## Exit codes and errors
@@ -226,7 +229,7 @@ and `error.exit`, show the person `error.message`. Fields are only ever added.
 
 - **Never run an agent unfenced without the person.** `--isolation unfenced` and `--manager-isolation unfenced` run a
   program that acts as them, with their files, keys and logins. Only when they asked for it in so many words.
-- **Never `doz create` when a workspace is meant.** `doz create` makes a single sandbox (a Linux VM), not a workspace.
+- **Never `doz create` when a workspace is meant.** `doz create` makes a single sandbox (a small Linux virtual machine), not a workspace.
   Use `doz workspace new`.
 - Never `--yes` a delete, archive, finish or stop the person did not ask for; never widen a permission or network yourself —
   say what you need and why, and let them decide.

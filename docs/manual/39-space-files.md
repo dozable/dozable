@@ -111,10 +111,10 @@ agents:
   in this version.
 - **The lifetime is not a 3.1 key**: it stays under `x-dozable` in either version and is never required (a file that says
   none is read as `runs`). A top-level `lifetime:` in a 3.1 file is refused (65) with the fix.
-- **`agent_defaults: { where: sandbox }`** runs every agent that does not say where in the workspace's own VM, a sandbox
+- **`agent_defaults: { where: sandbox }`** runs every agent that does not say where in the workspace's own Sandbox, a sandbox
   the run makes (named `SPACE-vm`). On an agent, a place is `mac` or `sandbox:NAME`.
-- **An agent's own `network`**: an unfenced agent has none (it acts as you), and an agent in a VM — the workspace's or
-  a sandbox the space makes — shares the VM's, which is the workspace's (standard when the file says none). Either
+- **An agent's own `network`**: an unfenced agent has none (it acts as you), and an agent in a Sandbox — the workspace's or
+  a sandbox the space makes — shares the Sandbox's, which is the workspace's (standard when the file says none). Either
   written otherwise is refused (65).
 - An empty `refs`, `tags` or `allow` list is refused; leave the key out instead.
 - A 3.1 key in a file that says `doz: space/3` is refused (65): change the version line to `doz: space/3.1`. A space/3
@@ -137,7 +137,7 @@ agent_defaults: { x-dozable: { isolation: vm } }              # where a workspac
 
 ### Places: `x-dozable.places` and `where:`
 
-A **place** is where an agent runs: a VM, a fenced session on this Mac, or an unfenced one that acts as you. Declare your
+A **place** is where an agent runs: a Sandbox, a fenced session on this Mac, or an unfenced one that acts as you. Declare your
 places under `x-dozable.places` and put each agent in one with `where:`:
 
 ```yaml

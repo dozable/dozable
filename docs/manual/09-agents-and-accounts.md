@@ -59,7 +59,7 @@ under `[recipes.VENDOR.PRODUCT]`.
 ## Claude Code in a sandbox
 
 Claude Code starts ready to work: its first-run screens are done, the working folder is trusted, and
-it runs without asking permission for each command (the VM and its network are the boundary). It
+it runs without asking permission for each command (the Sandbox and its network are the boundary). It
 also shows your real plan ("Claude Max") and picks the same default model as on your Mac.
 
 To have it ask first, set its recipe's `approvals` to `ask` — on this Mac
@@ -374,7 +374,7 @@ An agent image installs its agent at one exact version, chosen by `recipes.anthr
 
 The agent has **passwordless `sudo`** in its sandbox, so it can install what a task needs:
 `sudo apt-get install -y PACKAGE` (Debian-based images keep the package lists, and never stop to
-ask configuration questions) or `sudo apk add PACKAGE` on Alpine. Root inside the VM reaches no more
+ask configuration questions) or `sudo apk add PACKAGE` on Alpine. Root inside the Sandbox reaches no more
 than the agent: there's no network card, every connection still goes through your permissions, no
 credential is inside, and nothing of your Mac but its folder. `doz reset` or a restore point
 undoes what it installed.
@@ -387,7 +387,7 @@ Turn it off for every sandbox (`doz config set sandbox.agent_sudo false`) or one
 
 At every session start, Dozable tells the agent where it is:
 
-- a short **facts block**, added to its system prompt: that it's in a Dozable sandbox (a Linux VM on
+- a short **facts block**, added to its system prompt: that it's in a Dozable sandbox (a small Linux virtual machine on
   your Mac, not a container) with its name, image, CPUs and memory; whether `/workspace` is your Mac
   folder (and which) or isolated; how its network works and what to do when refused; that its
   credentials are supplied by the proxy; whether it has sudo; its time zone; what the clipboard does;

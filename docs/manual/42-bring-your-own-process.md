@@ -26,7 +26,7 @@ doz workspace new promo --preset remotion-video --prompt-file ~/video/promo/BRIE
     --worker "Draft each scene and render a still of it" --worker "Review each still against the criteria" --dry-run
 ```
 
-The dry run says what it would make — the workspace, its room `promo`, two declared workers in micro VMs (the preset),
+The dry run says what it would make — the workspace, its room `promo`, two declared workers in Sandboxes (the preset),
 the standard network and `remotion.media` — and anything that would be refused. Then, in this order — make it, open the
 first unit of work and set what "done" means, start the workers, grant them — so no worker ever looks at a unit of work
 with no criteria:
@@ -47,7 +47,7 @@ needs the grant (`reviewer` is the usual one — [What agents may write](41-runs
 An entry written in the moment before it is refused with exit 4, naming `journal.write`, and the agent tries again once
 you have granted it — nothing is lost.
 
-**The network.** `remotion-video` gives its micro VMs the standard network and `remotion.media`, where a render first
+**The network.** `remotion-video` gives its Sandboxes the standard network and `remotion.media`, where a render first
 downloads Remotion's own browser. Anything else a composition fetches (a web font, a remote image) is refused until you
 allow it — look, then allow exactly what it shows:
 
@@ -90,7 +90,7 @@ doz workspace journal promo add criterion "The title reads at phone size" --data
 doz workspace journal promo add criterion "The logo is on screen for the last second" --data '{"id":"c2"}'
 ```
 
-**bot1** (inside its micro VM, with `dozchat`) claims the work, drafts, renders and hands over:
+**bot1** (inside its Sandbox, with `dozchat`) claims the work, drafts, renders and hands over:
 
 ```bash
 dozchat journal add task "Scene 1: the title card"

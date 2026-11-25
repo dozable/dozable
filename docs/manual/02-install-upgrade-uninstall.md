@@ -8,7 +8,7 @@ dashboard, and the permission macOS requires to run virtual machines. You instal
 
 - **The `doz` program** is what you install. It is signed with Apple's virtualization entitlement;
   without that, macOS refuses to boot virtual machines. A copy you build yourself without signing can
-  run every command except the ones that boot a VM, and `doz doctor` says so.
+  run every command except the ones that boot a Sandbox, and `doz doctor` says so.
 - **The store** is where your sandboxes, images and restore points live:
   `~/Library/Application Support/doz` unless you choose another (see
   [Settings reference](15-settings-reference.md), `store.path`). Upgrading `doz` never touches it

@@ -13,7 +13,7 @@ A new session on this Mac is **fenced** by default. **Fenced** means: macOS's ow
 program and everything it starts to its project folder, its own temporary files and caches, and Dozable's proxy for
 the network. Your Keychain, your secrets and your other folders are closed to it. `--unfenced` opts one session out —
 then nothing is around it at all, and it acts as you. A workspace's manager and workers run fenced unless you choose a
-micro VM or name unfenced. What the fence does and does not block is said plainly below ([What the fence
+Sandbox or name unfenced. What the fence does and does not block is said plainly below ([What the fence
 is not](#what-the-fence-is-not)) and in the [Security model](16-security-model.md).
 
 Each fenced session has a fence of its own — its own proxy, its own placeholders, its own profile — and shares none of it
@@ -25,7 +25,7 @@ fenced place are two sessions with two fences, each built from the place.
 Every agent — a sandbox you make, a workspace's manager or worker — runs in one of three places. This table is the one
 comparison; other pages point here.
 
-| | **micro VM** (a sandbox) | **fenced** on this Mac (the default for a workspace's agents) | **unfenced** on this Mac (as you) |
+| | **Sandbox** | **fenced** on this Mac (the default for a workspace's agents) | **unfenced** on this Mac (as you) |
 |---|---|---|---|
 | what holds it | its own Linux virtual machine: its own kernel and disk | macOS's own sandbox, around the program and everything it starts | nothing |
 | files it reaches | the one folder shared at `/workspace` | its project folder (and folders you name with `--write` / `--read`), its own temp and caches; reads your tools | all of yours |
@@ -33,7 +33,7 @@ comparison; other pages point here.
 | your keys and logins | never inside: a placeholder, swapped on the way out | the same; the Keychain closed (`--keychain` opens it) | yours, as you |
 | memory | its own allocation (1 GiB for a plain shell, 2 GiB for an agent image; `--memory`), given back when it hibernates | a program on your Mac: what it uses | the same |
 | start | a first start may prepare its image (minutes, once); then ~0.4 s to boot, ~0.3 s to wake | a program starting: about a second | the same |
-| pick it when | the work is Linux work, or you want the strongest wall (a tool that installs things, a render, untrusted code) | the work has to happen on the Mac (Xcode, the Simulator, a Mac-only build), or you want no VM | signing and notarising, or anything that needs your Keychain and networking whole — knowingly |
+| pick it when | the work is Linux work, or you want the strongest wall (a tool that installs things, a render, untrusted code) | the work has to happen on the Mac (Xcode, the Simulator, a Mac-only build), or you want no Sandbox | signing and notarising, or anything that needs your Keychain and networking whole — knowingly |
 
 What each wall does and does not stop is in the [Security model](16-security-model.md); a sandbox's lifecycle is in
 [Sandboxes and their lifecycle](05-sandboxes-and-lifecycle.md).

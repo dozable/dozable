@@ -3,7 +3,7 @@
 So far *you* have run `doz`. But the agent you already use on your Mac — Claude Code, Codex, Cursor —
 can run it too. Its job is to orchestrate a **workspace** for you: make it with a brief and your folders, start its
 agents, follow the room and the journal of each unit of work, and bring you what needs your decision. A sandbox is one
-place an agent of the workspace can run (a micro VM), beside a fenced session on this Mac or, only when you say, a
+place an agent of the workspace can run (a Sandbox), beside a fenced session on this Mac or, only when you say, a
 session that acts as you.
 
 Before anything else, it should run `doz --version` and read the manual of that version (`doz docs`, below): commands
@@ -31,7 +31,7 @@ doz workspace start app --json
 
 - **Create.** `--brief TEXT` (or `--brief -` for standard input, or `--prompt-file FILE`), `--folder DIR` (repeatable;
   the first is the main one), `--worker "TASK"` (repeatable: declared now, started by `doz workspace start`), `--preset
-  NAME` (`blank`, `research`, `swift-tests`, `mac-admin`, `remotion-video`; a flag given wins) and `--start` to start it
+  NAME` (`blank` or `remotion-video`; a flag given wins) and `--start` to start it
   at once. `--dry-run --json` shows what would be made and makes nothing. `doz workspace create` is the same command.
   An unknown preset exits `65` (`invalid-value`), naming the real ones. Workers need chat on (`doz chat on`).
 - **State.** `doz workspace state app --json` gives each agent's `condition` — `running`, `asleep`, `stopped`,

@@ -15,7 +15,7 @@ the network acts as you.
 | the participant | made by | where its token is kept | it reaches the agent |
 |---|---|---|---|
 | a participant you add (`doz chat add NAME`) | you | shown once, or written to a new file (`--to-file`, `--to-dir`); `--from-stdin` gives it one it already has | however you hand it over |
-| an Agent / Bot on this Mac (`vm`, `fenced`, `unfenced`) | `doz bot new` | your login keychain, one item per bot | as a manager or worker: a placeholder the proxy swaps (fenced, micro VM), or a file only you can read, deleted when it stops (unfenced) |
+| an Agent / Bot on this Mac (`sandbox`, `fenced`, `unfenced`) | `doz bot new` | your login keychain, one item per bot | as a manager or worker: a placeholder the proxy swaps (fenced, Sandbox), or a file only you can read, deleted when it stops (unfenced) |
 | an Agent / Bot elsewhere (`--isolation elsewhere`) | `doz bot new` | nowhere: shown once, or written to a new file (`--to-file`) | you put it on that machine |
 | a worker that is not a bot (`helper`, `bot1`, …) | the daemon, at `doz worker add` — and a new one at each start | the daemon only, as a launch secret of its place | as a placeholder, or a file for an unfenced one |
 | an adopted agent | the daemon, at `doz workspace adopt` (with chat on and a room) | the daemon only, as a launch secret of its place | every session Dozable starts there from then on (below) |
