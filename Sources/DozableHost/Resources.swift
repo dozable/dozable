@@ -530,7 +530,7 @@ public enum Resources {
         }
         if byLeaf["initfs"] != nil {
             let l = leaf("initfs")
-            add(ResourceItem(id: "initfs", group: "caches", name: "guest init", detail: "vminit's disk — every VM boots it",
+            add(ResourceItem(id: "initfs", group: "caches", name: "guest init", detail: "vminit's disk — every Sandbox boots it",
                              sizeBytes: l.size, freedBytes: l.freed, usedBy: live.map(\.name), deletable: true,
                              refusal: quietRefusal ?? preparingAny, recreatable: true,
                              later: "rebuilt at the next start (needs the download cache or network)", current: true, path: "initfs.ext4"))
@@ -581,7 +581,7 @@ public enum Resources {
         }
         if byLeaf["helper:fsck"] != nil {
             let l = leaf("helper:fsck")
-            add(ResourceItem(id: "helper:fsck", group: "caches", name: "e2fsck helper disk", detail: "checks a disk copied while its VM ran",
+            add(ResourceItem(id: "helper:fsck", group: "caches", name: "e2fsck helper disk", detail: "checks a disk copied while its Sandbox ran",
                              sizeBytes: l.size, freedBytes: l.freed, deletable: true, refusal: preparingAny, recreatable: true,
                              later: "prepared again when a copied disk next needs a check (about a minute, needs network)",
                              cleanable: preparingAny == nil, path: rel("helper:fsck")))

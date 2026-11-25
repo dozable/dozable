@@ -96,7 +96,7 @@ function inside(w) {
   const agents = d.agents.map((a) => {
     const dot = h('span', { class: 'ph-dot ph-' + agentPhase(a.state), role: 'img', 'aria-label': a.state + (a.activity ? ' · ' + a.activity : '') });
     const parts = [dot, h('span', { class: 'ns-name' }, a.name), h('span', { class: 'nav-ws-role' }, a.role)];
-    const title = a.name + ' — ' + a.role + ' · ' + (a.kind === 'mac' ? 'on this Mac' : a.kind === 'sandbox' ? 'micro VM ' + a.sandbox : 'elsewhere') + ' · ' + a.state
+    const title = a.name + ' — ' + a.role + ' · ' + (a.kind === 'mac' ? 'on this Mac' : a.kind === 'sandbox' ? 'Sandbox ' + a.sandbox : 'elsewhere') + ' · ' + a.state
       + (a.activity ? ' · ' + a.activity : '');
     // Its screen in the workspace: its sandbox's or its session's page, framed (an agent elsewhere: its card).
     const on = state.frame && state.frame.workspace === w.name && state.frame.agent === a.name;

@@ -1,0 +1,30 @@
+# One agent in a Sandbox: one Claude Code agent in the workspace's Sandbox, the folder at /workspace.
+doz: space/3.1
+space: {{space}}
+owner: {{owner}}
+about:
+  title: One agent in a Sandbox
+  summary: The same, inside a Sandbox — the folder is all of your Mac it sees.
+brief: { file: DESCRIPTION.md }
+network: { preset: standard }
+
+folders:
+  work: { external: {{folder}}, main: true }
+
+agents:
+  {{who}}-agent:
+    kind: claude-code
+    role: worker
+    where: box
+    prompt: Say hello in the room, then wait for the first task.
+
+chat:
+  rooms:
+    {{space}}: { main: true, members: [owner, {{who}}-agent] }
+
+x-dozable:
+  lifetime: standing
+  places:
+    box:
+      isolation: vm
+      image: claude-code

@@ -204,7 +204,7 @@ extension BuildLogs {
                 inputs.append(.init(label: "Recipe", value: "none (no agent)"))
             }
             inputs.append(.init(label: "Image key", value: "\(p.key.prefix(12)) (base disk \(p.baseKey.prefix(12)))"))
-            inputs.append(.init(label: "Bake VM", value: "\(p.cpus) CPUs, \(p.memoryMiB) MiB; the agent user \(p.user), home \(p.home)"))
+            inputs.append(.init(label: "Build machine", value: "\(p.cpus) CPUs, \(p.memoryMiB) MiB; the agent user \(p.user), home \(p.home)"))
             inputs.append(.init(label: "Bake network", value: p.network == "proxy"
                 ? "no interface — only through the Mac's proxy, policy \(p.policyPreset ?? "custom") (anything else: \(p.policyDefault ?? "deny"))"
                 : "a NAT interface"))

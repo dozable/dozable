@@ -301,7 +301,7 @@ final class WorkspaceWorkerTests: BotTestCase {
         }
         // Flags.
         m = await wk(c, .workerAdd, "demo") { $0.cpus = 2 }
-        XCTAssertTrue(m.error?.message.contains("--cpus and --memory go with --isolation vm") == true, m.error?.message ?? "")
+        XCTAssertTrue(m.error?.message.contains("--cpus and --memory go with --isolation sandbox") == true, m.error?.message ?? "")
         m = await wk(c, .workerAdd, "demo") { $0.sandbox = "x"; $0.isolation = "vm" }
         XCTAssertTrue(m.error?.message.contains("--sandbox or --isolation") == true, m.error?.message ?? "")
         m = await wk(c, .workerAdd, "demo", "carl") { $0.fromBot = "otto" }

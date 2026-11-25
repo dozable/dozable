@@ -585,7 +585,7 @@ struct SleepCommand: AsyncParsableCommand {
 
 struct Hibernate: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "hibernate",
-        abstract: "Hibernate: snapshot to disk and stop the VM — RAM returned; sessions come back on wake.")
+        abstract: "Hibernate: snapshot to disk and stop the Sandbox — RAM returned; sessions come back on wake.")
     @OptionGroup var g: GlobalOptions
     @Argument var name: String
     func run() async throws { _ = try lifecycle(.hibernate, name, g) }
@@ -910,7 +910,7 @@ struct Up: AsyncParsableCommand {
                     out.append("network: \(DozableProject.fileName) says \(want), but \(name)'s policy was edited — kept; doz net policy \(name) --preset \(want) replaces it")
                 }
             } else {
-                out.append("network \(cfg.networkName) → \(want) in \(DozableProject.fileName): nat and none are the VM's network device — \(remake)")
+                out.append("network \(cfg.networkName) → \(want) in \(DozableProject.fileName): nat and none are the Sandbox's network device — \(remake)")
             }
         }
         if let a = project.account, a != (cfg.account ?? "none") {

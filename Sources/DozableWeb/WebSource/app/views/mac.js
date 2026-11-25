@@ -270,7 +270,7 @@ function openPane(session, mode, tab) {
   host.append(t.els.wrap);
   showTab(mac.tab);
   paintCover(t);
-  history.replaceState(null, '', location.pathname + placeHash('mac', session, null, state.frame));
+  history.replaceState(history.state, '', location.pathname + placeHash('mac', session, null, state.frame));
   bootTerm(t, setting('ui.terminal_font_size', 13));
 }
 function current() { return mac.open ? mac.sessions.find((x) => x.name === mac.open.session) || null : null; }

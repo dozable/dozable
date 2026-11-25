@@ -1,0 +1,10 @@
+{
+  "id": "solo-sandbox",
+  "version": 1,
+  "title": "One agent in a Sandbox",
+  "summary": "The same, inside a Sandbox: the folder is all of your Mac it sees.",
+  "needs": { "manager": false },
+  "agents": [ { "name": "agent", "role": "worker", "where": "sandbox" } ],
+  "room": "you and agent",
+  "network": "Standard"
+}

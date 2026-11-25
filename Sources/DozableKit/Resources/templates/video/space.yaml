@@ -1,0 +1,39 @@
+# Remotion video: your bot manages; an editor and a renderer share a Sandbox. Remotion's browser comes from remotion.media.
+doz: space/3.1
+space: {{space}}
+owner: {{owner}}
+about:
+  title: Remotion video
+  summary: A manager and two workers make a video with Remotion in a Sandbox.
+brief: { file: DESCRIPTION.md }
+network: { preset: standard, allow: [remotion.media] }
+
+folders:
+  work: { external: {{folder}}, main: true }
+
+agents:
+  manager:
+    external: { bot: {{manager}} }
+    role: manager
+  {{who}}-editor:
+    kind: claude-code
+    role: worker
+    where: studio
+    prompt: Write and change the Remotion project in /workspace as the room asks.
+  {{who}}-renderer:
+    kind: claude-code
+    role: worker
+    where: studio
+    prompt: Render a draft after each change the editor reports, and post where it is.
+
+chat:
+  rooms:
+    {{space}}: { main: true, members: [owner, manager, {{who}}-editor, {{who}}-renderer] }
+
+x-dozable:
+  lifetime: standing
+  places:
+    studio:
+      isolation: vm
+      image: claude-code
+      network: { preset: standard, allow: [remotion.media] }

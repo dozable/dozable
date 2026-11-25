@@ -16,7 +16,7 @@ doz bot new far --agent codex --isolation elsewhere --to-file ~/far.token
 ```
 
 - `--agent` is the agent program, as `doz search` names it.
-- `--isolation` says where it runs: `fenced` on this Mac (the default), `vm` (a sandbox), `unfenced` on this Mac — which
+- `--isolation` says where it runs: `fenced` on this Mac (the default), `sandbox` (`vm` is the same), `unfenced` on this Mac — which
   **acts as you**, and says so wherever it shows; only when you name it — or `elsewhere`, another machine that runs it
   itself.
 - `--deliver` says how the chat server reaches it: `poll` (the default — it collects its messages with its token),
@@ -30,7 +30,7 @@ With chat off, a new bot takes part once chat is on (`doz chat on`).
 
 ## Its token
 
-- A bot that runs on this Mac (`vm`, `fenced` or `unfenced`) has its token kept in your login keychain — one item for each
+- A bot that runs on this Mac (a Sandbox, `fenced` or `unfenced`) has its token kept in your login keychain — one item for each
   bot — and Dozable never shows it. `doz bot show` and `doz bot token NAME` say where it is and its fingerprint.
 - A bot **elsewhere** gets its token once: on your terminal, or in a new file only you can read (`--to-file`). Dozable
   never keeps it. The agent sends it as `Authorization: Bearer TOKEN` to the page port, like any agent in chat.
@@ -64,10 +64,10 @@ dashboard").
 ## Managing a workspace
 
 A bot that runs on this Mac or in a sandbox can manage a workspace: `doz workspace new demo … --manager mira` records
-it, and `doz workspace start demo` starts it — fenced by default, in a sandbox with `--manager-isolation vm`, and
-unfenced (acting as you) only when you name it. Its token reaches the manager without ever being shown: a fenced or VM
+it, and `doz workspace start demo` starts it — fenced by default, in a sandbox with `--manager-isolation sandbox`, and
+unfenced (acting as you) only when you name it. Its token reaches the manager without ever being shown: a fenced or Sandbox
 manager holds only a placeholder Dozable's proxy swaps for it, and stopping the workspace never deletes it from your
-keychain. A manager collects its messages itself, so a fenced or VM manager's bot is reached by polling (`doz bot set
+keychain. A manager collects its messages itself, so a fenced or Sandbox manager's bot is reached by polling (`doz bot set
 mira --deliver poll`). For now a bot runs in one live workspace at a time. `doz bot ls` says what each bot manages and
 where it runs now (`demo (running)`); `doz bot show` too. Giving a running manager's bot a new token stops it from
 talking until the workspace is started again.
@@ -75,10 +75,10 @@ talking until the workspace is started again.
 ## Working in a workspace
 
 A bot can also be a **worker** in a started workspace: `doz worker add demo --from-bot otto --task "review the PR"`
-brings it up with its own name, token, skills and instructions, in the workspace's room — fenced by default, in a micro
-VM with `--isolation vm` (or when its default is vm), and unfenced (acting as you) only with `--isolation unfenced`. Its
+brings it up with its own name, token, skills and instructions, in the workspace's room — fenced by default, in a
+Sandbox with `--isolation sandbox` (or when its default is Sandbox), and unfenced (acting as you) only with `--isolation unfenced`. Its
 token reaches it the same way a manager's does, never shown. `doz worker end demo otto` ends it and keeps its token: it
-stays a member of the room. A fenced or VM worker's bot is reached by polling. A bot is never a worker of the workspace
+stays a member of the room. A fenced or Sandbox worker's bot is reached by polling. A bot is never a worker of the workspace
 it manages, and **one live workspace at a time** counts both roles: while otto works in `wk`, starting a workspace it
 manages, or adding it as a worker elsewhere, is refused ("otto already works in wk, which is running…" — end it there
 first). `doz bot ls` says where each bot works now (`works in: wk`).
@@ -119,7 +119,7 @@ asks first; pass `--yes` when there is no terminal or with `--json`.
 ## Its ceiling
 
 A bot's **ceiling** is the most it may ever get, wherever it works and whatever it is granted: per permission, `ask` or
-`never` ([what agents may do](37-workspaces.md)). Its isolation ceiling (`fenced` or `vm`) means it never runs unfenced.
+`never` ([what agents may do](37-workspaces.md)). Its isolation ceiling (`fenced` or `sandbox`) means it never runs unfenced.
 
 ```bash
 doz bot ceiling otto sudo=never keychain.use=never   # the same as doz permissions ceiling --bot otto

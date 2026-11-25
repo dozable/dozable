@@ -66,7 +66,7 @@ struct Doctor: AsyncParsableCommand {
         out.append(DoctorCheck(check: "chip", status: machine == "arm64" ? .ok : .fail,
                                detail: "\(machine) · \(sysctl("machdep.cpu.brand_string")) · \(sysctl("hw.model"))" + (machine == "arm64" ? "" : " — Apple silicon is needed")))
         out.append(DoctorCheck(check: "virtualization", status: VZVirtualMachine.isSupported ? .ok : .fail,
-                               detail: VZVirtualMachine.isSupported ? "supported (up to \(VZVirtualMachineConfiguration.maximumAllowedCPUCount) CPUs per VM)" : "Virtualization.framework reports no support"))
+                               detail: VZVirtualMachine.isSupported ? "supported (up to \(VZVirtualMachineConfiguration.maximumAllowedCPUCount) CPUs per Sandbox)" : "Virtualization.framework reports no support"))
         // 678: a doz clamped to background priority (taskpolicy -b, a background agent worker) runs everything slowly.
         let mine = ProcessPriority.current()
         out.append(DoctorCheck(check: "priority", status: mine.clamped ? .warn : .ok,
@@ -269,7 +269,7 @@ struct Doctor: AsyncParsableCommand {
             let recover = store.needsRecovery()
             out.append(DoctorCheck(check: "daemon", status: recover.isEmpty ? .ok : .warn,
                                    detail: recover.isEmpty ? "not running (nothing is — the next command that needs it starts it)"
-                                                           : "not running, and \(recover.joined(separator: ", ")) had a VM when the last daemon went away — the next command recovers it"))
+                                                           : "not running, and \(recover.joined(separator: ", ")) was running when the last daemon went away — the next command recovers it"))
         }
         // 694: the login item — present, loaded, switched off, out of date, or missing (read only; starts nothing).
         out.append(Self.loginItemCheck(DaemonLoginItem.status(store: store), daemonLocked: hostKeychain?.reason,

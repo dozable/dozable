@@ -642,7 +642,7 @@ final class ServeHTTPTests: XCTestCase {
             XCTAssertTrue(r.text.contains("\"mac-only\""), r.text)
             XCTAssertTrue(r.text.contains("this Mac's own browser"), r.text)
         }
-        let plan = #"{"workspace":"launch","brief":""}"#
+        let plan = #"{"workspace":"launch","brief":"","noRoom":true}"#
         let rp = try macJSON(devCookie, devCSRF, "/api/v1/workspace-plan", plan, remote: true)
         XCTAssertEqual(rp.status, 403, rp.text)
         XCTAssertTrue(rp.text.contains("\"mac-screen\""), rp.text)
@@ -661,8 +661,16 @@ final class ServeHTTPTests: XCTestCase {
         let p = try macJSON(macCookie, macCSRF, "/api/v1/workspace-plan", plan, remote: false)
         XCTAssertEqual(p.status, 200, p.text)
         let answer = try JSONDecoder().decode(WebWorkspacePlan.self, from: p.body)
-        XCTAssertEqual(answer.gaps.map(\.step), [1], "the brief's gap is step 1's")
-        XCTAssertTrue(answer.commands.contains("doz workspace new launch --prompt-file -"), answer.commands)
+        XCTAssertEqual(answer.gaps.map(\.step), [4], "the room's gap is How they chat's")
+        XCTAssertEqual(answer.findings.map(\.step), ["chat"])
+        XCTAssertEqual(answer.suggested?.name, "workspace1")
+        XCTAssertEqual(answer.managers.map(\.bot), ["mira"])
+        XCTAssertTrue(answer.commands.contains("doz workspace new launch --no-room"), answer.commands)
+        // 782: a workspace from a template — another computer 403 mac-only; the list is a read anyone gets.
+        let tpl = #"{"action":"workspace-from-template","template":"solo","workspace":"w9"}"#
+        let rt = try macJSON(devCookie, devCSRF, "/api/v1/actions", tpl, remote: true)
+        XCTAssertEqual(rt.status, 403, rt.text)
+        XCTAssertTrue(rt.text.contains("\"mac-only\""), rt.text)
         XCTAssertEqual(fake.performedOps, want, "the plan is a read: no operation")
         // Strict: an unknown field, or a project path, is refused before any call.
         XCTAssertEqual(try macJSON(macCookie, macCSRF, "/api/v1/workspace-plan", #"{"workspace":"x","project":"/etc"}"#, remote: false).status, 400)

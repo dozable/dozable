@@ -304,8 +304,12 @@ extension HostCore {
         func kickOff() async throws {
             guard kickoffDue else { return }
             kickoffDue = false
-            if let room, let chat, ready {
-                let text = WorkDescription.openingMessage(brief: workspaceBriefText(rec) ?? "", refs: rec.brief.refs, addenda: rec.addenda, goal: nil)
+            let text = WorkDescription.openingMessage(brief: workspaceBriefText(rec) ?? "", refs: rec.brief.refs, addenda: rec.addenda, goal: nil)
+            if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                // 782: no description yet — nothing is posted as you; the manager asks in the room what to work on.
+                rec = try await workspaceUpdate(n) { r in r.flags.startedAt = Date(); return [] }
+                notes.append("no description yet: nothing was posted — the manager asks in the room what to work on")
+            } else if let room, let chat, ready {
                 try chat.post(room: room, content: text)
                 kickedOff = true
                 rec = try await workspaceUpdate(n) { r in
@@ -549,7 +553,7 @@ extension HostCore {
     /// and continues the conversation.
     func launchManagerInVM(_ o: ManagerLaunchOrder) async throws -> [String] {
         if let no = stubVMRefusal(o.bot, isolation: .vm) { throw no }
-        guard let secret = o.plan.secret else { throw HostError(.invalid, "a VM manager needs its token's launch secret") }
+        guard let secret = o.plan.secret else { throw HostError(.invalid, "a manager in a Sandbox needs its token's launch secret") }
         let env = ProcessInfo.processInfo.environment
         let seamArgv = TestSafety.guarded(env) ? env["DOZ_TEST_MANAGER_ARGV"].flatMap { s in
             (try? JSONDecoder().decode([String].self, from: Data(s.utf8))) } : nil

@@ -6,7 +6,7 @@ import Foundation
 /// refusal of its own (`liveElsewhereRefusal`) — for now a bot runs in one live workspace at a time.
 /// `WorkspaceSetupCheckTests`; `docs/engineering/workspaces.md` ("The manager").
 public enum WorkspaceSetupCheck {
-    /// One thing missing: what it is about (`brief`, `chat`, `room`, `folder`, `agent`, `manager`), why, and the fix.
+    /// One thing missing: what it is about (`chat`, `room`, `folder`, `agent`, `manager`), why, and the fix.
     public struct Gap: Codable, Equatable, Sendable {
         public var item: String
         public var why: String
@@ -97,9 +97,7 @@ public enum WorkspaceSetupCheck {
     public static func gaps(_ i: Input) -> [Gap] {
         let w = i.workspace
         var out: [Gap] = []
-        if i.briefBytes == 0 {
-            out.append(Gap(item: "brief", why: "the brief is empty", fix: "doz workspace edit \(w) --prompt-file F"))
-        }
+        // 782: the description is optional — an empty one is no gap (a start posts nothing and the manager asks in the room).
         switch i.chat {
         case .off:
             if i.manager != nil { out.append(Gap(item: "chat", why: "a manager needs chat", fix: "doz chat on")) }
@@ -127,48 +125,53 @@ public enum WorkspaceSetupCheck {
         return out
     }
 
-    static func managerGaps(_ m: Manager, workspace w: String) -> [Gap] {
+    static func managerGaps(_ m: Manager, workspace w: String) -> [Gap] { managerFindings(m, workspace: w).map(\.gap) }
+
+    /// Each manager gap with what it is about (782: the New workspace wizard words each one its own way — `WorkspaceWizard`):
+    /// `notBot`, `retired`, `elsewhere`, `token`, `keychain`, `inbox`, `webhook`, `program`, `agent`, `placeTaken`.
+    public static func managerFindings(_ m: Manager, workspace w: String) -> [(code: String, gap: Gap)] {
         let b = m.bot
         guard m.known else {
-            return [Gap(item: "manager", why: "\(b) is not a bot", fix: "doz workspace edit \(w) --manager BOT (doz bot ls)")]
+            return [("notBot", Gap(item: "manager", why: "\(b) is not a bot", fix: "doz workspace edit \(w) --manager BOT (doz bot ls)"))]
         }
         guard !m.retired else {
-            return [Gap(item: "manager", why: "\(b) was retired", fix: "doz workspace edit \(w) --manager BOT, or --no-manager")]
+            return [("retired", Gap(item: "manager", why: "\(b) was retired", fix: "doz workspace edit \(w) --manager BOT, or --no-manager"))]
         }
         guard m.botIsolation != "elsewhere" else {
-            return [Gap(item: "manager", why: "a bot elsewhere runs on its own machine; Dozable never starts it", fix: "doz workspace edit \(w) --no-manager")]
+            return [("elsewhere", Gap(item: "manager", why: "a bot elsewhere runs on its own machine; Dozable never starts it", fix: "doz workspace edit \(w) --no-manager"))]
         }
-        var out: [Gap] = []
+        var out: [(code: String, gap: Gap)] = []
         if m.keeper != "dozable" {
-            out.append(Gap(item: "manager", why: "\(b)'s token is not held by Dozable", fix: "doz bot token \(b) --new"))
+            out.append(("token", Gap(item: "manager", why: "\(b)'s token is not held by Dozable", fix: "doz bot token \(b) --new")))
         } else if m.keychainReadable == false {
-            out.append(Gap(item: "manager", why: "\(b)'s token cannot be read from the login keychain (locked, or changed underneath)",
-                           fix: "unlock it, or doz bot token \(b) --new"))
+            out.append(("keychain", Gap(item: "manager", why: "\(b)'s token cannot be read from the login keychain (locked, or changed underneath)",
+                                        fix: "unlock it, or doz bot token \(b) --new")))
         }
         switch m.deliver {
         case "inbox" where m.isolation != "unfenced":
-            out.append(Gap(item: "manager", why: "\(b) is reached by inbox, which only an unfenced session gets; a fenced or VM manager polls",
-                           fix: "doz bot set \(b) --deliver poll"))
+            out.append(("inbox", Gap(item: "manager", why: "\(b) is reached by inbox, which only an unfenced session gets; a fenced or sandboxed manager polls",
+                                     fix: "doz bot set \(b) --deliver poll")))
         case "webhook":
-            out.append(Gap(item: "manager", why: "\(b) is reached by webhook; a manager Dozable starts collects its own messages",
-                           fix: "doz bot set \(b) --deliver poll"))
+            out.append(("webhook", Gap(item: "manager", why: "\(b) is reached by webhook; a manager Dozable starts collects its own messages",
+                                       fix: "doz bot set \(b) --deliver poll")))
         default:
             break
         }
         if let p = ManagerLaunch.program(agent: m.agent) {
             if m.programOnPath == false {
-                out.append(Gap(item: "manager", why: "\(p) is not on this Mac's PATH", fix: "install it, or doz workspace edit \(w) --manager \(b) --manager-isolation vm"))
+                out.append(("program", Gap(item: "manager", why: "\(p) is not on this Mac's PATH",
+                                           fix: "install it, or doz workspace edit \(w) --manager \(b) --manager-isolation sandbox")))
             }
         } else {
-            out.append(Gap(item: "manager", why: "Dozable does not start a manager running \(m.agent) yet",
-                           fix: "make a Claude Code or Codex bot its manager: doz workspace edit \(w) --manager BOT"))
+            out.append(("agent", Gap(item: "manager", why: "Dozable does not start a manager running \(m.agent) yet",
+                                     fix: "make a Claude Code or Codex bot its manager: doz workspace edit \(w) --manager BOT")))
         }
         if m.placeTaken {
             if m.isolation == "vm" {
-                out.append(Gap(item: "manager", why: "a sandbox called \(m.placeName) already exists", fix: "doz rm \(m.placeName), or rename the workspace"))
+                out.append(("placeTaken", Gap(item: "manager", why: "a sandbox called \(m.placeName) already exists", fix: "doz rm \(m.placeName), or rename the workspace")))
             } else {
-                out.append(Gap(item: "manager", why: "a session called \(m.placeName) already exists on this Mac",
-                               fix: "doz sessions end @mac \(m.placeName), or rename the workspace"))
+                out.append(("placeTaken", Gap(item: "manager", why: "a session called \(m.placeName) already exists on this Mac",
+                                              fix: "doz sessions end @mac \(m.placeName), or rename the workspace")))
             }
         }
         return out

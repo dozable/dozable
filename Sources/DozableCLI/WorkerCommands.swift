@@ -21,8 +21,8 @@ struct WorkerCommand: AsyncParsableCommand {
         when its session ends or its run finishes. A bot (--from-bot NAME) is its own identity, token and skills, kept \
         when it ends. Its chat token is new at each start; the old one is refused.
 
-        It runs in the narrowest place unless you say otherwise: fenced on this Mac by default, in a micro VM of its own \
-        (--isolation vm, or when the workspace's or the bot's default is vm), in a running sandbox of the workspace \
+        It runs in the narrowest place unless you say otherwise: fenced on this Mac by default, in a Sandbox of its own \
+        (--isolation sandbox, or when the workspace's or the bot's default is a Sandbox), in a running sandbox of the workspace \
         (--sandbox X), or unfenced — acting as you — only with --isolation unfenced. doz worker end ends it.
         """,
         subcommands: [WorkerAdd.self, WorkerList.self, WorkerEndCommand.self, WorkerResetCommand.self])
@@ -82,12 +82,12 @@ struct WorkerAdd: AsyncParsableCommand {
     @Argument(help: "Its name in chat (default: the first free botN; with --from-bot, the bot's).") var name: String?
     @Option(name: .long, help: "What it is to do (its START says it in full).") var task: String
     @Option(name: .long, help: "Its agent program: claude-code (the default) or codex.") var agent: String?
-    @Option(name: .long, help: "Where it runs: fenced (the default), vm, or unfenced (it acts as you — only when named).") var isolation: String?
+    @Option(name: .long, help: "Where it runs: fenced (the default), sandbox, or unfenced (it acts as you — only when named).") var isolation: String?
     @Option(name: .long, help: "Run it in this running sandbox of the workspace (an adopted agent's or another worker's), as its own participant.")
     var sandbox: String?
     @Option(name: .long, help: "Its session's name on this Mac (default: WORKSPACE-NAME).") var session: String?
-    @Option(name: .long, help: "A new sandbox's CPUs (--isolation vm).") var cpus: Int?
-    @Option(name: .long, help: "A new sandbox's memory, like 2G (--isolation vm).") var memory: String?
+    @Option(name: .long, help: "A new sandbox's CPUs (--isolation sandbox).") var cpus: Int?
+    @Option(name: .long, help: "A new sandbox's memory, like 2G (--isolation sandbox).") var memory: String?
     @Option(name: .customLong("from-bot"), help: "The Agent / Bot it is: its name, token, skills and instructions (doz bot ls).") var fromBot: String?
     @Option(name: .customLong("room"), help: "Also invite it to this room of the workspace, by its label (repeatable).") var rooms: [String] = []
     @Option(name: .customLong("allow-tool"), help: "One more tool a fenced Claude Code worker may use without asking, like Edit (repeatable).")
@@ -103,7 +103,7 @@ struct WorkerAdd: AsyncParsableCommand {
         var q = WorkerRequest(workspace: workspace, name: name)
         q.task = task
         q.agent = agent
-        q.isolation = isolation
+        q.isolation = IsolationWord.stored(isolation)
         q.sandbox = sandbox
         q.session = session
         q.cpus = cpus

@@ -1,0 +1,67 @@
+# Fix-it team (the canonical demo, made generic): your bot manages; a builder and a tester share one Sandbox; a reviewer
+# reads, fenced on this Mac; a helper keeps notes. The room and its history carry over between runs.
+doz: space/3.1
+space: {{space}}
+owner: {{owner}}
+about:
+  title: Fix-it team
+  summary: A manager and four agents fix a problem, review each other's work and keep the lessons.
+brief: { file: DESCRIPTION.md }
+network: { preset: standard, allow: [registry.npmjs.org] }
+
+folders:
+  repo:  { external: {{folder}}, main: true }
+  notes: { x-dozable: { lifetime: run } }
+
+agents:
+  manager:
+    external: { bot: {{manager}} }
+    role: manager
+  {{who}}-builder:
+    kind: claude-code
+    role: worker
+    where: build
+    prompt: Build the project in /workspace after each change and post the result in the room.
+  {{who}}-tester:
+    kind: claude-code
+    role: worker
+    where: build
+    prompt: Run the tests after each build; post failures in the room and record each run's outcome in the journal.
+  {{who}}-reviewer:
+    kind: claude-code
+    role: reviewer
+    where: desk
+    access: ro
+    network: { preset: locked, allow: [github.com] }
+    prompt: Review each change the builder reports, read-only, and post your findings; propose a lesson when one recurs.
+  {{who}}-helper:
+    kind: claude-code
+    role: worker
+    where: desk
+    prompt: Keep notes in the notes folder and help whoever the manager asks you to.
+
+chat:
+  rooms:
+    {{space}}: { main: true, members: [owner, manager, {{who}}-builder, {{who}}-tester, {{who}}-reviewer, {{who}}-helper] }
+
+persist:
+  team-chat: { room: {{space}} }
+
+x-dozable:
+  lifetime: standing
+  places:
+    build:
+      isolation: vm
+      image: claude-code
+      cpus: 4
+      memory: 8G
+      network: { preset: standard, allow: [registry.npmjs.org] }
+    desk:
+      isolation: fenced
+      view: { notes: rw }
+      network: { preset: standard, allow: [github.com, registry.npmjs.org] }
+  feeds:
+    journal: { to: room }
+  permissions:
+    {{who}}-reviewer: [reviewer]
+    manager: [description.decide]

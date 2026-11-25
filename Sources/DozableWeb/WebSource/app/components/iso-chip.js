@@ -1,4 +1,4 @@
-// components/iso-chip — THE isolation chip: "micro VM", "fenced", "unfenced", "elsewhere" — a link to the isolation guide
+// components/iso-chip — THE isolation chip: "Sandbox", "fenced", "unfenced", "elsewhere" — a link to the isolation guide
 // at that choice (#/guide/isolation/ID), so every chip says what it means. Every view that shows where an agent runs draws
 // it through here (agent-frame's agentChips, the side panel, the Agents tab, Agents / Bots, the Add a worker page). A word
 // that names no choice (an adopted session with none recorded: "on this Mac") stays a plain chip.

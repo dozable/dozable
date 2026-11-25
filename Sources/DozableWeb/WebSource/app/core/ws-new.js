@@ -1,66 +1,131 @@
-// core/ws-new — The New workspace wizard's pure parts (#/new-workspace): its steps, a name suggested from the prompt's
-// first words, which step a set-up gap belongs to, and the request the wizard sends — the widened `workspace-new`
-// action's fields, which are also the plan route's body (`POST /api/v1/workspace-plan`). Pure: no DOM, no state, no
-// imports — WebModulesTests runs it in JavaScriptCore.
+// core/ws-new — The New workspace wizard's pure parts (#/new-workspace): Custom's five steps, the name rule, the request
+// each path sends (`workspace-new`, `workspace-from-template` — the plan route takes the first's fields), the drawing of the
+// workspace as chosen so far (the renderer's words, the same the dashboard's pictures read), and the next free names.
+// Pure: no DOM, no state, no imports — WebModulesTests runs it in JavaScriptCore.
 
 /// The owner's definition, word for word (user text: a workspace is defined this way wherever it is defined).
 export const WORKSPACE_DEFINITION = 'A workspace is an environment set up for getting work done: its agents, its rooms, the brief that says what the work is for, and any folders it works on (usually projects). Work starts only once it is fully set up.';
 
-/// The four steps (the mockups' S04–S07).
+/// Custom's five steps; each finding of the plan names one of their ids (`step`).
 export const WSN_STEPS = [
-  { id: 'work', title: 'The work' },
-  { id: 'manager', title: 'Who manages' },
-  { id: 'where', title: 'Where it runs' },
-  { id: 'when', title: 'Grants & when' },
+  { id: 'name', title: 'Name' },
+  { id: 'manager', title: 'Manager' },
+  { id: 'workers', title: 'Workers' },
+  { id: 'chat', title: 'How they chat' },
+  { id: 'confirm', title: 'Confirm' },
 ];
 
-/// The store's rule for a workspace's name.
+/// The store's rule for a workspace's name (and so a room's made for it).
 export const WORKSPACE_NAME = /^[a-z0-9][a-z0-9-]{0,39}$/;
+/// A bot's name in chat.
+export const BOT_NAME = /^[a-z][a-z0-9-]{0,39}$/;
 
-/// A name from the prompt's first words: lower-case letters and digits joined by '-', at most 40, never starting or ending
-/// with '-' — '' when the text has none ("A 60-second launch video for MyApp 2.0" → "a-60-second-launch-video").
-export function slugFrom(text) {
-  const words = String(text || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '')
-    .split(/[^a-z0-9]+/).filter(Boolean).slice(0, 5);
-  let out = '';
-  for (const w of words) {
-    const next = out ? out + '-' + w : w;
-    if (next.length > 40) break;
-    out = next;
-  }
-  return out.slice(0, 40).replace(/^-+|-+$/g, '');
+/// What runs where, as a person reads it.
+export const WHERE_WORDS = { vm: 'Sandbox', sandbox: 'Sandbox', fenced: 'Fenced on this Mac', unfenced: 'Unfenced — acts as you', elsewhere: 'Another machine' };
+export const PROGRAM_WORDS = { 'claude-code': 'Claude Code', codex: 'Codex' };
+export const NETWORKS = [
+  ['locked', 'Locked', 'Its AI model only, and the room.'],
+  ['standard', 'Standard', 'Its model, GitHub, package registries, error reports and the room.'],
+  ['open', 'Open', 'Any site, every connection logged.'],
+];
+export const WORKER_PLACES = [
+  ['fenced', 'Fenced on this Mac', 'On this Mac behind the fence: the folder writable, your keychain closed. Mac tools like Xcode work.'],
+  ['vm', 'Sandbox', 'A small Linux machine of its own: the folder is all of your Mac it sees.'],
+];
+
+/// The name's problem as the person types (null: none) — the rule, then a workspace of that name.
+export function nameProblem(name, taken) {
+  if (!name) return 'Give it a name';
+  if (!WORKSPACE_NAME.test(name)) return '1–40 characters of a-z, 0-9 and -, not starting with -';
+  if ((taken || []).includes(name)) return name + ' is taken';
+  return null;
 }
 
-/// The step (0-based) a set-up gap is fixed in: the brief, a folder or an adopted agent → the work; the manager → who
-/// manages; chat and the room → grants & when.
-export function gapStep(item) {
-  if (item === 'manager') return 1;
-  if (item === 'chat' || item === 'room') return 3;
-  return 0;
+/// The first `prefix`N (N ≥ 1) not in `taken`.
+export function nextFree(prefix, taken) {
+  const t = new Set(taken || []);
+  for (let n = 1; n < 100000; n++) if (!t.has(prefix + n)) return prefix + n;
+  return prefix;
 }
 
-/// The brief as it is sent: ending with a line break (so the commands' heredoc gives the same bytes back).
-export function briefText(text) {
+/// The description as sent: '' when blank, else ending with a line break.
+export function descriptionText(text) {
   const t = String(text || '');
-  return t === '' || t.endsWith('\n') ? t : t + '\n';
+  if (!t.trim()) return '';
+  return t.endsWith('\n') ? t : t + '\n';
 }
 
-/// The fields sent for the wizard's choices `c` — `{name, brief, refs, folders, newFolder, fromProject, room, noRoom,
-/// manager, managerIsolation, workerIsolation, network}`. Nothing is sent that the person did not choose, beyond the
-/// wizard's own defaults (fenced workers, the network preset shown); the network is the project's when it fills it in.
+/// Custom's request — `workspace-new`'s fields (and the plan route's body) for the choices `c`: {name, description,
+/// newFolder, folder: {path, mode}|null, manager (a bot that exists) and its isolation, workerIsolation, network or
+/// fromProject, room: {mode: 'new'|'existing'|'none', name}, invite}. The manager runs where its bot runs, always.
 export function requestFrom(c) {
-  const r = { workspace: c.name || '', brief: briefText(c.brief) };
-  if (c.refs && c.refs.length) r.refs = c.refs.slice();
-  if (c.folders && c.folders.length) r.folders = c.folders.map((f) => ({ path: f.path, mode: f.mode === 'ro' ? 'ro' : 'rw' }));
-  if (c.newFolder) r.newFolder = true;
+  const r = { workspace: c.name || '' };
+  const d = descriptionText(c.description);
+  if (d) r.brief = d;
+  if (c.folder && c.folder.path) r.folders = [{ path: c.folder.path, mode: c.folder.mode === 'ro' ? 'ro' : 'rw' }];
+  else if (c.newFolder) r.newFolder = true;
   if (c.fromProject) r.fromProject = true;
-  if (c.noRoom) r.noRoom = true; else if (c.room) r.room = c.room;
+  else if (c.network) r.network = c.network;
   if (c.manager) {
     r.manager = c.manager;
     if (c.managerIsolation) r.managerIsolation = c.managerIsolation;
   }
   if (c.workerIsolation) r.workerIsolation = c.workerIsolation;
-  if (c.network && !c.fromProject) r.network = c.network;
-  if (c.sites && c.sites.length) r.sites = c.sites.slice();
+  const room = c.room || { mode: 'new' };
+  if (room.mode === 'none') r.noRoom = true;
+  else if (room.mode === 'existing' && room.name) r.room = room.name;
+  else if (room.name && room.name !== c.name) r.roomName = room.name;
+  if (room.mode !== 'none' && c.invite && c.invite.length) r.invite = c.invite.slice();
   return r;
+}
+
+/// A template's request — `workspace-from-template`'s fields.
+export function templateRequestFrom(c) {
+  const r = { template: c.template, workspace: c.name || '' };
+  if (c.folder && c.folder.path) r.folder = c.folder.path;
+  if (c.manager) r.manager = c.manager;
+  if (c.actsAsYou) r.actsAsYou = true;
+  return r;
+}
+
+/// One agent of the drawing in the renderer's words: on this Mac (fenced or unfenced) or in the Sandbox `box`.
+function placed(where, role) {
+  if (where === 'vm' || where === 'sandbox') return { kind: 'claude-code', role, where: 'sandbox:box' };
+  return { kind: 'claude-code', role, where: 'mac', isolation: where === 'unfenced' ? 'unfenced' : 'fenced' };
+}
+
+/// The workspace as chosen so far, drawn (Custom's header): the manager where its bot runs, the "new workers" stand-in where
+/// new workers will run, the room and anyone invited. In the renderer's words: its version line, then each key in JSON.
+export function pictureText(c) {
+  const space = WORKSPACE_NAME.test(c.name || '') ? c.name : 'workspace';
+  const agents = {};
+  let box = false;
+  if (c.managerWhere) {
+    agents[c.managerName || 'manager'] = placed(c.managerWhere, 'manager');
+    box = box || c.managerWhere === 'vm';
+  }
+  agents['new-workers'] = placed(c.workerIsolation || 'fenced', 'worker');
+  box = box || c.workerIsolation === 'vm';
+  const room = c.room && c.room.mode === 'existing' && c.room.name ? c.room.name : c.room && c.room.name ? c.room.name : space;
+  const members = ['owner', ...Object.keys(agents)];
+  for (const i of c.invite || []) {
+    if (agents[i] || !BOT_NAME.test(i)) continue;
+    agents[i] = { external: { bot: i } };
+    members.push(i);
+  }
+  const doc = { space, owner: 'you', agents };
+  if (box) doc.sandboxes = { box: {} };
+  if (!c.room || c.room.mode !== 'none') doc.chat = { rooms: { [WORKSPACE_NAME.test(room) ? room : space]: { main: true, members } } };
+  return 'doz: space/3.1\n' + Object.keys(doc).map((k) => JSON.stringify(k) + ': ' + JSON.stringify(doc[k])).join('\n') + '\n';
+}
+
+/// The findings of one step (`step`: an id of WSN_STEPS; 'name' also takes the folder's).
+export function findingsOf(findings, step) {
+  return (findings || []).filter((f) => f.step === step);
+}
+
+/// A template's agents in the full view's words: [name, role words, where words].
+export function templateAgentWords(a) {
+  const role = a.where === 'manager' ? 'manager — your bot, where it runs' : a.readOnly ? a.role + ' — reads only' : a.role;
+  return [a.name, role, a.where === 'manager' ? null : WHERE_WORDS[a.where] || a.where];
 }

@@ -50,7 +50,7 @@ public enum WebWorkerAdd {
         if !(forPlan && (f.d["name"] as? String) == "") { q.name = try f.string("name", max: 40).map { _ in try f.botName("name") } }
         q.task = try task(f, required: !forPlan)
         q.agent = try f.oneOf("agent", ["claude-code", "codex"])
-        q.isolation = try f.oneOf("isolation", ["fenced", "vm", "unfenced"])
+        q.isolation = IsolationWord.stored(try f.oneOf("isolation", ["fenced", "sandbox", "vm", "unfenced"]))
         q.sandbox = try f.string("sandbox", max: 40).map { _ in try f.sandbox("sandbox") }
         q.session = try f.string("session", max: 64).map { s in
             guard WebRoute.isMacSessionName(s) else { throw WebAction.Invalid("session: a session on this Mac — 1–32 of letters, digits . _ - (not starting with .)") }

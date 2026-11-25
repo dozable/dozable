@@ -6,15 +6,15 @@
 /// The four choices, in order of isolation. `chip`: the word an isolation chip shows; `rows`: the comparison table's cells.
 export const ISOLATIONS = [
   {
-    id: 'vm', chip: 'micro VM', title: 'micro VM', place: 'this Mac',
+    id: 'vm', chip: 'Sandbox', title: 'Sandbox', place: 'this Mac',
     what: 'A separate small Linux machine. Your folder appears inside; everything else of your Mac does not exist for it. It starts in a moment and sleeps with its programs kept.',
     for: 'Almost every worker — several Claude Code sessions on a video project, a render that hibernates overnight.',
     notFor: 'Xcode, the Simulator, Mac-only tools.',
-    figure: ['your Mac', 'Linux VM', 'agent · /workspace', 'no network card'],
-    control: 'micro VM · proxy · placeholders',
+    figure: ['your Mac', 'a small Linux machine', 'agent · /workspace', 'no network card'],
+    control: 'Sandbox · proxy · placeholders',
     rows: { place: 'this Mac', files: 'its folders only', network: 'through the proxy, by its permissions', keys: 'placeholders',
-      cost: 'about 1 GB while it runs; nothing asleep', macTools: 'no', sleeps: 'yes', approvals: 'off — the VM is the boundary', manager: 'later, by its grants' },
-    commands: [['doz worker add W --task "…" --isolation vm', 'a worker in a micro VM of its own'], ['doz create NAME --dry-run', 'a sandbox: what it would be and reach']],
+      cost: 'about 1 GB while it runs; nothing asleep', macTools: 'no', sleeps: 'yes', approvals: 'off — the Sandbox is the boundary', manager: 'later, by its grants' },
+    commands: [['doz worker add W --task "…" --isolation sandbox', 'a worker in a Sandbox of its own'], ['doz create NAME --dry-run', 'a sandbox: what it would be and reach']],
   },
   {
     id: 'fenced', chip: 'fenced', title: 'fenced on this Mac', place: 'this Mac',
@@ -31,7 +31,7 @@ export const ISOLATIONS = [
     id: 'unfenced', chip: 'unfenced', title: 'unfenced on this Mac', place: 'this Mac',
     what: 'No isolation: your files, Keychain and network, as if you typed it. Its screen is still held, watched and logged in the room.',
     for: 'Looking after this Mac itself — launch agents, disk space, Homebrew, logs.',
-    notFor: 'Anything a fence or a micro VM can do. It always asks you, and is never a default.',
+    notFor: 'Anything a fence or a Sandbox can do. It always asks you, and is never a default.',
     figure: ['your Mac', '', 'agent, as you —', 'no boundary'],
     control: 'no proxy · no placeholders · no guard · acts as you',
     rows: { place: 'this Mac', files: 'everything', network: 'yours, not limited', keys: 'your real ones',
@@ -58,11 +58,11 @@ export const COMPARE_ROWS = [
 
 /// The cloud column: drawn, never chosen.
 export const CLOUD = { id: 'cloud', chip: 'cloud', title: 'cloud', later: true,
-  rows: { place: 'cloud — later', files: 'as micro VM', network: 'as micro VM', keys: 'as micro VM', control: 'as micro VM', cost: 'billed (later)',
-    macTools: 'as micro VM', sleeps: 'as micro VM', approvals: 'as micro VM', manager: 'later' } };
+  rows: { place: 'cloud — later', files: 'as Sandbox', network: 'as Sandbox', keys: 'as Sandbox', control: 'as Sandbox', cost: 'billed (later)',
+    macTools: 'as Sandbox', sleeps: 'as Sandbox', approvals: 'as Sandbox', manager: 'later' } };
 
 /// Whatever the choice, keys never go inside — the guide's closing line.
-export const KEYS_NEVER_INSIDE = 'Whatever the choice, your keys never go inside a micro VM or a fenced session — the proxy swaps a placeholder for the real key on the way out. An unfenced agent is the one exception, and the reason it always asks.';
+export const KEYS_NEVER_INSIDE = 'Whatever the choice, your keys never go inside a Sandbox or a fenced session — the proxy swaps a placeholder for the real key on the way out. An unfenced agent is the one exception, and the reason it always asks.';
 
 /// One choice by its id (`vm`, `fenced`, `unfenced`, `elsewhere`), or null.
 export function isolationById(id) { return ISOLATIONS.find((x) => x.id === id) || null; }
@@ -70,7 +70,7 @@ export function isolationById(id) { return ISOLATIONS.find((x) => x.id === id) |
 /// The choice an isolation chip's word names (`micro VM` → vm; `fenced`, `unfenced`, `elsewhere`; a recorded `vm` too), or
 /// null for a word that names none (an adopted session with no isolation recorded: "on this Mac").
 export function isolationIdOf(word) {
-  if (word === 'micro VM' || word === 'vm') return 'vm';
+  if (word === 'Sandbox' || word === 'sandbox' || word === 'micro VM' || word === 'vm') return 'vm';
   return ['fenced', 'unfenced', 'elsewhere'].includes(word) ? word : null;
 }
 

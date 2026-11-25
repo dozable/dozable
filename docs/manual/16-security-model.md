@@ -8,8 +8,8 @@ each boundary does and doesn't cover, and the few ways a sandbox can reach your 
 
 ### 1. A virtual machine, not a container
 
-Each sandbox is a real Linux VM with its own kernel, run by Apple's Virtualization framework. A
-program in it — root included — sees only the VM: its own disks, and nothing of your Mac except the one
+Each Sandbox is a small Linux virtual machine with its own kernel, run by Apple's Virtualization framework. A
+program in it — root included — sees only the Sandbox: its own disks, and nothing of your Mac except the one
 folder you chose to share at `/workspace`. An isolated sandbox shares nothing at all.
 
 - The shared folder is live in both directions: **the agent can change or delete anything in it.** Use
@@ -22,7 +22,7 @@ A proxied sandbox (the default for every image) has no network interface. Its on
 proxy, in the daemon on your Mac, which checks every connection — DNS included — against the sandbox's
 [permissions](10-permissions-and-network.md), and logs it (host, verdict, bytes; never contents).
 
-- The agent can't change its own permissions, and root inside the VM can't get around them: there is
+- The agent can't change its own permissions, and root inside the Sandbox can't get around them: there is
   no route out but the proxy.
 - **Browse the web** and **Open** let the agent reach anything, so it could send your code anywhere.
   They warn before you turn them on. Prefer `site:HOST` for what's really needed.
@@ -42,7 +42,7 @@ proxy, in the daemon on your Mac, which checks every connection — DNS included
 The proxy holds your Claude login, token or API key and adds it to requests to Anthropic on their way
 out. Inside the sandbox the agent sees a placeholder (`doz_cred_…`), so there's nothing to steal:
 
-- a secret is never written into the VM, never a command-line argument, never in a log, an event or an
+- a secret is never written into the Sandbox, never a command-line argument, never in a log, an event or an
   error message;
 - your Mac login's refresh token is never read — only the short-lived access token;
 - a credential the agent brings itself is flagged or refused (the [key policy](09-agents-and-accounts.md#a-credential-the-agent-brings-itself));
@@ -58,7 +58,7 @@ Mac's own Codex login (`~/.codex`) is never read or changed.
 Access step, or for one sandbox ([GitHub as you](18-github.md)):
 
 - the token (your Mac's `gh` login, read when used and kept in the proxy's memory a few minutes, or a
-  token you gave the sandbox) never enters the VM, the store or a log — the sandbox's `GH_TOKEN` and
+  token you gave the sandbox) never enters the Sandbox, the store or a log — the sandbox's `GH_TOKEN` and
   git's login are placeholders, swapped only on the way to `github.com`, `api.github.com`,
   `uploads.github.com` and `codeload.github.com` (git's `Basic` login is decoded, swapped and
   re-encoded there, and nowhere else);
@@ -109,7 +109,7 @@ the proxy swaps it on. Raw TCP to a secret's own destination is refused outright
 
 ### 4. Root inside is not root outside
 
-The agent has passwordless `sudo` inside its sandbox by default. That's deliberate: root inside the VM
+The agent has passwordless `sudo` inside its sandbox by default. That's deliberate: root inside the Sandbox
 reaches no more than the agent does — the same proxy, no credentials, only the shared folder. It lets
 the agent install what it needs. Turn it off with `sandbox.agent_sudo` if you prefer.
 
@@ -169,7 +169,7 @@ fully resolved path.
 - **Dockerfile builds** run in Apple's `container` builder, **outside Dozable's network policy**: their
   `RUN` steps reach the internet directly. Only build Dockerfiles you trust. See
   [Images and bases](08-images-and-bases.md#your-own-dockerfile).
-- **Image preparation** runs in a temporary VM with the `bake` permissions (package registries only),
+- **Image preparation** runs in a temporary Sandbox with the `bake` permissions (package registries only),
   logged like any sandbox.
 - **Keep-alive**, when you turn it on, runs your Mac's own `claude` once when its login expires. It runs with no tools, no MCP servers
   and no hooks, in an empty folder, with a short list of environment variables. Nothing from a sandbox reaches it. It never

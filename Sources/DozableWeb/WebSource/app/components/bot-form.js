@@ -23,7 +23,7 @@ export const INSTRUCTIONS_MAX_BYTES = 15 * 1024;
 export function elsewhereCommand(name, agent) {
   return 'doz bot new ' + (name || 'far') + ' --agent ' + (agent || 'codex') + ' --isolation elsewhere --to-file ~/' + (name || 'far') + '.token';
 }
-export const ISOLATION_WORDS = { vm: 'micro VM', fenced: 'fenced on this Mac', unfenced: 'unfenced on this Mac — acts as you', elsewhere: 'elsewhere' };
+export const ISOLATION_WORDS = { vm: 'Sandbox', fenced: 'fenced on this Mac', unfenced: 'unfenced on this Mac — acts as you', elsewhere: 'elsewhere' };
 export const REACHED_WORDS = { inbox: 'inbox', poll: 'poll (dozchat)', webhook: 'webhook' };
 /// The sections, in the tab row's order (the edit tabs; Roles & ceiling is read only).
 export const SECTIONS = [['identity', 'Identity'], ['runs', 'How it runs'], ['reached', 'Reached by'], ['instructions', 'Instructions'], ['account', 'Account']];
@@ -79,7 +79,7 @@ export function botForm({ bot, tab, accounts, readOnly, seed }) {
 
   // Identity
   const identity = () => h('section', { class: 'bf-section', 'data-bf-section': 'identity' },
-    isNew ? field('Name in every room', text('name', { placeholder: 'mira', maxlength: 40 }),
+    isNew ? field('Bot name', text('name', { placeholder: 'mira', maxlength: 40 }),
       'A lower-case letter, then lower-case letters, digits and -. It is its name in chat for good: a retired name is never used again.')
       : h('p', { class: 'muted' }, 'Its name in every room is ' + bot.name + ' — names are chat identities and are not renamed (retire it and make a new one).'),
     field('Avatar', text('avatar', { placeholder: 'a letter, a short text or an emoji', maxlength: 64 })),
@@ -92,7 +92,7 @@ export function botForm({ bot, tab, accounts, readOnly, seed }) {
     const fromElsewhere = !isNew && bot.isolation === 'elsewhere';
     const moveCmd = (to) => 'doz bot set ' + bot.name + ' --isolation ' + to;
     const choices = [
-      { value: 'vm', label: 'micro VM', note: 'A sandbox of its own: no way out but the proxy.' },
+      { value: 'vm', label: 'Sandbox', note: 'A Sandbox of its own: no way out but the proxy.' },
       { value: 'fenced', label: 'fenced on this Mac', note: 'A session on this Mac behind the fence: proxy, placeholders, guard.' },
       { value: 'unfenced', label: 'unfenced on this Mac — acts as you', note: 'No proxy, no placeholders, no guard. Only when you pick it.' },
       { value: 'elsewhere', label: 'elsewhere', disabled: true, why: 'Made in a terminal on this Mac: its token is shown once there, never in a browser',
@@ -103,7 +103,8 @@ export function botForm({ bot, tab, accounts, readOnly, seed }) {
     if (readOnly) for (const c of choices) c.disabled = true;
     const ceiling = bot && bot.ceiling ? ISOLATION_WORDS[bot.ceiling] || bot.ceiling : 'none set';
     return h('section', { class: 'bf-section', 'data-bf-section': 'runs' },
-      radios('isolation', choices, v.isolation, (x) => { v.isolation = x; changed(); repaint(); }),
+      // 782: inbox reaches only an unfenced session — moving away from unfenced moves its reach to poll.
+      radios('isolation', choices, v.isolation, (x) => { v.isolation = x; if (x !== 'unfenced' && v.deliver === 'inbox') v.deliver = 'poll'; changed(); repaint(); }),
       v.isolation === 'unfenced' ? callout('warn', { compact: true, title: 'Acts as you', body: 'Unfenced, it runs as you on this Mac — with your files, keys and network. Pick fenced unless it needs what the fence keeps out.' }) : null,
       h('p', { class: 'muted', 'data-bf-ceiling': '' }, 'Ceiling — the widest a workspace may make it: ' + ceiling + ' (read only: it comes with permissions).'));
   };
@@ -114,12 +115,14 @@ export function botForm({ bot, tab, accounts, readOnly, seed }) {
     const name = isNew ? (v.name || 'NAME') : bot.name;
     return h('section', { class: 'bf-section', 'data-bf-section': 'reached' },
       radios('deliver', [
-        { value: 'inbox', label: 'inbox', note: 'Written into its Claude Code session, busy or idle.', disabled: readOnly || !claude, why: claude ? null : 'Inbox is for a Claude Code bot' },
+        // 782: inbox only for an unfenced Claude Code bot — a Sandbox or fenced bot polls (it could never manage otherwise).
+        { value: 'inbox', label: 'inbox', note: 'Written into its Claude Code session, busy or idle.', disabled: readOnly || !claude || (v.isolation !== 'unfenced' && v.deliver !== 'inbox'),
+          why: !claude ? 'Inbox is for a Claude Code bot' : v.isolation !== 'unfenced' ? 'Inbox reaches only a session run unfenced: a Sandbox or fenced bot polls' : null },
         { value: 'poll', label: 'poll', note: 'It collects its messages with dozchat listen.', disabled: readOnly },
         { value: 'webhook', label: 'webhook', note: 'Called at an entry kept in your keychain.', disabled: readOnly },
       ], v.deliver, (x) => { v.deliver = x; changed(); repaint(); }),
       v.deliver === 'inbox' && v.isolation !== 'unfenced'
-        ? callout('info', { compact: true, body: 'Fenced or in a micro VM, it collects its messages with dozchat for now (an inbox reaches a session run without a fence).' }) : null,
+        ? callout('warn', { compact: true, body: 'Fenced or in a Sandbox it cannot be reached by inbox (an inbox reaches a session run without a fence): reach it by poll.' }) : null,
       v.deliver === 'inbox' ? field('Its session on this Mac', text('session', { placeholder: name, maxlength: 32 }), 'Empty: a session of its own name.') : null,
       v.deliver === 'webhook' ? field('Its webhook entry', text('webhookEntry', { placeholder: name, maxlength: 40 }), 'Empty: an entry of its own name.') : null,
       v.deliver === 'webhook' ? h('p', { class: 'muted' }, 'Set its entry next in a terminal: ', cmdLine('doz chat webhook set ' + (v.webhookEntry || name))) : null);

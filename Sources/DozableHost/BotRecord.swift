@@ -250,7 +250,7 @@ public enum BotFields {
 
     public static func checkIsolation(_ s: String) throws {
         guard BotIsolation.choices.contains(s) else {
-            throw HostError(.invalid, "--isolation is one of \(BotIsolation.choices.joined(separator: ", ")), not \(s.prefix(40))")
+            throw HostError(.invalid, "--isolation is sandbox, fenced, unfenced or elsewhere, not \(s.prefix(40))")
         }
     }
 

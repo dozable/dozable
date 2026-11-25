@@ -180,7 +180,7 @@ function build(aw, crumb, head) {
   const inOwn = h('input', { type: 'radio', name: 'aw-in', value: 'own', 'data-aw-in': 'own', checked: true });
   inOwn.addEventListener('change', () => { f.place = 'own'; changed(aw); });
   const inField = h('div', { class: 'field aw-field', 'data-aw-field': 'in' }, h('span', null, 'In'),
-    h('label', { class: 'aw-radio' }, inOwn, h('span', null, h('b', null, 'A place of its own'), ' — a new session on this Mac, or its own micro VM: where it runs, beside')),
+    h('label', { class: 'aw-radio' }, inOwn, h('span', null, h('b', null, 'A place of its own'), ' — a new session on this Mac, or its own Sandbox: where it runs, beside')),
     ...places.map((x) => {
       const i = h('input', { type: 'radio', name: 'aw-in', value: x, 'data-aw-in': x });
       i.addEventListener('change', () => { f.place = x; changed(aw); });
@@ -257,7 +257,7 @@ function paintForm(aw) {
   aw.tickRow.hidden = !(own && f.column === 'unfenced');
   aw.tick.checked = f.unfencedTicked;
   aw.sharedNote.hidden = own;
-  aw.sharedNote.textContent = own ? '' : 'In ' + f.place + ' it has the sandbox’s isolation: micro VM · proxy · placeholders · shares ' + f.place + '.';
+  aw.sharedNote.textContent = own ? '' : 'In ' + f.place + ' it has the sandbox’s isolation: Sandbox · proxy · placeholders · shares ' + f.place + '.';
   aw.size.hidden = !(own && f.column === 'vm');
   const bytes = utf8Length(f.task);
   aw.taskSize.textContent = bytes > TASK_MAX_BYTES ? bytes + ' bytes — over 15 KiB: use the command, with the task in a file' : bytes ? bytes + ' bytes' : '';

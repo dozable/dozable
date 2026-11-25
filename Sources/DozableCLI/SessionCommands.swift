@@ -674,7 +674,7 @@ struct Run: AsyncParsableCommand {
         }
         _ = try CreateArguments.hostPorts(hostPorts, words: [])
         if !MacPlace.isPlace(name), fenced || unfenced || (fenceFlags && !onlyHostPorts) || dryRun {
-            throw ValidationError("--fenced, --unfenced, --keychain, --read, --write, --permissions, --local-port, --agent-config, --history, --account, --open-url, --open-files, --clipboard, --xcode, --simulator, --github, --ssh-agent and --dry-run are for doz run @mac (a sandbox is a VM of its own)")
+            throw ValidationError("--fenced, --unfenced, --keychain, --read, --write, --permissions, --local-port, --agent-config, --history, --account, --open-url, --open-files, --clipboard, --xcode, --simulator, --github, --ssh-agent and --dry-run are for doz run @mac (a sandbox is a small Linux machine of its own)")
         }
         if fenced && unfenced { throw ValidationError("--fenced and --unfenced contradict each other — pick one") }
         if unfenced && fenceFlags {

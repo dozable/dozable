@@ -29,7 +29,7 @@ baked images and their size.
   Node is its standalone build; pi on a base without Node gets its own Node; Codex is its official
   static linux-arm64 build on every base.
 - **Preparing** an image downloads the base (digest-pinned), installs the baseline and the agent in a
-  temporary VM, and checks the result. Minutes, once, with the network. A sandbox started while its
+  temporary Sandbox, and checks the result. Minutes, once, with the network. A sandbox started while its
   image is being prepared joins that preparation.
 - **Copies are free.** A sandbox's disk is an APFS clone of its image: it costs almost nothing until
   it changes.

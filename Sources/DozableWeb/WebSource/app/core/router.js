@@ -40,13 +40,16 @@ export function route() {
     if (p.view === 'try') state.tryAgent = p.param;
     if (p.view === 'new-workspace') state.wsnBot = p.param;            // ?bot=NAME: that bot chosen as its manager
     const first = !state.bgHash;
-    if (first) { state.view = 'home'; state.param = null; state.session = null; state.bgHash = HOME; routePage(); }
+    if (p.view === 'new-workspace') state.wsnTemplate = p.template || null;   // ?template=ID: that template's screen
+    if (first) { state.view = 'home'; state.param = null; state.session = null; state.bgHash = HOME; state.bgStamp = 0; routePage(); }
     openWizardModal(p.view, !first);
     return;
   }
   if (state.modal) {
     closeWizardModal();
-    if (location.hash === state.bgHash) return;                   // back to the page under it, as it was
+    // Back to the page under it, as it was: only when this history entry IS that page's (the browser's Back, the
+    // modal's own close). An address that replaced the modal's entry — even one equal to the page's — routes again.
+    if (location.hash === state.bgHash && pageEntry()) return;
   }
   // #/w/NAME/agent/AGENT: its sandbox's or its session's page, framed by the workspace (read first).
   if (p.view === 'wsagent') { enterAgent(p, c); return; }
@@ -58,7 +61,19 @@ export function route() {
   state.session = p.session;
   state.wsRoom = p.room;
   state.bgHash = location.hash;
+  stampPage();
   routePage();
+}
+/// Each routed page marks its own history entry (`history.state.dozPage`), so closing a modal can tell the page's entry —
+/// left as it was — from an address that replaced the modal's.
+let pageStamp = 0;
+function stampPage() {
+  state.bgStamp = ++pageStamp;
+  try { history.replaceState({ dozPage: state.bgStamp }, ''); } catch (_) { /* no history here: the page routes again */ }
+}
+export function pageEntry() {
+  const s = history.state;
+  return !!(s && s.dozPage && s.dozPage === state.bgStamp);
 }
 /// An agent's screen: the router reads the workspace's detail, finds the agent and shows the page that already exists for
 /// its place — a sandbox's (`state.view = 'sandbox'`, its session selected) or a session's on this Mac (`'mac'`) — with
@@ -82,6 +97,7 @@ async function enterAgent(p, hash) {
   else if (page === 'mac') { state.view = 'mac'; state.param = null; state.session = a.session; }
   else { state.view = 'wsagent'; state.param = p.param; state.session = null; }
   state.bgHash = location.hash;
+  stampPage();
   routePage();
 }
 /// Where a framed page that lost its place goes: its workspace's agents; else the list it came from.
@@ -129,7 +145,7 @@ window.addEventListener('hashchange', () => {
   // 605: a link opened in this tab while it waits to sign in signs it in, in place.
   if (state.signedOut && /^#cap=[A-Za-z0-9_-]{16,256}$/.test(location.hash)) {
     const link = location.href;
-    history.replaceState(null, '', location.pathname + (state.bgHash || HOME));
+    history.replaceState(history.state, '', location.pathname + (state.bgHash || HOME));
     const field = $('signin-link');
     if (field) { field.value = link; $('signin-form').requestSubmit(); }
     return;
@@ -137,7 +153,7 @@ window.addEventListener('hashchange', () => {
   if (state.signedOut) return;
   const to = location.hash, p = parse(canonical(to));
   if (leaveGuard && to !== state.bgHash && !(p && p.modal) && leaveGuard(to)) {
-    history.replaceState(null, '', location.pathname + (state.bgHash || HOME));
+    history.replaceState(history.state, '', location.pathname + (state.bgHash || HOME));
     return;
   }
   route();

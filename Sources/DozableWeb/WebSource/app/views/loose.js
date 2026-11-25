@@ -16,7 +16,7 @@ export async function viewLoose() {
     const href = session ? '#/mac/here/' + encodeURIComponent(session) : '#/sandbox/' + a.name + '/~home';
     return h('tr', { 'data-loose': a.name },
       h('td', null, h('a', { href }, a.name)),
-      h('td', null, session ? 'on this Mac' : 'micro VM'),
+      h('td', null, session ? 'on this Mac' : 'Sandbox'),
       h('td', null, h('span', { class: 'pill ph-' + phaseOf(a.state) }, a.state)),
       h('td', null, h('a', { href, class: 'btn sm quiet' }, 'Open')),
       // Another computer cannot file it: the button is disabled and says so, and the command is there to copy.

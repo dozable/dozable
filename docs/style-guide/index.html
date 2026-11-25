@@ -1695,7 +1695,7 @@ exec /usr/local/bin/gemini "$@"</pre></details>
           <li class="ws-agent"><span class="ph-dot ph-running"></span><div class="ws-agent-body"><div class="ws-agent-top"><a class="ws-agent-name" href="#">mira</a><span class="ws-agent-role">manager · working</span></div>
             <div class="ws-agent-chips"><span class="ws-iso ws-iso-fenced">fenced</span></div></div></li>
           <li class="ws-agent"><span class="ph-dot ph-off"></span><div class="ws-agent-body"><div class="ws-agent-top"><a class="ws-agent-name" href="#">beta</a><span class="ws-agent-role">worker · off</span></div>
-            <div class="ws-agent-chips"><span class="ws-iso ws-iso-micro-VM">micro VM</span></div></div></li>
+            <div class="ws-agent-chips"><span class="ws-iso ws-iso-Sandbox">Sandbox</span></div></div></li>
         </ul>
         <div class="ws-sub">Workers — in # launch-video</div>
         <ul class="ws-agents"><li class="ws-agent"><span class="ph-dot ph-running"></span><div class="ws-agent-body"><div class="ws-agent-top"><a class="ws-agent-name" href="#">otto</a><span class="ws-agent-role">worker · working</span></div>
@@ -1870,11 +1870,11 @@ exec /usr/local/bin/gemini "$@"</pre></details>
     </div>
     <div class="agent-frame">
       <nav class="agent-crumb"><a href="#">launch-video</a><span class="agent-crumb-sep">›</span><a href="#">Agents</a><span class="agent-crumb-sep">›</span><span class="agent-crumb-here">gamma</span></nav>
-      <span class="agent-frame-chips"><span class="ws-chip">worker</span><span class="ws-iso ws-iso-micro-VM">micro VM</span></span><span class="ws-sp"></span>
+      <span class="agent-frame-chips"><span class="ws-chip">worker</span><span class="ws-iso ws-iso-Sandbox">Sandbox</span></span><span class="ws-sp"></span>
       <a class="btn sm quiet" href="#"><i data-i="message-square"></i>Open the room beside</a>
     </div>
     <div class="agent-in-ws" style="max-width:360px"><div class="insp-lbl">In this workspace</div>
-      <dl class="facts"><dt>Role</dt><dd>worker</dd><dt>Task</dt><dd>adopted — no task of its own</dd><dt>Started by</dt><dd>you · 10:02</dd><dt>Isolation</dt><dd>micro VM</dd><dt>Rooms</dt><dd>#launch-video</dd></dl></div>
+      <dl class="facts"><dt>Role</dt><dd>worker</dd><dt>Task</dt><dd>adopted — no task of its own</dd><dt>Started by</dt><dd>you · 10:02</dd><dt>Isolation</dt><dd>Sandbox</dd><dt>Rooms</dt><dd>#launch-video</dd></dl></div>
     <div class="agent-member"><i data-i="layers"></i><span>In <a href="#">demo</a> as gamma — </span><a href="#">open it there</a><button type="button" class="btn sm quiet"><i data-i="log-out"></i>Take out…</button></div>
     <div class="piw" style="max-width:480px">
       <div class="piw-modes">
@@ -1926,34 +1926,28 @@ exec /usr/local/bin/gemini "$@"</pre></details>
 </section>
 
 <section>
-  <h2>The New workspace wizard — a step's count, the gaps, an isolation row</h2>
-  <p><code>#/new-workspace</code> (<code>views/new-workspace.js</code>): the wizards' modal with four steps; a step with something still to set up carries
-    its count under the name (<code>.stepper .s-count</code>, from <code>stepperNode</code>'s <code>count</code>). The set-up check's gaps
-    (<code>components/ws-gaps.js</code>, <code>.ws-gaps-panel</code>): "N to set up", each gap's why, the step that fixes it, its command under
-    "Show the command" — the wizard's review and a workspace's setting-up banner (with its Start, <code>.ws-start-row</code>). Choice cards in a row
-    (<code>.wsn-row</code>, stacked below 760 px); an unfenced choice carries <b>acts as you</b>, and the plan's line says it too (<code>.wsn-lines</code>).</p>
+  <h2>The New workspace wizard — the gallery, where a bot runs, Custom's findings, the one consent</h2>
+  <p><code>#/new-workspace</code> (<code>views/new-workspace.js</code>, <code>views/wsn-custom.js</code>): a gallery of templates, each card a
+    drawing of the workspace it makes (<code>.wz-card</code>, <code>.wz-card-pic</code> — the dashboard's own renderer), with ⤢ in its corner
+    (<code>.wz-expand</code>: on hover or focus, always on a touch screen) and Custom dashed (<code>.is-custom</code>). Where a bot runs is a chip,
+    never a choice (<code>.wz-where</code>: Sandbox · <code>.is-fenced</code> · <code>.is-unfenced</code>). A step with a finding carries its count
+    (<code>.stepper .s-count</code>); Confirm lists the findings (<code>.wz-find</code>, each with Change) or says everything checks out
+    (<code>.wz-ok</code>); an unfenced manager asks the one tick (<code>.wz-acts-as-you</code>). The set-up check's gaps (<code>components/ws-gaps.js</code>)
+    stay a workspace's setting-up banner's.</p>
   <div class="pair"><div class="scheme">
-    <nav class="wm-steps" aria-label="Steps"><ol class="stepper wiz-steps">
-      <li class="done"><span class="n"><i data-i="check"></i></span><span class="s-label">The work</span><span class="s-count">1 to set up</span></li>
-      <li class="done"><span class="n"><i data-i="check"></i></span><span class="s-label">Who manages</span></li>
-      <li class="current"><span class="n">3</span><span class="s-label">Where it runs</span></li>
-      <li><span class="n">4</span><span class="s-label">Grants &amp; when</span><span class="s-count">2 to set up</span></li>
-    </ol></nav>
-    <div class="ws-gaps-panel"><div class="ws-gaps-head"><i data-i="list-checks"></i><b>2 to set up</b><span class="muted"> · what the start would refuse now</span></div>
-      <ul class="ws-gaps">
-        <li class="ws-gap"><span class="ws-gap-why"><i data-i="triangle-alert"></i>folder ~/video/launch-video is gone</span><a class="ws-gap-step" href="#">Step 1 · the work</a>
-          <details class="ws-gap-fix"><summary>Show the command</summary><span class="cmd-copy"><code>doz workspace edit launch-video --remove-folder ~/video/launch-video</code></span></details></li>
-        <li class="ws-gap"><span class="ws-gap-why"><i data-i="triangle-alert"></i>a manager needs chat</span><a class="ws-gap-step" href="#">Step 4 · grants &amp; when</a>
-          <details class="ws-gap-fix"><summary>Show the command</summary><span class="cmd-copy"><code>doz chat on</code></span></details></li>
-      </ul></div>
-    <div class="ws-gaps-panel is-ready"><div class="ws-gaps-head"><i data-i="circle-check"></i><b>Fully set up — it can start</b></div></div>
-    <fieldset class="wiz-choices wsn-row"><legend>mira — the manager</legend>
-      <label class="wiz-choice"><input type="radio" name="sg-wsn"><span class="wsn-cc"><span class="wsn-cc-title">Fenced on this Mac</span><span class="wsn-cc-desc">the default: proxy · placeholders · guard</span></span></label>
-      <label class="wiz-choice"><input type="radio" name="sg-wsn"><span class="wsn-cc"><span class="wsn-cc-title">Micro VM</span><span class="wsn-cc-desc">micro VM · proxy · placeholders</span></span></label>
-      <label class="wiz-choice is-checked"><input type="radio" name="sg-wsn" checked><span class="wsn-cc"><span class="wsn-cc-title">Unfenced on this Mac</span><span class="wsn-cc-desc">only when you name it: no proxy · no placeholders · no guard · acts as you</span><span class="ws-chip acts-as-you"><i data-i="triangle-alert"></i>acts as you</span></span></label>
+    <div class="wz-gallery">
+      <div class="wz-card"><button type="button" class="wz-card-open"><span class="wz-card-pic"></span><span class="wz-card-text"><b>Build &amp; review</b><span>A manager, a builder in a Sandbox and a reviewer that only reads.</span></span></button><button type="button" class="wz-expand" aria-label="Expand Build &amp; review"><i data-i="maximize-2"></i></button></div>
+      <div class="wz-card is-custom"><button type="button" class="wz-card-open wz-custom"><span class="wz-card-text"><b>Custom</b><span>Choose the manager, where workers run and the room yourself.</span></span><span class="ws-chip">5 short steps</span></button></div>
+    </div>
+    <fieldset class="wiz-choices"><legend class="sr-only">The manager</legend>
+      <label class="wiz-choice is-checked"><input type="radio" name="sg-wz" checked><span class="wz-bot-row"><span class="bot-avatar">M</span><span class="wz-cc"><span class="wz-cc-title">mira<span class="wz-where is-fenced">Fenced on this Mac</span></span><span class="wz-cc-desc">Claude Code · reached by poll</span></span></span></label>
+      <label class="wiz-choice"><input type="radio" name="sg-wz"><span class="wz-bot-row"><span class="bot-avatar">V</span><span class="wz-cc"><span class="wz-cc-title">vera<span class="wz-where is-vm">Sandbox</span></span><span class="wz-cc-desc">Claude Code · reached by poll</span></span></span></label>
+      <label class="wiz-choice"><input type="radio" name="sg-wz"><span class="wz-bot-row"><span class="bot-avatar">O</span><span class="wz-cc"><span class="wz-cc-title">otto<span class="wz-where is-unfenced">Unfenced — acts as you</span></span><span class="wz-cc-desc">Claude Code · reached by inbox</span></span></span></label>
     </fieldset>
-    <ul class="wsn-lines"><li>workspace launch-video — setting up until it starts</li><li>folders: 2 (1 read-only), main ~/video/launch-video</li>
-      <li class="is-acts">manager: mira · unfenced · acts as you<span class="ws-chip acts-as-you"><i data-i="triangle-alert"></i>acts as you</span></li></ul>
+    <ul class="wz-finds"><li class="wz-find"><i data-i="triangle-alert"></i><span>#workspace3 exists.</span><button type="button" class="linkish">Change</button></li></ul>
+    <p class="wz-ok"><i data-i="circle-check"></i>Everything checks out. It can start as soon as it is made.</p>
+    <div class="wz-acts-as-you"><p><i data-i="triangle-alert"></i>otto runs unfenced: it acts as you on this Mac — your files, keys and network.</p>
+      <label class="wz-inline-check"><input type="checkbox"> Yes, otto acts as me</label></div>
   </div></div>
 </section>
 
@@ -1971,12 +1965,12 @@ exec /usr/local/bin/gemini "$@"</pre></details>
       <label class="aw-radio"><input type="radio" name="sg-aw-who" checked><span><b>A new worker, anonymous</b> — a name like bot1 (recommended)</span></label>
       <p class="aw-problem">mira is a bot — doz worker add demo --from-bot mira</p>
       <div class="aw-cmp-wrap"><table class="aw-cmp"><thead><tr><th></th>
-        <th><span class="aw-col-h"><input type="radio" name="sg-aw-col"><a class="ws-iso ws-iso-micro-VM" href="#">micro VM</a></span></th>
+        <th><span class="aw-col-h"><input type="radio" name="sg-aw-col"><a class="ws-iso ws-iso-Sandbox" href="#">Sandbox</a></span></th>
         <th class="is-chosen"><span class="aw-col-h"><input type="radio" name="sg-aw-col" checked><a class="ws-iso ws-iso-fenced" href="#">fenced</a></span></th>
         <th><span class="aw-col-h"><input type="radio" name="sg-aw-col"><a class="ws-iso ws-iso-unfenced" href="#">unfenced</a></span></th>
         <th class="is-later"><span class="aw-col-h"><input type="radio" disabled><span class="ws-iso ws-iso-cloud">cloud</span><span class="ws-coming">later</span></span></th></tr></thead>
-        <tbody><tr><th>keys</th><td>placeholders</td><td class="is-chosen">placeholders</td><td>your real ones</td><td class="is-later">as micro VM</td></tr>
-        <tr><th>control it gets</th><td class="aw-mono">micro VM · proxy · placeholders</td><td class="is-chosen aw-mono">proxy · placeholders · guard</td><td class="aw-mono">no proxy · no placeholders · no guard · acts as you</td><td class="is-later">as micro VM</td></tr></tbody></table></div>
+        <tbody><tr><th>keys</th><td>placeholders</td><td class="is-chosen">placeholders</td><td>your real ones</td><td class="is-later">as Sandbox</td></tr>
+        <tr><th>control it gets</th><td class="aw-mono">Sandbox · proxy · placeholders</td><td class="is-chosen aw-mono">proxy · placeholders · guard</td><td class="aw-mono">no proxy · no placeholders · no guard · acts as you</td><td class="is-later">as Sandbox</td></tr></tbody></table></div>
       <label class="aw-tick"><input type="checkbox"><span>It acts as you: your files, Keychain and network</span></label>
       <div class="aw-foot"><button type="button" class="btn sm quiet">Show the command</button><span class="ws-sp"></span><a class="btn" href="#">Cancel</a><button type="button" class="btn primary">Add and start</button></div>
     </div>
@@ -2026,7 +2020,7 @@ exec /usr/local/bin/gemini "$@"</pre></details>
       <div class="wl-plan">
         <table class="wl-table"><thead><tr><th>Agent</th><th>Now</th><th>After</th><th>Back</th></tr></thead><tbody>
           <tr class="wl-row is-changing"><td><b>mira</b><span class="wl-sub">manager · @mac/launch-video · fenced</span></td><td>running · idle</td><td>ended, its conversation kept</td><td>resumes its conversation</td></tr>
-          <tr class="wl-row is-changing"><td><b>bot3</b><span class="wl-sub">worker · video-render · micro VM</span></td><td>running · working</td><td>hibernated: its memory given back</td><td>the same sessions and screens</td></tr>
+          <tr class="wl-row is-changing"><td><b>bot3</b><span class="wl-sub">worker · video-render · Sandbox</span></td><td>running · working</td><td>hibernated: its memory given back</td><td>the same sessions and screens</td></tr>
           <tr class="wl-row"><td><b>far</b><span class="wl-sub">worker · laptop · elsewhere</span></td><td>elsewhere</td><td>untouched</td><td>runs on its own machine; Dozable cannot sleep it</td></tr>
         </tbody></table>
         <div class="wl-lists"><div class="wl-keeps"><h3>Kept</h3><ul><li class="wl-item"><span>every conversation, screen and disk</span></li></ul></div>
@@ -2044,18 +2038,18 @@ exec /usr/local/bin/gemini "$@"</pre></details>
   <h2>Where an agent runs — the isolation guide, and the chip that leads there</h2>
   <p><code>#/guide/isolation[/vm|fenced|unfenced|elsewhere]</code> (<code>views/isolation-guide.js</code>; the words are <code>core/isolation.js</code>'s):
     four cards in order of isolation (<code>.iso-cards</code>: four across, two below 1180 px, one below 760 px), each with a diagram drawn with boxes
-    (<code>.iso-fig</code>: solid for the micro VM, dashed for the fence, none unfenced, two machines elsewhere), what it is, For, Not for and today's
+    (<code>.iso-fig</code>: solid for the Sandbox, dashed for the fence, none unfenced, two machines elsewhere), what it is, For, Not for and today's
     commands; the card the address names is highlighted (<code>.iso-card.is-current</code>). Every isolation chip (<code>components/iso-chip.js</code>)
     is a link to its card (<code>a.ws-iso</code>, underlined on hover).</p>
   <div class="pair"><div class="scheme">
-    <p><a class="ws-iso ws-iso-micro-VM" href="#">micro VM</a> <a class="ws-iso ws-iso-fenced" href="#">fenced</a> <a class="ws-iso ws-iso-unfenced" href="#">unfenced</a>
+    <p><a class="ws-iso ws-iso-Sandbox" href="#">Sandbox</a> <a class="ws-iso ws-iso-fenced" href="#">fenced</a> <a class="ws-iso ws-iso-unfenced" href="#">unfenced</a>
       <a class="ws-iso ws-iso-elsewhere" href="#">elsewhere</a> <span class="ws-iso ws-iso-on-this-Mac">on this Mac</span></p>
     <div class="iso-cards" style="grid-template-columns:repeat(2, minmax(0, 1fr))">
-      <article class="iso-card"><h2 class="iso-card-h"><a class="ws-iso ws-iso-micro-VM" href="#">micro VM</a><span class="iso-card-title">micro VM</span></h2>
+      <article class="iso-card"><h2 class="iso-card-h"><a class="ws-iso ws-iso-Sandbox" href="#">Sandbox</a><span class="iso-card-title">Sandbox</span></h2>
         <div class="iso-fig"><div class="iso-fig-mac"><span class="iso-fig-label">your Mac</span><div class="iso-fig-box iso-fig-vm"><span class="iso-fig-label">Linux VM</span><span>agent · /workspace</span><span>no network card</span></div></div></div>
         <p class="iso-what">A separate small Linux machine. Your folder appears inside; everything else of your Mac does not exist for it.</p>
         <p class="iso-for"><b>For: </b>Almost every worker.</p><p class="iso-not"><b>Not for: </b>Xcode, the Simulator, Mac-only tools.</p>
-        <div class="iso-cmds"><div class="iso-cmd"><span class="cmd-copy"><code>doz worker add W --task "…" --isolation vm</code></span><span class="muted">a worker in a micro VM of its own</span></div></div></article>
+        <div class="iso-cmds"><div class="iso-cmd"><span class="cmd-copy"><code>doz worker add W --task "…" --isolation sandbox</code></span><span class="muted">a worker in a Sandbox of its own</span></div></div></article>
       <article class="iso-card is-current"><h2 class="iso-card-h"><a class="ws-iso ws-iso-fenced" href="#">fenced</a><span class="iso-card-title">fenced on this Mac</span></h2>
         <div class="iso-fig"><div class="iso-fig-mac"><span class="iso-fig-label">your Mac</span><div class="iso-fig-box iso-fig-fenced"><span class="iso-fig-label">macOS sandbox</span><span>agent · its folder</span><span>keychain closed</span></div></div></div>
         <p class="iso-what">macOS’s own sandbox around one program.</p><p class="iso-for"><b>For: </b>Managers, and Mac and iOS builds.</p></article>

@@ -165,7 +165,7 @@ final class WebWorkspacesTests: XCTestCase {
                 name: "demo", state: state, driver: "you", createdAt: t, brief: WorkspaceBrief(sha256: "x", bytes: 1, updatedAt: t),
                 folders: [], rooms: [], agents: [], defaults: WorkspaceDefaults(isolation: "vm"), flags: WorkspaceFlags(), origin: WorkspaceOrigin(), gaps: gaps))
         }
-        let gaps = [WorkspaceSetupCheck.Gap(item: "brief", why: "the brief is empty", fix: "doz workspace edit demo --prompt-file F"),
+        let gaps = [WorkspaceSetupCheck.Gap(item: "folder", why: "folder ~/x is gone", fix: "doz workspace edit demo --remove-folder ~/x"),
                     WorkspaceSetupCheck.Gap(item: "manager", why: "a session called demo already exists on this Mac", fix: "doz sessions end @mac demo, or rename the workspace"),
                     WorkspaceSetupCheck.Gap(item: "chat", why: "a manager needs chat", fix: "doz chat on")]
         let d = detail("setting-up", gaps)
@@ -173,7 +173,7 @@ final class WebWorkspacesTests: XCTestCase {
         XCTAssertEqual(d.workerIsolation, "vm")
         XCTAssertNil(detail("idle", nil).gaps, "started: no gaps")
         let remote = WebWorkspaceReads.forBrowser(d, macAllowed: false)
-        XCTAssertEqual(remote.gaps?.map(\.item), ["brief", "chat"], "a gap naming a session on this Mac is left out")
+        XCTAssertEqual(remote.gaps?.map(\.item), ["folder", "chat"], "a gap naming a session on this Mac is left out")
         XCTAssertEqual(WebWorkspaceReads.forBrowser(d, macAllowed: true).gaps?.count, 3)
     }
 

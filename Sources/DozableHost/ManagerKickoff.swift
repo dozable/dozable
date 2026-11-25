@@ -4,6 +4,9 @@ import Foundation
 /// references), and START, the file a manager is told to read first. Neither ever holds a token: START names the
 /// variable that names the token's file.
 public enum ManagerKickoff {
+    /// START's brief when the workspace was made with no description (782).
+    public static let noDescription = "No description yet — ask in the room what to work on."
+
     /// Your first message in the main room: the brief as written, then its references.
     public static func briefPost(brief: String, refs: [String]) -> String {
         var s = brief.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -46,6 +49,12 @@ public enum ManagerKickoff {
             s += "You act as the person: `doz` is on your PATH, and what you do is done as them.\n\n"
         }
         s += "## First\n\n"
+        // 782: the description is optional — with none, the manager asks what to work on.
+        if brief.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, refs.isEmpty {
+            s += "Say in \(room) that you are up. Then ask the person what to work on, and wait for the answer.\n\n"
+            s += "## The brief\n\n" + noDescription + "\n"
+            return s
+        }
         s += "Say in \(room) that you are up, and the brief in one line. Then wait for the person.\n\n"
         s += "## The brief\n\n" + briefPost(brief: brief, refs: refs) + "\n"
         return s

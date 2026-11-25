@@ -46,7 +46,7 @@ function usesLine(a) {
   if (a.control) parts.push(a.control);
   else if (a.kind === 'elsewhere') parts.push('not run by Dozable · token only');
   else if (a.kind === 'mac' && a.isolation === 'unfenced') parts.push('no proxy · no placeholders · no guard');
-  else if (a.kind === 'sandbox') parts.push('micro VM · proxy · placeholders');
+  else if (a.kind === 'sandbox') parts.push('Sandbox · proxy · placeholders');
   return parts;
 }
 

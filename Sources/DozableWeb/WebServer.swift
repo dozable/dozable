@@ -1064,6 +1064,9 @@ public final class DozableWebServer: @unchecked Sendable {
             // computer reads it too (the text is your prose, never a credential); a session on this Mac follows serve.mac_sessions.
             try WebBotReads.checkName(n)
             return json(WebBotReads.forBrowser(WebBotDetail(try await data.bot(n)), macAllowed: WebGridsRequest.macAllowed(ctx.principal, settings.macSessions)))
+        case .templates:
+            // The templates doz carries — no HostOp: read from this build's bundle (WebTemplates).
+            return json(WebTemplates.list())
         case .macs:
             // One read-only HostOp; every browser that may read sees the same list (names and origins only).
             return json(WebMacList(try await data.macs(), thisMac: WebMacReads.thisMacName))

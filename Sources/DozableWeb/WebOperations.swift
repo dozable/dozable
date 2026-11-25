@@ -344,6 +344,12 @@ final class WebOperations: @unchecked Sendable {
                 if action == .hostRestart { result = try await data.restartHost(onEvent: onEvent) }
                 // Chat on: the name, the setting, then the server until it is ready — `doz chat on`, in doz ui.
                 else if case .chat(let c) = action, c.kind == .on { result = try await data.chatOn(name: c.name.isEmpty ? nil : c.name) }
+                // 782: a template's workspace — its files written and planned in doz ui (the CLI's resolver), then up.
+                else if case .workspaceFromTemplate(let q) = action {
+                    guard let make = WebTemplates.installed else { throw HostError(.notImplemented, "workspace templates") }
+                    let data = self.data
+                    result = try await make(q) { r in try await data.perform(r, onEvent: onEvent) }
+                }
                 else { result = try await data.perform(request, onEvent: onEvent) }
                 outcome = ("done", Self.summary(action, result))
             } catch {
@@ -598,13 +604,18 @@ final class WebOperations: @unchecked Sendable {
             let made = "made \(n)" + (d?.rooms.first(where: \.main).map { " with its room #\($0.chatRoom) (nothing posted)" } ?? "")
             if let agents = w.adopt, agents.count == 1 { return made + " — " + Self.filed(n, Self.agentName(agents[0]), d) }
             return made + (d?.state == WorkspaceState.settingUp.rawValue ? " — setting up until it starts" : "")
+        case .workspaceFromTemplate(let q):
+            var ok = true
+            if case .object(let o) = v, case .object(let a)? = o["acted"], case .bool(let b)? = a["ok"] { ok = b }
+            return ok ? "made \(q.workspace) from the template \(q.template) and started it"
+                : "made \(q.workspace) from the template \(q.template) — a step failed; its page says which"
         case .workspaceStart(let w, _):
             guard let s = try? v.decode(WorkspaceStarted.self) else { return "started \(w)" }
             var out = "started \(w)"
             if s.kickedOff { out += " — the brief is posted in #\(s.workspace.rooms.first(where: \.main)?.chatRoom ?? w)" }
             if let m = s.manager {
                 out += s.alreadyRunning == true ? " — \(m) was running already"
-                    : " — \(m) started (\(s.isolation == "unfenced" ? "unfenced · acts as you" : s.isolation == "vm" ? "micro VM" : "fenced"))"
+                    : " — \(m) started (\(s.isolation == "unfenced" ? "unfenced · acts as you" : s.isolation == "vm" ? "Sandbox" : "fenced"))"
             } else {
                 out += " — no manager: you drive"
             }
@@ -617,7 +628,7 @@ final class WebOperations: @unchecked Sendable {
             // Written from the answer's row — its name, isolation and place; never a token (the answer carries none).
             guard let r = try? v.decode(WorkerAdded.self) else { return "added a worker to \(q.workspace ?? "?")" }
             let w = r.worker
-            let iso = w.actsAsYou == true ? "unfenced · acts as you" : w.isolation == "vm" ? "micro VM" : w.isolation ?? "fenced"
+            let iso = w.actsAsYou == true ? "unfenced · acts as you" : w.isolation == "vm" ? "Sandbox" : w.isolation ?? "fenced"
             let place = r.sandbox.map { "in the sandbox \($0)" } ?? "on this Mac as @mac/\(r.session)"
             return "added \(w.name) to \(r.workspace) (\(iso)) \(place) — it says in the room when it is up"
         case .workerEnd(let w, let n):

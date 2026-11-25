@@ -69,7 +69,7 @@ public enum AgentPrompt {
         ("agent.state", "where the agent keeps its own state on the state disk (`~/.claude`, `~/.pi/agent`; Codex: `~/.codex`)"),
         ("credentials.description", "a sentence: how credentials reach the agent"),
         ("sandbox.sudo", "yes or no: the agent has passwordless sudo (sandbox.agent_sudo)"),
-        ("sandbox.timezone", "the VM's time zone, e.g. Australia/Sydney (the Mac's, by default)"),
+        ("sandbox.timezone", "the Sandbox's time zone, e.g. Australia/Sydney (the Mac's, by default)"),
         ("sudo.description", "a sentence: sudo, and that the network policy still applies to root"),
         ("clipboard.description", "a sentence: a copy reaches the Mac clipboard with a notice (or the bridge is off); the clipboard is never readable"),
         ("browser.description", "a sentence: xdg-open opens http(s) URLs in the Mac's browser and a sign-in's localhost callback is forwarded (or the bridge is off)"),
@@ -97,7 +97,7 @@ public enum AgentPrompt {
     - {{mac.open}}
     - {{github.facts}}
     - {{dotfiles.facts}}
-    - The user may pause, sleep or hibernate this VM between your turns; your processes, files and sessions survive it.
+    - The user may pause, sleep or hibernate this Sandbox between your turns; your processes, files and sessions survive it.
     - More — what persists (root disk, state disk, restore points), the network policy, what you cannot do from inside — is in the `doz` skill.
     """
 
@@ -110,13 +110,13 @@ public enum AgentPrompt {
 
     # Dozable — the machine you run in
 
-    You run in **{{sandbox.name}}**, a Dozable sandbox: a small Linux virtual machine on the user's Mac ({{mac.hostname}}), made and run by the user's `doz` tool (Dozable {{doz.version}}) on Apple's Virtualization framework. It is a real VM with its own kernel — not a container and not a cloud machine. Image: {{sandbox.image}} (base: {{sandbox.base}}); {{sandbox.cpus}} CPUs, {{sandbox.memory}}.
+    You run in **{{sandbox.name}}**, a Dozable sandbox: a small Linux virtual machine on the user's Mac ({{mac.hostname}}), made and run by the user's `doz` tool (Dozable {{doz.version}}) on Apple's Virtualization framework. It is a real virtual machine with its own kernel — not a container and not a cloud machine. Image: {{sandbox.image}} (base: {{sandbox.base}}); {{sandbox.cpus}} CPUs, {{sandbox.memory}}.
 
     ## Your files and the user's Mac
 
     - {{folder.description}}
     - {{folder.rules}}
-    - Everything else is on this VM's own disks, invisible from the Mac's Finder.
+    - Everything else is on this Sandbox's own disks, invisible from the Mac's Finder.
 
     ## What persists
 
@@ -144,7 +144,7 @@ public enum AgentPrompt {
 
     Sudo: {{sandbox.sudo}} — {{sudo.description}}
 
-    Root inside this VM does not widen what you can reach: the VM is the boundary, every connection still goes through the user's network policy, and no credential is in the VM to find. Packages you install live on the root disk (kept across restarts, discarded by a reset).
+    Root inside this Sandbox does not widen what you can reach: the Sandbox is the boundary, every connection still goes through the user's network policy, and no credential is in the Sandbox to find. Packages you install live on the root disk (kept across restarts, discarded by a reset).
 
     ## The user's Mac: clipboard, browser and files
 
@@ -156,11 +156,11 @@ public enum AgentPrompt {
 
     ## Sleep and hibernation
 
-    Between your turns the user may pause this VM (CPU stopped, memory kept), put it to sleep (a snapshot on disk as well) or hibernate it (memory freed, the state on disk). When it wakes, your processes, open files and terminal sessions continue where they were; the clock is set again. A long gap in timestamps is normal.
+    Between your turns the user may pause this Sandbox (CPU stopped, memory kept), put it to sleep (a snapshot on disk as well) or hibernate it (memory freed, the state on disk). When it wakes, your processes, open files and terminal sessions continue where they were; the clock is set again. A long gap in timestamps is normal.
 
     ## What you cannot do from inside
 
-    You cannot change the network policy, take or restore a restore point, add a key or account, share another Mac folder, or change the VM's CPUs or memory — the user does these with `doz` on the Mac. Ask them when you need one, and say exactly what. When you are in a chat room, to ask the person: `dozchat ask ROOM "…" --option yes=Yes --option no=No`, then `dozchat ask-show ROOM #N --wait 60` for the answer.
+    You cannot change the network policy, take or restore a restore point, add a key or account, share another Mac folder, or change the Sandbox's CPUs or memory — the user does these with `doz` on the Mac. Ask them when you need one, and say exactly what. When you are in a chat room, to ask the person: `dozchat ask ROOM "…" --option yes=Yes --option no=No`, then `dozchat ask-show ROOM #N --wait 60` for the answer.
     """
 
     /// The file `doz onboard` writes as the user's template when there is none: every line inside
@@ -252,13 +252,13 @@ public enum AgentPrompt {
         case nil:
             gd = "You are not signed in to GitHub as the user. Public repositories work anonymously over HTTPS when the network allows GitHub. For their private repositories, a push or `gh`, ask the user to turn on \"Use GitHub as you\" (`doz net allow \(name) github:as-you`; push: `github:push`)."
         case let mode?:
-            gd = "The user's GitHub login reaches GitHub from here without ever entering this VM: `GH_TOKEN`/`GITHUB_TOKEN` and git's credential helper hold a doz placeholder (`doz_cred_…`), and Dozable's proxy on the Mac swaps in the user's real token on the way to github.com and api.github.com — only there. Do not set a token of your own or put one in a URL; keep HTTPS remotes (`https://github.com/OWNER/REPO.git`). The user sees a notice when you first use it."
+            gd = "The user's GitHub login reaches GitHub from here without ever entering this Sandbox: `GH_TOKEN`/`GITHUB_TOKEN` and git's credential helper hold a doz placeholder (`doz_cred_…`), and Dozable's proxy on the Mac swaps in the user's real token on the way to github.com and api.github.com — only there. Do not set a token of your own or put one in a URL; keep HTTPS remotes (`https://github.com/OWNER/REPO.git`). The user sees a notice when you first use it."
             gd += mode == .read
                 ? " It is READ-ONLY: clone, fetch, `gh repo view`, reading issues and pull requests work; `git push` and anything that changes GitHub (creating issues or pull requests, comments, GraphQL mutations) is refused with a 403 that says so — tell the user, who can turn on \"Push to GitHub\" (`doz net allow \(name) github:push`)."
                 : " Push is ON: you can push and change things on GitHub as the user, within what their token may do — do it only when the user asked for it; every such request is in the sandbox's network log."
         }
         if sshAgent {
-            gd += " SSH agent forwarding is on: `ssh`/`git` over SSH to github.com (git@github.com:OWNER/REPO.git) authenticate with the user's ssh-agent on the Mac — the keys never enter this VM; only github.com:22 is reachable over SSH."
+            gd += " SSH agent forwarding is on: `ssh`/`git` over SSH to github.com (git@github.com:OWNER/REPO.git) authenticate with the user's ssh-agent on the Mac — the keys never enter this Sandbox; only github.com:22 is reachable over SSH."
         }
         v["github.description"] = gd
         // 599b: workspace files opened on the Mac — said only as it is for THIS sandbox.
@@ -282,8 +282,8 @@ public enum AgentPrompt {
         v["mac.open"] = line.isEmpty ? "" : line + ". The user sees a notice each time."
         // 599 (594.B2): the browser bridge.
         v["browser.description"] = browser
-            ? "this VM has no browser, but `xdg-open URL` (also $BROWSER, `open`) opens an http or https URL in the user's Mac browser, and the user sees a notice. A sign-in that redirects to this VM's localhost (e.g. Claude Code's /login) completes: that port is forwarded from the Mac for up to 10 minutes. `http://localhost:PORT` of a server you run here does NOT open on the Mac — tell the user the address instead."
-            : "this VM has no browser and its browser bridge is off: xdg-open does not reach the user's Mac. Print URLs for the user to open; a sign-in that redirects to this VM's localhost cannot complete — they can turn the bridge on (`doz config set --sandbox \(name) sandbox.browser_bridge on`)."
+            ? "this Sandbox has no browser, but `xdg-open URL` (also $BROWSER, `open`) opens an http or https URL in the user's Mac browser, and the user sees a notice. A sign-in that redirects to this Sandbox's localhost (e.g. Claude Code's /login) completes: that port is forwarded from the Mac for up to 10 minutes. `http://localhost:PORT` of a server you run here does NOT open on the Mac — tell the user the address instead."
+            : "this Sandbox has no browser and its browser bridge is off: xdg-open does not reach the user's Mac. Print URLs for the user to open; a sign-in that redirects to this Sandbox's localhost cannot complete — they can turn the bridge on (`doz config set --sandbox \(name) sandbox.browser_bridge on`)."
         // 599 (594.B1): the clipboard bridge — and its risk, said to the agent as to the user.
         v["clipboard.description"] = clipboard
             ? "when you copy (OSC 52 — e.g. Claude Code's copy command, or tmux/vim yanks), the text is put on the user's Mac clipboard and the user sees a notice (\"\(name) copied N chars\") every time. Copy only what the user asked for. You can never read the Mac clipboard: ask the user to paste instead."
@@ -312,7 +312,7 @@ public enum AgentPrompt {
         v["folder.host_path"] = workspace ?? "(none)"
         v["folder.description"] = workspace.map {
             "/workspace is the user's Mac folder \($0), shared live: what you write there is on the Mac at once, and the other way round."
-        } ?? "This sandbox is isolated (no folder is shared with the Mac): /workspace is a directory on this VM's own disk, and files there exist only inside this VM."
+        } ?? "This sandbox is isolated (no folder is shared with the Mac): /workspace is a directory on this Sandbox's own disk, and files there exist only inside this Sandbox."
         v["network.mode"] = DozableImages.networkName(network)
         switch network {
         case .proxied(let p):
@@ -340,7 +340,7 @@ public enum AgentPrompt {
             for h in allowed where !unique.contains(h) { unique.append(h) }
             let shown = unique.prefix(40).joined(separator: ", ") + (unique.count > 40 ? ", …" : "")
             v["network.allowed_hosts"] = p.effectiveDefault == .allow ? "every host (the web is allowed — still proxied and logged)" : (unique.isEmpty ? "none" : shown)
-            v["network.description"] = "this VM has no network interface; every connection goes through the Mac's proxy, which allows what the user permits and logs every connection"
+            v["network.description"] = "this Sandbox has no network interface; every connection goes through the Mac's proxy, which allows what the user permits and logs every connection"
                 + (p.effectiveDefault == .allow ? " (the web is allowed). " : " — deny by default. ")
                 + v["network.permissions"]!
         case .nat:
@@ -350,7 +350,7 @@ public enum AgentPrompt {
         case .none:
             v["network.permissions"] = "You may reach nothing (no network)."
             v["network.allowed_hosts"] = "none"
-            v["network.description"] = "none — this VM has no network at all."
+            v["network.description"] = "none — this Sandbox has no network at all."
         }
         v["account.name"] = account ?? "none"
         if network.policy != nil, let problem = credentialProblem {

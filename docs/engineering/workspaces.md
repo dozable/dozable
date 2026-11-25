@@ -20,7 +20,9 @@ makes and starts a workspace (the New workspace wizard), adds and ends its worke
 | `Sources/DozableHost/WorkspaceRecord.swift` | `WorkspaceRecord` (`workspace.json`, version 1) and its parts — `WorkspaceBrief`, `WorkspaceFolder`, `WorkspaceRoom`, `WorkspaceAgent`, `AgentPlace`, `WorkspaceDefaults`, `WorkspaceFlags`, `WorkspaceOrigin`; `WorkspaceLogEntry` (one line of `log.jsonl`); `WorkspaceName` (the name rule); `UnknownFields` + `DynamicKey` (fields this build does not know, kept) |
 | `Sources/DozableHost/WorkspaceStore.swift` | `WorkspaceStore`: the folder per workspace, atomic 0600 files in 0700 folders with no link in the path, create-by-rename, the membership read from the records, the log appended and read (a torn line skipped), `--since` |
 | `Sources/DozableHost/WorkspaceState.swift` | `WorkspaceState` and `WorkspaceState.derive`, one pure function; how a sandbox and a session on this Mac look to it |
-| `Sources/DozableHost/WorkspacePlan.swift` | `workspace-plan`'s answer `WorkspacePlan`; `WorkspacePresets.builtIn` (the wizard's "Start from", ONE table); `WorkspaceNetworks`; `WorkspaceNewCommand` (the ONE command source: `argv`, `text` — the brief as a heredoc, its delimiter absent from the text — `startText`); `WorkspaceProjectFill` (doz_project.yaml used to fill in choices, the CLI's and the dashboard's, never written); the plan's lines |
+| `Sources/DozableHost/WorkspacePlan.swift` | `workspace-plan`'s answer `WorkspacePlan`; `WorkspacePresets.builtIn` (`--preset`, ONE table: blank, remotion-video); `WorkspaceNetworks`; `WorkspaceNewCommand` (the ONE command source: `argv`, `text` — the brief as a heredoc, its delimiter absent from the text — `startText`); `WorkspaceProjectFill` (doz_project.yaml used to fill in choices, the CLI's and the dashboard's, never written); the plan's lines |
+| `Sources/DozableHost/WorkspaceWizard.swift` | the New workspace wizard's answers on the plan: `WorkspaceSuggestion` (the next free name), `WorkspaceManagerFit`, `WorkspaceFinding`, the wizard's words (`WorkspaceWizard`) and their `HostCore` builders |
+| `Sources/DozableKit/WorkspaceTemplates.swift`, `Sources/DozableKit/Resources/templates/` | the workspace templates doz carries (`template.json`, `space.yaml`, `DESCRIPTION.md`), listed, read and rendered; `Sources/DozableCLI/WorkspaceTemplateCommands.swift`: `WorkspaceTemplateMaker` (shared with `doz ui`) and `doz workspace templates`; the dashboard's `Sources/DozableWeb/WebTemplates.swift` |
 | `Sources/DozableHost/WorkspaceSetupCheck.swift` | the set-up check: pure `gaps(_:)` (each `Gap {item, why, fix}`), the one-live-workspace rule (`liveElsewhere`, its refusal) |
 | `Sources/DozableHost/ManagerLaunch.swift` | pure: `ManagerIsolation.resolve`, the session name, the program, `plan(...)` (argv, environment, START's path, ports, the bot-held secret) |
 | `Sources/DozableHost/ManagerKickoff.swift` | pure: START's text and the brief's post |
@@ -127,7 +129,7 @@ Rules (keep them, and their tests):
 refusal in the order `new` checks them, writing nothing and making no room or folder. `new` takes it, throws the FIRST
 refusal exactly as before (its code and message), else makes the folder, the room and the files. The read-only HostOp
 **`workspace-plan`** (`isReadOnly`: in-process with no daemon) takes the same `WorkspaceRequest` and answers
-`WorkspacePlan {name, refusals (all), refusalCode, gaps, notes, lines, commands, startCommand, presets}` — the gaps from
+`WorkspacePlan {name, refusals (all), refusalCode, gaps, notes, lines, commands, startCommand, suggested, managers, findings}` — the gaps from
 the same `WorkspaceSetupCheck.gaps` on the in-memory record (`workspaceSetupInput(rec, look: true, brief:, roomWillBeMade:,
 foldersMadeNow:)`). `WorkspacePlanTests.testThePlanAndNewAgree` holds the two together: `refusals` is empty exactly when
 `new` succeeds, the made record is the draft apart from its times.
@@ -156,6 +158,59 @@ foldersMadeNow:)`). `WorkspacePlanTests.testThePlanAndNewAgree` holds the two to
   exits as `new`; the printed commands, run by `/bin/sh` in a fresh store, make the same workspace (`show --json` equal
   apart from times); the new fields recorded; `--worker-isolation unfenced` refused; `--start` posts the kick-off once;
   `--json`.
+
+### The wizard's answers (`WorkspaceWizard.swift`)
+
+The plan also answers what the New workspace wizard draws (web.md, "The New workspace wizard"), each from the sources above
+— nothing is checked twice:
+- **`suggested {name, folder}`** — `workspaceSuggestion()`: the first `workspaceN` (N ≥ 1) with no workspace, chat room,
+  room of another workspace, sandbox or session on this Mac of that name, and no `<projects_dir>/workspaceN` that holds
+  anything. A request with no name (the CLI's `doz workspace new` with no NAME, the plan route with an empty one) drafts that
+  name, so `new` makes it.
+- **`managers [{bot, fits, why?, fix?}]`** — every bot not retired as this workspace's manager WHERE IT RUNS (unfenced
+  included: the wizard asks the one consent at the end; the CLI's `--manager-isolation` rule is unchanged), from
+  `WorkspaceSetupCheck.managerFindings` (the codes behind `managerGaps`) and `liveWorkspace(of:)`, in the wizard's words
+  (`WorkspaceWizard.managerWords`) with one fix where there is one (`poll`, `token`). A look: no keychain read.
+- **`findings [{step, field, text, fix?}]`** — the draft's refusals (`WorkspaceWizard.refusal`) and the gaps
+  (`WorkspaceWizard.gap`, the manager's by code) on the step and field that changes them (`name`, `manager`, `workers`,
+  `chat`, `confirm`), never a `doz …` command or "brief". `refusals` and `gaps` stay for the CLI and `--dry-run`.
+- **The description is optional** (782): an empty brief is no refusal and no gap; the start posts nothing as you and the
+  manager's START says "No description yet — ask in the room what to work on" (`ManagerKickoff.noDescription`).
+- **The room**: `roomName` makes the room under another name; `invite` names bots or people invited as you once it is made
+  (logged `bot-invited`; one that cannot be invited is a note). The CLI's `--room-name`, `--invite`.
+- **`sandbox` is the input word** for the isolation stored as `vm` (`IsolationWord.stored`, at every input: the CLI's flags,
+  the web actions, the daemon's requests); records, `--json` and space files keep `vm` until the next format version.
+- `WorkspacePlanTests` (`testAnEmptyDescriptionIsMadeAndNothingIsPosted`, `testTheNextFreeNameSkipsEveryKindOfCollision`,
+  `testManagerFitnessFollowsTheSetUpCheck`, `testFindingsAreInTheWizardsWords`, `testTheRoomNameAndInvites`,
+  `testSandboxIsTheInputWordForVM`).
+
+### Workspace templates (`WorkspaceTemplates`, `WorkspaceTemplateMaker`)
+
+doz carries five workspace templates — `solo` (One agent), `solo-sandbox` (One agent in a Sandbox), `build-review` (Build &
+review), `fix-it` (Fix-it team, the canonical demo made generic), `video` (Remotion video) — in its resource bundle,
+`templates/ID/{template.json, space.yaml, DESCRIPTION.md}` beside `skills/` (`Sources/DozableKit/WorkspaceTemplates.swift`,
+found as the skills are; `ORDER` gives the gallery's order; read-only, replaced by the next install; the release's layout
+check names each). `template.json` is what the gallery reads (`id, version, title, summary, needs.manager, agents [{name,
+role, where, readOnly?}], room, network`); `space.yaml` is space/3.1 with four placeholders — `{{space}}`, `{{owner}}` (you
+as chat knows you: up checks it), `{{manager}}`, `{{folder}}` — rendered each as a JSON string — and `{{who}}`, the
+prefix of the template's own agents' names (chat names are global: two workspaces from one template must not share
+`builder`; `WorkspaceTemplates.who` — the workspace's name, a letter first, room left for `-reviewer` under 40) (`${…}` is a space file's own
+environment substitution, so the placeholders are not). No template runs an agent unfenced; one that needs a manager takes
+your bot (`external: {bot}`: space files refuse an owned manager).
+- **Making one** (`WorkspaceTemplateMaker.make`, in the CLI's module — the resolver's): the next free name when none is
+  given; the files written into `<projects_dir>/NAME/` (made 0700 — with no folder of your own it is also the agents'
+  folder; with `--folder DIR` the agents work in DIR and nothing is written there; a folder that is not empty, or holds a
+  space file, is refused). A space file must be under your home (`SpaceRecordFile`): when `<projects_dir>` is not, the two
+  files go in `~/doz-workspaces/NAME/` and the agents' folder stays `<projects_dir>/NAME` — decided before anything is
+  written (CLI row N7); the file resolved and checked; `workspace-up-plan`, then `workspace-up` on that plan's sha (an
+  unfenced manager bot only with `--yes` / the dashboard's tick). A refusal before up takes the files back.
+- **Reads**: `doz workspace templates [ID] [--files] [--json]`; the dashboard's `GET /api/v1/templates`.
+- **Making**: `doz workspace new [NAME] --template ID [--manager BOT] [--folder DIR] [--yes]`; the dashboard's
+  `workspace-from-template` (this Mac's own browser only, exactly one acting HostOp: `workspace-up`).
+- The presets (`WorkspacePresets.builtIn`) are now `blank` and `remotion-video` (its template is `video`); `swift-tests`,
+  `mac-admin` and `research` were retired (D7) — `--preset` refuses them naming what to use.
+- `WorkspaceTemplatesTests` (the five in order; each renders into a file the resolver reads with no problem; never
+  unfenced; ids never paths; the release carries them); `make test-cli-workspace` N1–N6 (the one-shot rows).
 
 ### One-shot new: `--brief`, `--preset`, `--worker`, `workspace create`
 

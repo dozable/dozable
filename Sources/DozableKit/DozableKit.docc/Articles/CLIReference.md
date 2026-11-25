@@ -974,10 +974,13 @@ A workspace is an environment set up for getting work done: its agents, its room
 for, and any folders it works on (usually projects). Work starts only once it is fully set up.
 
 ```bash
-doz workspace new NAME (--brief TEXT|- | --prompt-file F|-) [--preset P] [--worker TASK]… [--ref PATH|URL]… [--new-folder]
-                  [--folder DIR[:ro|:rw]]… [--room EXISTING | --no-room] [--from-project] [--adopt AGENT]…
-                  [--manager BOT [--manager-isolation fenced|vm|unfenced]] [--worker-isolation fenced|vm]
-                  [--network locked|standard|open] [--site HOST]… [--dry-run] [--start] [--request-id ID]
+doz workspace new [NAME] [--brief TEXT|- | --prompt-file F|-] [--preset blank|remotion-video] [--worker TASK]… [--ref PATH|URL]…
+                  [--new-folder] [--folder DIR[:ro|:rw]]… [--room EXISTING | --no-room | --room-name R] [--invite NAME]…
+                  [--from-project] [--adopt AGENT]… [--manager BOT [--manager-isolation fenced|sandbox|unfenced]]
+                  [--worker-isolation fenced|sandbox] [--network locked|standard|open] [--site HOST]… [--dry-run] [--start]
+                  [--request-id ID]                # no NAME: the next free workspaceN; the description optional; vm = sandbox
+doz workspace new [NAME] --template ID [--manager BOT] [--folder DIR] [--yes]   # from a workspace template: its files in ~/doz-workspaces/NAME, set up and started
+doz workspace templates [ID] [--files] [--json]  # the workspace templates doz carries (solo, solo-sandbox, build-review, fix-it, video)
 doz workspace create NAME …                     # an alias of new: the same flags, the same answer
 doz workspace ls [--loose] [--json]             # NAME  STATE  AGENTS  ROOM ("idle · you · manager mira (fenced)"), then the loose agents
 doz workspace show W [--brief] [--json]         # its brief, folders, room and agents

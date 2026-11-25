@@ -141,7 +141,7 @@ func workspaceLifecycleText(_ p: WorkspaceLifecyclePlan, commands: Bool = true, 
     } else {
         var t = [["AGENT", "ROLE", "WHERE", "NOW", "AFTER", "BACK"]]
         for r in p.rows {
-            let iso = r.isolation == "vm" ? "micro VM" : r.isolation == "unfenced" ? "unfenced · acts as you" : r.isolation
+            let iso = r.isolation == "vm" ? "Sandbox" : r.isolation == "unfenced" ? "unfenced · acts as you" : r.isolation
             t.append([r.name, r.role, "\(r.place) (\(iso))", r.now + (r.activity.map { " · \($0)" } ?? ""), r.after, r.back])
         }
         s += Out.table(t)
@@ -182,7 +182,7 @@ func lifecycleItem(_ i: WorkspaceLifecycleItem) -> String {
 struct WorkspaceSleep: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "sleep", abstract: "Put every agent to sleep: a sandbox hibernated, a session on this Mac ended with its conversation kept.",
         discussion: """
-        A micro VM hibernates — its memory given back, its programs and screens kept; a session on this Mac ends, its record \
+        A Sandbox hibernates — its memory given back, its programs and screens kept; a session on this Mac ends, its record \
         and conversation kept (an unfenced one's token file deleted). An agent elsewhere runs on its own machine: untouched. \
         It stays asleep until you wake it: doz workspace wake W. Messages wait in the room.
         """)
@@ -231,7 +231,7 @@ struct WorkspaceFinish: AsyncParsableCommand {
 struct WorkspaceStop: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "stop", abstract: "Stop everything: every agent's process ends; conversations, disks, rooms and folders are kept.",
         discussion: """
-        Every agent that runs is stopped: a micro VM shut down (its disk kept), a session on this Mac ended (its record and \
+        Every agent that runs is stopped: a Sandbox shut down (its disk kept), a session on this Mac ended (its record and \
         conversation kept; an unfenced one's token file deleted). Unlike sleep nothing is held in memory: each agent is \
         stopped, not asleep. What is asleep or stopped already is left as it is, so a stop of a stopped or asleep workspace \
         does nothing and exits 0. Nothing is removed. doz workspace wake W brings every agent back in its conversation. Shows \

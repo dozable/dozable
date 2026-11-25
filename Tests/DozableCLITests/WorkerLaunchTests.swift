@@ -121,9 +121,9 @@ final class WorkerLaunchTests: XCTestCase {
             XCTAssertFalse(String(decoding: try JSONEncoder().encode(p.secret), as: UTF8.self).contains("dzc_"))
         }
         XCTAssertEqual(WorkerLaunch.control(isolation: "fenced"), "proxy · placeholders · guard")
-        XCTAssertEqual(WorkerLaunch.control(isolation: "vm"), "micro VM · proxy · placeholders")
+        XCTAssertEqual(WorkerLaunch.control(isolation: "vm"), "Sandbox · proxy · placeholders")
         XCTAssertEqual(WorkerLaunch.control(isolation: "unfenced"), "no proxy · no placeholders · no guard · acts as you")
-        XCTAssertEqual(WorkerLaunch.control(isolation: "vm", shares: "vw-v1"), "micro VM · proxy · placeholders · shares vw-v1")
+        XCTAssertEqual(WorkerLaunch.control(isolation: "vm", shares: "vw-v1"), "Sandbox · proxy · placeholders · shares vw-v1")
         XCTAssertEqual(WorkerLaunch.shortTask("list the files\nand more"), "list the files")
         XCTAssertEqual(WorkerLaunch.shortTask(String(repeating: "x", count: 60), limit: 10), String(repeating: "x", count: 9) + "…")
     }

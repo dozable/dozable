@@ -57,8 +57,8 @@ would.
 
 ## Always read-only
 
-While a sandbox's rules apply, these are read-only to the agent's user in the micro VM even if your `.dozreadonly` does
-not list them (root in the VM can lift it: the rules are a mask, not the boundary — the VM is). A fenced session on your
+While a sandbox's rules apply, these are read-only to the agent's user in the Sandbox even if your `.dozreadonly` does
+not list them (root in the Sandbox can lift it: the rules are a mask, not the boundary — the Sandbox is). A fenced session on your
 Mac has its own guard: `.git/hooks` and `.git/config` are kept from it by the fence ([Sessions on this
 Mac](34-sessions-on-this-mac.md)).
 

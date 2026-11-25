@@ -582,10 +582,11 @@
 [sandbox]
 
 # The agent (the image's user in claude-code and pi sandboxes) has passwordless sudo inside its
-# sandbox, so it can install system packages (sudo apt-get install …). The VM, the network policy
-# and the absent credentials are the boundary — root inside reaches no more than the agent does.
-# Applied at every boot and every agent session start (no image is rebuilt); a sandbox's own
-# choice (doz create --no-agent-sudo, agent_sudo in doz_project.yaml) wins over this.
+# sandbox, so it can install system packages (sudo apt-get install …). The Sandbox (its own
+# virtual machine), the network policy and the absent credentials are the boundary — root inside
+# reaches no more than the agent does. Applied at every boot and every agent session start (no
+# image is rebuilt); a sandbox's own choice (doz create --no-agent-sudo, agent_sudo in
+# doz_project.yaml) wins over this.
 # (boolean; flag doz create --no-agent-sudo / --agent-sudo; applies to sessions opened from now on)
 # agent_sudo = true
 

@@ -35,7 +35,7 @@ public enum WorkerKickoff {
         case .fenced:
             s += "You run fenced on this Mac: you work in your folder, and reach only what your network permissions allow. You cannot start or stop agents: ask in the room.\n\n"
         case .vm:
-            s += "You run in a micro VM of your own: your folder is shared at /workspace, and you reach only what its network permissions allow. You cannot start or stop agents: ask in the room.\n\n"
+            s += "You run in a Sandbox of your own (a small Linux machine): your folder is shared at /workspace, and you reach only what its network permissions allow. You cannot start or stop agents: ask in the room.\n\n"
         case .shared(let x):
             s += "You run in the sandbox \(x), which other agents of the workspace share: they can read your files and placeholders there, and you theirs. You cannot start or stop agents: ask in the room.\n\n"
         case .unfenced:

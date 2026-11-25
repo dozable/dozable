@@ -9,7 +9,8 @@ import Foundation
 /// `fromProject` is a flag the web layer on the Mac turns into `project` and `network` (`WorkspaceProjectFill`).
 public enum WebWorkspaceNew {
     static let fields: Set<String> = ["workspace", "brief", "refs", "folders", "newFolder", "fromProject", "room", "noRoom", "manager",
-                                      "managerIsolation", "workerIsolation", "network", "sites", "adopt"]
+                                      "managerIsolation", "workerIsolation", "network", "sites", "adopt", "roomName", "invite"]
+    static let maximumInvites = 16
     static let maximumRefs = 16
     static let maximumFolders = 8
     static let maximumAdopt = 4
@@ -51,7 +52,10 @@ public enum WebWorkspaceNew {
             }
         } else {
             w.name = try f.workspaceName("workspace")
-            w.brief = try f.brief("brief")
+            // 782: the description is optional — none, or blank, is the empty one.
+            if let s = f.d["brief"] as? String, s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { w.brief = "" }
+            else if f.d["brief"] == nil || f.d["brief"] is NSNull { w.brief = "" }
+            else { w.brief = try f.brief("brief") }
         }
         w.refs = try list(f, "refs", maximumRefs)?.map { (x: Any) -> String in
             guard let s = x as? String else { throw WebAction.Invalid("refs: paths or http(s) addresses") }
@@ -73,13 +77,26 @@ public enum WebWorkspaceNew {
             return r
         }
         w.noRoom = try f.flag("noRoom")
+        // 782: the new room's own name, and who is invited to it (each by the chat name rule).
+        w.roomName = try f.string("roomName", max: 64).map { r in
+            guard WorkspaceName.isValid(r) else { throw WebAction.Invalid("roomName: 1–40 characters of a-z, 0-9 and -") }
+            return r
+        }
+        if w.roomName != nil, w.room != nil || w.noRoom == true { throw WebAction.Invalid("roomName names the room made now: not with room or noRoom") }
+        if let raw = try list(f, "invite", maximumInvites) {
+            let names = try raw.map { (x: Any) -> String in
+                guard let s = x as? String, ChatNames.refusal(s) == nil else { throw WebAction.Invalid("invite: names in chat (a-z, 0-9 and -)") }
+                return s
+            }
+            w.invite = names.isEmpty ? nil : names
+        }
         if w.room != nil, w.noRoom == true { throw WebAction.Invalid("room or noRoom, not both") }
         w.manager = try f.string("manager", max: 40).map { _ in try f.botName("manager") }
-        w.managerIsolation = try f.oneOf("managerIsolation", ["fenced", "vm", "unfenced"])
+        w.managerIsolation = IsolationWord.stored(try f.oneOf("managerIsolation", ["fenced", "sandbox", "vm", "unfenced"]))
         if w.managerIsolation != nil, w.manager == nil { throw WebAction.Invalid("managerIsolation goes with manager") }
-        if let i = try f.string("workerIsolation", max: 16) {
+        if let i = try f.string("workerIsolation", max: 16).map({ IsolationWord.stored($0) }) {
             guard WorkspaceNetworks.workerIsolations.contains(i) else {
-                throw WebAction.Invalid("workerIsolation: vm or fenced — new workers are never unfenced by default")
+                throw WebAction.Invalid("workerIsolation: sandbox or fenced — new workers are never unfenced by default")
             }
             w.workerIsolation = i
         }
@@ -160,7 +177,7 @@ public struct WebWorkspacePlan: Codable, Equatable, Sendable {
         public var item: String
         public var why: String
         public var fix: String
-        /// The wizard's step it belongs to: 1 the work (brief, folder, agent), 2 who manages, 4 grants & when (chat, room).
+        /// The wizard's step it belongs to (`step(_:)`).
         public var step: Int
     }
     public struct Project: Codable, Equatable, Sendable {
@@ -176,14 +193,19 @@ public struct WebWorkspacePlan: Codable, Equatable, Sendable {
     public var lines: [String]
     public var commands: String
     public var startCommand: String
-    public var presets: [WorkspacePreset]
+    /// 782: the next free name, each bot's fitness as the manager, the findings in the wizard's words.
+    public var suggested: WorkspaceSuggestion?
+    public var managers: [WorkspaceManagerFit]
+    public var findings: [WorkspaceFinding]
     public var project: Project?
 
+    /// The wizard's step (1–5: Name · Manager · Workers · How they chat · Confirm) a gap is changed on.
     public static func step(_ item: String) -> Int {
         switch item {
         case "manager": 2
         case "chat", "room": 4
-        default: 1
+        case "folder": 1
+        default: 5
         }
     }
 
@@ -195,7 +217,9 @@ public struct WebWorkspacePlan: Codable, Equatable, Sendable {
         lines = p.lines
         commands = p.commands
         startCommand = p.startCommand
-        presets = p.presets
+        suggested = p.suggested
+        managers = p.managers ?? []
+        findings = p.findings ?? []
         self.project = project
     }
 }

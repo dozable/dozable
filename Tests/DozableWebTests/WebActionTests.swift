@@ -78,11 +78,12 @@ final class WebActionTests: XCTestCase {
         "workspace-brief": #"{"action":"workspace-brief","workspace":"launch-video","brief":"Make it 45 seconds.\nKeep the logo.","ifBrief":"\#(String(repeating: "a", count: 64))"}"#,
         "workspace-adopt": #"{"action":"workspace-adopt","workspace":"launch-video","agent":"@mac/build","as":"builder"}"#,
         "workspace-new": #"{"action":"workspace-new","workspace":"gamma","brief":"The work in gamma.","adopt":["gamma"]}"#,
+        "workspace-from-template": #"{"action":"workspace-from-template","template":"build-review","workspace":"workspace3","manager":"mira"}"#,
         "workspace-release": #"{"action":"workspace-release","workspace":"launch-video","agent":"builder"}"#,
         // The New workspace wizard's start — this Mac's own browser only; the daemon then requires the unfenced confirmation.
         "workspace-start": #"{"action":"workspace-start","workspace":"launch-video","actsAsYou":true}"#,
         // Agents / Bots — this Mac's own browser only, every one heldOnly (no token ever reaches a browser).
-        "bot-new": #"{"action":"bot-new","name":"mira","agent":"claude-code","isolation":"fenced","deliver":"inbox","skills":["chat-manager"],"instructions":"Be brief.\nAnswer in the room."}"#,
+        "bot-new": #"{"action":"bot-new","name":"mira","agent":"claude-code","isolation":"unfenced","deliver":"inbox","skills":["chat-manager"],"instructions":"Be brief.\nAnswer in the room."}"#,
         "bot-set": #"{"action":"bot-set","name":"mira","model":"sonnet","avatar":"🦊"}"#,
         "bot-retire": #"{"action":"bot-retire","name":"tmp1","confirm":"tmp1"}"#,
         "bot-adopt": #"{"action":"bot-adopt","name":"olda","agent":"codex","confirm":"olda"}"#,
@@ -192,6 +193,9 @@ final class WebActionTests: XCTestCase {
         // The New workspace wizard's Create and start, this Mac's own browser only — exactly `doz workspace start W` (+ the
         // confirmation an unfenced manager needs).
         .workspaceStart,
+        // 782: a workspace from a template, this Mac's own browser only — exactly `doz workspace new NAME --template ID`'s up
+        // (its files written and planned in doz ui first; the plan's sha acted on).
+        .workspaceUp,
         // Agents / Bots from this Mac's own browser — exactly `doz bot new | set | retire | adopt | token --new`, each heldOnly.
         .botNew, .botSet, .botRetire, .botAdopt, .botToken,
         // A workspace's workers from this Mac's own browser — exactly `doz worker add | end`.
@@ -568,11 +572,11 @@ final class WebActionTests: XCTestCase {
         // adopt, new with one agent, release (this Mac's own browser only); the start; the eight lifecycle verbs (this Mac's
         // own browser only); and the five bot changes below.
         XCTAssertEqual(Set(Self.samples.filter { (try? decode($0.value).hostOp)?.rawValue.hasPrefix("workspace-") == true }.map(\.key)),
-                       ["workspace-brief", "workspace-make-room", "workspace-adopt", "workspace-new", "workspace-release", "workspace-start", "workspace-stop", "workspace-sleep",
+                       ["workspace-brief", "workspace-make-room", "workspace-adopt", "workspace-new", "workspace-from-template", "workspace-release", "workspace-start", "workspace-stop", "workspace-sleep",
                         "workspace-wake", "workspace-finish", "workspace-reopen", "workspace-archive", "workspace-restore", "workspace-delete",
                         "workspace-run-archive", "workspace-space-save"])
         XCTAssertEqual(Set(ops.filter { ["workspace-", "worker-"].contains(where: $0.rawValue.hasPrefix) }),
-                       [.workspaceEdit, .workspaceAdopt, .workspaceNew, .workspaceRelease, .workspaceStart, .workerAdd, .workerEnd, .workspaceStop,
+                       [.workspaceEdit, .workspaceAdopt, .workspaceNew, .workspaceUp, .workspaceRelease, .workspaceStart, .workerAdd, .workerEnd, .workspaceStop,
                         .workspaceSleep, .workspaceWake, .workspaceFinish, .workspaceReopen, .workspaceArchive, .workspaceRestore, .workspaceDelete,
                         .workspaceRunArchive, .workspaceSpaceSave])
         // A room's archive and removal and a run's archive written again: exactly their HostOps, this Mac's own browser only.
@@ -596,8 +600,8 @@ final class WebActionTests: XCTestCase {
         XCTAssertEqual(Set(Self.samples.compactMap { (try? decode($0.value))?.isBot == true ? $0.key : nil }),
                        ["bot-new", "bot-set", "bot-retire", "bot-adopt", "bot-token"])
         XCTAssertEqual(Set(Self.samples.compactMap { (try? decode($0.value))?.isFiling == true ? $0.key : nil }),
-                       ["workspace-adopt", "workspace-new", "workspace-release"])
-        XCTAssertEqual(Set(Self.samples.compactMap { (try? decode($0.value))?.isStarting == true ? $0.key : nil }), ["workspace-start"])
+                       ["workspace-adopt", "workspace-new", "workspace-from-template", "workspace-release"])
+        XCTAssertEqual(Set(Self.samples.compactMap { (try? decode($0.value))?.isStarting == true ? $0.key : nil }), ["workspace-start", "workspace-from-template"])
         // No rename for any browser; the plans and worker-ls are reads.
         for op: HostOp in [.workspaceRename, .workspacePlan, .workerPlan, .workspaceLifecyclePlan, .workerList] {
             XCTAssertFalse(ops.contains(op), "\(op.rawValue) is not an action")
@@ -715,7 +719,7 @@ final class WebActionTests: XCTestCase {
     func testTheBotActions() throws {
         let new = try decode(Self.samples["bot-new"]!)
         var want = BotRequest(name: "mira")
-        want.agent = "claude-code"; want.isolation = "fenced"; want.deliver = "inbox"; want.skills = ["chat-manager"]
+        want.agent = "claude-code"; want.isolation = "unfenced"; want.deliver = "inbox"; want.skills = ["chat-manager"]
         want.instructions = "Be brief.\nAnswer in the room."
         XCTAssertEqual(new, .botNew(want))
         want.heldOnly = true
@@ -985,7 +989,41 @@ final class WebActionTests: XCTestCase {
         ] {
             invalid(base + "," + extra + "}", why)
         }
-        invalid(#"{"action":"workspace-new","workspace":"w","brief":""}"#, "the action's brief is required")
+        // 782: the description is optional — none, or blank, is the empty one.
+        for body in [#"{"action":"workspace-new","workspace":"w","brief":""}"#, #"{"action":"workspace-new","workspace":"w"}"#, #"{"action":"workspace-new","workspace":"w","brief":"  \n"}"#] {
+            if case .workspaceNew(let w, _) = try decode(body) { XCTAssertEqual(w.brief, "") } else { XCTFail("not new") }
+        }
+        // 782: the room's own name and who is invited; `sandbox` is the workers' isolation stored as vm.
+        if case .workspaceNew(let w, _) = try decode(#"{"action":"workspace-new","workspace":"w","roomName":"team","invite":["mira","sam"],"workerIsolation":"sandbox"}"#) {
+            XCTAssertEqual(w.roomName, "team")
+            XCTAssertEqual(w.invite, ["mira", "sam"])
+            XCTAssertEqual(w.workerIsolation, "vm")
+        } else { XCTFail("not new") }
+        invalid(#"{"action":"workspace-new","workspace":"w","roomName":"Team"}"#, "a bad room name")
+        invalid(#"{"action":"workspace-new","workspace":"w","roomName":"t","room":"general"}"#, "roomName with room")
+        invalid(#"{"action":"workspace-new","workspace":"w","invite":["Bad Name"]}"#, "a bad invite")
+        // 782: a workspace from a template — this Mac's own (filing and starting), exactly the up.
+        let t = try decode(Self.samples["workspace-from-template"]!)
+        XCTAssertEqual(t.hostRequest.op, .workspaceUp)
+        XCTAssertEqual(t.hostRequest.workspaceRequest?.name, "workspace3")
+        XCTAssertTrue(t.isFiling)
+        XCTAssertTrue(t.isStarting)
+        XCTAssertEqual(t.label, "make workspace3 from the template build-review")
+        if case .workspaceFromTemplate(let q) = try decode(#"{"action":"workspace-from-template","template":"solo","workspace":"w","folder":"/tmp","actsAsYou":true}"#) {
+            XCTAssertEqual(q, WebTemplates.Request(template: "solo", workspace: "w", folder: "/private/tmp", manager: nil, actsAsYou: true))
+        } else { XCTFail("not from a template") }
+        for (body, why) in [(#"{"action":"workspace-from-template","template":"../x","workspace":"w"}"#, "a path as the template"),
+                            (#"{"action":"workspace-from-template","template":"solo","workspace":"W"}"#, "off the name rule"),
+                            (#"{"action":"workspace-from-template","template":"solo","workspace":"w","folder":"rel"}"#, "a relative folder"),
+                            (#"{"action":"workspace-from-template","template":"solo","workspace":"w","newManager":"x"}"#, "an unknown field")] {
+            invalid(body, why)
+        }
+        // 782: inbox only for a bot that runs unfenced.
+        invalid(#"{"action":"bot-new","name":"ida","agent":"claude-code","isolation":"fenced","deliver":"inbox"}"#, "inbox on a fenced bot")
+        invalid(#"{"action":"bot-new","name":"ida","agent":"claude-code","isolation":"sandbox","deliver":"inbox"}"#, "inbox in a Sandbox")
+        if case .botNew(let b) = try decode(#"{"action":"bot-new","name":"ida","agent":"claude-code","isolation":"sandbox"}"#) {
+            XCTAssertEqual(b.isolation, "vm", "sandbox, stored as vm")
+        } else { XCTFail("not bot-new") }
         // 775: a preset's sites, checked as the CLI's --site.
         if case .workspaceNew(let w, _) = try decode(#"{"action":"workspace-new","workspace":"w","brief":"b","network":"standard","sites":["Remotion.media"]}"#) {
             XCTAssertEqual(w.sites, ["remotion.media"])
@@ -1061,9 +1099,7 @@ final class WebActionTests: XCTestCase {
         for extra in [#""project":"/x""#, #""noManager":true"#, #""managerIsolation":"vm""#] {
             invalid(#"{"action":"workspace-new","workspace":"w","brief":"b","adopt":["a"],\#(extra)}"#)
         }
-        invalid(#"{"action":"workspace-new","workspace":"w","brief":" ","adopt":["a"]}"#)           // a blank brief
         invalid(#"{"action":"workspace-new","workspace":"W","brief":"b","adopt":["a"]}"#)           // off the name rule
-        invalid(#"{"action":"workspace-new","workspace":"w","adopt":["a"]}"#)                       // the brief is required
         // The agent: a sandbox's name or @mac/SESSION — never a bare @mac.
         for bad in ["@mac", "@mac/", "@mac/a b", "Lab", "-x", "a/b", "@other/x", String(repeating: "a", count: 41)] {
             invalid(#"{"action":"workspace-adopt","workspace":"w","agent":"\#(bad)"}"#)

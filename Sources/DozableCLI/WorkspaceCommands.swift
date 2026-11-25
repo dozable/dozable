@@ -19,7 +19,7 @@ struct WorkspaceCommand: AsyncParsableCommand {
         workspace's own record. With chat on, a new workspace gets a room of its own name (nothing is posted in it yet).
 
         A bot can manage it (--manager BOT): doz workspace start runs the set-up check, posts the brief as your first \
-        message in its room, and starts the manager — fenced on this Mac by default, in a micro VM, or unfenced (acting as \
+        message in its room, and starts the manager — fenced on this Mac by default, in a Sandbox, or unfenced (acting as \
         you) only when you say so. doz workspace stop ends every agent's process and keeps every conversation; doz workspace \
         manager stop ends the manager alone.
 
@@ -35,7 +35,7 @@ struct WorkspaceCommand: AsyncParsableCommand {
         subcommands: [WorkspaceNew.self, WorkspaceList.self, WorkspaceShow.self, WorkspaceStart.self, WorkspaceStop.self, WorkspaceManagerCommand.self, WorkspaceSleep.self,
                       WorkspaceWake.self, WorkspaceFinish.self, WorkspaceRunVerb.self, WorkspaceRetroCommand.self, WorkspaceDecideCommand.self, WorkspaceProposalsCommand.self, WorkspaceJournalCommand.self, WorkspaceFeedsCommand.self, WorkspaceWaitCommand.self, WorkspaceReopen.self, WorkspaceArchive.self, WorkspaceRestore.self, WorkspaceDelete.self,
                       WorkspaceAdopt.self, WorkspaceRelease.self, WorkspaceEdit.self, WorkspaceLog.self, WorkspaceRunsCommand.self, WorkspaceStateCommand.self, WorkspaceDocCommand.self, WorkspaceRename.self,
-                      SpacePlanCommand.self, SpaceUpCommand.self, SpaceDownCommand.self, SpaceConfig.self])
+                      SpacePlanCommand.self, SpaceUpCommand.self, SpaceDownCommand.self, SpaceConfig.self, WorkspaceTemplatesCommand.self])
 }
 
 // MARK: helpers
@@ -130,23 +130,30 @@ func printWorkspace(_ d: WorkspaceDetail) {
 
 struct WorkspaceNew: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "new",
-        abstract: "Make a workspace: its brief, any folders, its room, its workers and agents to adopt.",
+        abstract: "Make a workspace: its description, any folders, its room, its workers and agents to adopt.",
         discussion: """
-        The brief is --brief TEXT, --brief - (standard input, its last line break dropped) or --prompt-file FILE. --preset \
-        NAME starts from a preset (blank, research, swift-tests, mac-admin, remotion-video); a flag you give wins over it. \
-        Each --worker TASK declares a worker: recorded now, started by doz workspace start with the workspace's default \
-        isolation (fenced on this Mac unless --worker-isolation vm). The first --folder is the main one (--new-folder makes \
-        ~/doz-workspaces/NAME and puts it first). With chat on, the room is named after the workspace (it must not exist yet \
-        — or link one with --room). --dry-run shows what would be made, every refusal and what the start would still need, \
-        and the commands — nothing is written and no daemon is started. --start starts it once it is made. Example: doz \
-        workspace new app --preset blank --brief "Fix the build" --folder ~/code/app --worker "Fix the failing test"
+        With no NAME it is the next free workspaceN (printed). The description is optional: --brief TEXT, --brief - \
+        (standard input, its last line break dropped) or --prompt-file FILE; with none, the start posts nothing and the \
+        manager asks in the room what to work on. --template ID makes it from a workspace template (doz workspace \
+        templates): its agents, where each runs, the room and the network, set up at once — the files go in \
+        ~/doz-workspaces/NAME (with --folder DIR the agents work in DIR and nothing is written there). --preset NAME starts \
+        from a preset (blank, remotion-video); a flag you give wins over it. Each --worker TASK declares a worker: recorded \
+        now, started by doz workspace start with the workspace's default isolation (fenced on this Mac unless \
+        --worker-isolation sandbox). The first --folder is the main one (--new-folder makes ~/doz-workspaces/NAME and puts it \
+        first). With chat on, the room is named after the workspace (it must not exist yet — or link one with --room, or \
+        name the new one with --room-name; --invite NAME asks a bot or a person in). --dry-run shows what would be made, \
+        every refusal and what the start would still need, and the commands — nothing is written and no daemon is started. \
+        --start starts it once it is made. Example: doz workspace new app --brief "Fix the build" --folder ~/code/app \
+        --worker "Fix the failing test"
         """,
         aliases: ["create"])
     @OptionGroup var g: GlobalOptions
-    @Argument(help: "Its name: 1–40 characters of a-z, 0-9 and -.") var name: String
-    @Option(name: .long, help: "The brief as text, or - for standard input (its last line break dropped). Not with --prompt-file.") var brief: String?
-    @Option(name: .customLong("prompt-file"), help: "The brief: a file (at most 256 KiB), or - for standard input. Not with --brief.") var promptFile: String?
-    @Option(name: .long, help: "Start from a preset: blank, research, swift-tests, mac-admin or remotion-video (the dry run's JSON lists them). A flag given wins.")
+    @Argument(help: "Its name: 1–40 characters of a-z, 0-9 and - (none: the next free workspaceN).") var name: String?
+    @Option(name: .long, help: "The description as text, or - for standard input (its last line break dropped). Optional; not with --prompt-file.") var brief: String?
+    @Option(name: .customLong("prompt-file"), help: "The description: a file (at most 256 KiB), or - for standard input. Optional; not with --brief.") var promptFile: String?
+    @Option(name: .long, help: "Make it from a workspace template (doz workspace templates): its agents, room and network, set up at once.")
+    var template: String?
+    @Option(name: .long, help: "Start from a preset: blank or remotion-video. A flag given wins.")
     var preset: String?
     @Option(name: .customLong("worker"), help: "Declare a worker by its task (repeatable): recorded now, started by doz workspace start.")
     var workers: [String] = []
@@ -156,13 +163,15 @@ struct WorkspaceNew: AsyncParsableCommand {
     var newFolder = false
     @Option(name: .long, help: "Link this existing room in the chat server as its room, instead of making one (nothing is posted).") var room: String?
     @Flag(name: .customLong("no-room"), help: "No room, even with chat on.") var noRoom = false
+    @Option(name: .customLong("room-name"), help: "Make its room under this name instead of the workspace's.") var roomName: String?
+    @Option(name: .customLong("invite"), help: "Invite this bot or person to the room made now (repeatable).") var invite: [String] = []
     @Flag(name: .customLong("from-project"), help: "Fill in its network preset from the project file (doz_project.yaml) in the main folder (never written).")
     var fromProject = false
     @Option(name: .customLong("adopt"), help: "Adopt this sandbox or @mac/SESSION at once (repeatable).") var adopt: [String] = []
     @Option(name: .customLong("manager"), help: "The bot that manages it (doz bot ls); started by doz workspace start.") var manager: String?
-    @Option(name: .customLong("manager-isolation"), help: "Where the manager runs: fenced (the default), vm, or unfenced (it acts as you — only when named).")
+    @Option(name: .customLong("manager-isolation"), help: "Where the manager runs: fenced (the default), sandbox, or unfenced (it acts as you — only when named).")
     var managerIsolation: String?
-    @Option(name: .customLong("worker-isolation"), help: "Where its new workers run by default: fenced (the default) or vm — never unfenced by default.")
+    @Option(name: .customLong("worker-isolation"), help: "Where its new workers run by default: fenced (the default) or sandbox — never unfenced by default.")
     var workerIsolation: String?
     @Option(name: .long, help: "Its network preset: locked (the default), standard or open; the room is always added.") var network: String?
     @Option(name: .customLong("site"), help: "A site every agent it starts may reach on top of the preset: a host name like api.example.com or *.example.com (repeatable).")
@@ -170,22 +179,25 @@ struct WorkspaceNew: AsyncParsableCommand {
     @Flag(name: .customLong("dry-run"), help: "Show what would be made, what is refused and what the start would still need, and the commands; make nothing.")
     var dryRun = false
     @Flag(name: .long, help: "Start it once it is made (doz workspace start NAME).") var start = false
+    @Flag(name: .long, help: "With --template: yes, a manager bot that runs unfenced acts as you.") var yes = false
     @Option(name: .customLong("request-id"), help: "An id of yours for this request: sent again with the same id and arguments, it answers the first answer (\"replayed\": true) and makes nothing again (kept 24 h).")
     var requestID: String?
 
     func validate() throws {
-        if let i = workerIsolation, !(WorkspaceNetworks.workerIsolations + ["unfenced"]).contains(i) {
-            throw ValidationError("--worker-isolation is vm or fenced")
+        if let i = workerIsolation, !(WorkspaceNetworks.workerIsolations + ["unfenced", "sandbox"]).contains(i) {
+            throw ValidationError("--worker-isolation is sandbox or fenced")
         }
         if let n = network, !WorkspaceNetworks.presets.contains(n) { throw ValidationError("--network is locked, standard or open") }
     }
 
     /// The request this command sends, with `brief` as its brief (`run` reads it from the file or standard input).
     func request(brief: String, parse: WorkspaceProjectFill.Parser = { try DozableProject.parse($0, file: $1) }) throws -> WorkspaceRequest {
-        var w = WorkspaceRequest(name: name)
+        var w = WorkspaceRequest(name: (name ?? "").isEmpty ? nil : name)
         w.manager = manager
-        w.managerIsolation = managerIsolation
-        w.workerIsolation = workerIsolation
+        w.managerIsolation = IsolationWord.stored(managerIsolation)
+        w.workerIsolation = IsolationWord.stored(workerIsolation)
+        w.roomName = roomName
+        w.invite = invite.isEmpty ? nil : invite
         w.network = network
         w.sites = sites.isEmpty ? nil : sites
         w.brief = brief
@@ -217,7 +229,7 @@ struct WorkspaceNew: AsyncParsableCommand {
     func briefText() throws -> String {
         switch (brief, promptFile) {
         case (nil, nil):
-            throw fail(HostError(.usage, "the brief: --brief TEXT, --brief - (standard input) or --prompt-file FILE"), g)
+            return ""                                                 // 782: the description is optional
         case (.some, .some):
             throw fail(HostError(.invalid, "--brief or --prompt-file, not both"), g)
         case (let b?, nil):
@@ -239,6 +251,7 @@ struct WorkspaceNew: AsyncParsableCommand {
     }
 
     func run() async throws {
+        if let template { try await fromTemplate(template); return }
         _ = try presetChosen()
         let w = try request(brief: try briefText())
         if dryRun {
@@ -258,9 +271,30 @@ struct WorkspaceNew: AsyncParsableCommand {
         }
         // Sugar: two requests, as the dashboard's Create and start — a refused start leaves it made, setting up.
         if !g.json { printWorkspace(d) }
-        let s = try decode(try call(workspaceRequest(.workspaceStart, WorkspaceRequest(name: name)), g), WorkspaceStarted.self, g)
+        let s = try decode(try call(workspaceRequest(.workspaceStart, WorkspaceRequest(name: d.name)), g), WorkspaceStarted.self, g)
         if g.json { Out.json(s); return }
         printStarted(s)
+    }
+
+    /// `--template ID`: the template's files in ~/doz-workspaces/NAME, then up (WorkspaceTemplateMaker). Only the flags a
+    /// template takes: a name, --manager, --folder (one, the agents' folder), --yes.
+    func fromTemplate(_ id: String) async throws {
+        let others = brief != nil || promptFile != nil || preset != nil || !workers.isEmpty || !refs.isEmpty || newFolder || room != nil || noRoom
+            || roomName != nil || !invite.isEmpty || fromProject || !adopt.isEmpty || managerIsolation != nil || workerIsolation != nil || network != nil
+            || !sites.isEmpty || dryRun || folders.count > 1
+        if others { throw fail(HostError(.usage, "--template takes only NAME, --manager BOT, --folder DIR and --yes: the template decides the rest"), g) }
+        let folder = try folders.first.map { try workspaceFolder($0, g).path }
+        nonisolated(unsafe) let opts = g
+        let made: WorkspaceFromTemplate
+        do {
+            made = try await WorkspaceTemplateMaker.make(id: id, name: (name ?? "").isEmpty ? nil : name, manager: manager, folder: folder,
+                                                         confirmed: yes, store: g.dozableStore, send: { r in try call(r, opts) })
+        } catch let e as ExitCode { throw e } catch { throw fail(HostError.from(error), g) }
+        if g.json { Out.json(made) } else {
+            Out.stdout("made \(made.workspace) from the template \(made.template) — its file: \(DisplayPath.tilde(made.file))\n")
+            Out.stdout(spaceActedText(made.acted))
+        }
+        if !made.acted.ok { throw ExitCode(DozableExit.code(for: HostError(.partial, ""))) }
     }
 
     func printPlan(_ p: WorkspacePlan) {
@@ -328,7 +362,7 @@ struct WorkspaceShow: AsyncParsableCommand {
     var canDo = false
     @Flag(name: .long, help: "What it can reach and hold: each agent's network, what it was refused lately, this Mac's ports, the secrets held for it (by name) and the accounts used.")
     var network = false
-    @Flag(name: .long, help: "Its folders, the files changed in each since the start (looked at without running anything there) and each micro VM agent's restore points.")
+    @Flag(name: .long, help: "Its folders, the files changed in each since the start (looked at without running anything there) and each Sandbox agent's restore points.")
     var folders = false
     @Option(name: .long, help: "With --can-do or --network: one agent only.") var agent: String?
     @Flag(name: .long, help: "The space file that defines it: which, up or down, its run, and where its brief is.") var space = false
@@ -463,7 +497,7 @@ struct WorkspaceEdit: AsyncParsableCommand {
     @Option(name: .customLong("remove-folder"), help: "Remove a folder (repeatable).") var removeFolders: [String] = []
     @Flag(name: .customLong("make-room"), help: "Make its room in the chat server now (chat on), named after the workspace.") var makeRoom = false
     @Option(name: .customLong("manager"), help: "Make this bot its manager (replacing any; not while one runs).") var manager: String?
-    @Option(name: .customLong("manager-isolation"), help: "Where the manager runs: fenced (the default), vm, or unfenced (it acts as you — only when named).")
+    @Option(name: .customLong("manager-isolation"), help: "Where the manager runs: fenced (the default), sandbox, or unfenced (it acts as you — only when named).")
     var managerIsolation: String?
     @Flag(name: .customLong("no-manager"), help: "Remove its manager (not while it runs).") var noManager = false
     @Option(name: .customLong("if-brief"), help: "Change it only if the brief is still this one: its sha256 (doz workspace show W --json). Otherwise nothing is written.")

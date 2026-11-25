@@ -114,7 +114,7 @@ final class WorkspaceReachTests: XCTestCase {
         XCTAssertTrue(control("mira")!.sentence.contains("cannot drive Dozable"))
         // A VM worker: worker ls's words; its rows say the micro VM, folders, the given secret by name.
         XCTAssertEqual(by["vmw"]?.kind, "sandbox")
-        XCTAssertEqual(control("vmw")?.state, "micro VM · proxy · placeholders")
+        XCTAssertEqual(control("vmw")?.state, "Sandbox · proxy · placeholders")
         let vmIds = by["vmw"]!.capabilities.map(\.id)
         XCTAssertEqual(Array(vmIds.prefix(3)), ["isolation", "folders", "network"])
         XCTAssertTrue(vmIds.contains("secrets"))

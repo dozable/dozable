@@ -12,9 +12,9 @@ public enum ManagerIsolation: String, Codable, Equatable, Sendable, CaseIterable
     /// The isolation a manager gets: as asked; else vm when the bot's default is vm; else fenced — never unfenced unless
     /// named (`--manager-isolation unfenced`), whatever the bot's default says.
     public static func resolve(asked: String?, botDefault: String) throws -> ManagerIsolation {
-        if let a = asked {
+        if let a = IsolationWord.stored(asked) {
             guard let i = ManagerIsolation(rawValue: a) else {
-                throw HostError(.invalid, "--manager-isolation is fenced, vm or unfenced, not \(a.prefix(40))")
+                throw HostError(.invalid, "--manager-isolation is fenced, sandbox or unfenced, not \(a.prefix(40))")
             }
             return i
         }

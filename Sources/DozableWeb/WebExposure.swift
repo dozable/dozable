@@ -179,6 +179,7 @@ public enum WebExposure {
              .workspaceRunFrames,       // a space's run in frames: the same projection, frame by frame; never a message
              .workspaceReach, .workspaceFolders, .workspaceActivity,  // the wide views: projections — this Mac's sessions follow
                                         // serve.mac_sessions, held secrets a count only (WebWorkspaceReach.forBrowser)
+             .templates,                // 782: the templates doz carries — the same for every browser (making one is this Mac's)
              .macs:                     // Your Macs — another computer sees the same list (a phone switching Macs is its main use)
             return .read
         case .actions, .operationsCancel, .policyPreview, .terminalTicket,     // 650: a cancel is decided as the actions are

@@ -118,7 +118,7 @@ func cliWorkspaceOneShotRows(_ h: CLIHarness, root: URL, store: DozableStore, st
     r = h.run(["workspace", "new", "app4", "--preset", "nosuch", "--brief", "Fix the build", "--folder", repo.path, "--json"], timeout: 60)
     let error = object(r)["error"] as? [String: Any]
     let message = error?["message"] as? String ?? ""
-    check(r.code == 65 && error?["code"] as? String == "invalid-value" && message.contains("blank") && message.contains("research"),
+    check(r.code == 65 && error?["code"] as? String == "invalid-value" && message.contains("blank") && message.contains("remotion-video"),
           "O4 --preset nosuch: exit 65, invalid-value, the message names the presets (\(r.code) \(r.out.prefix(300)))")
     check(ws.records().map(\.name).sorted() == before && !ws.exists("app4"), "O4 …nothing changed")
     r = h.run(["workspace", "new", "app4", "--preset", "nosuch", "--brief", "x", "--dry-run", "--json"], timeout: 60)
@@ -150,8 +150,67 @@ func cliWorkspaceOneShotRows(_ h: CLIHarness, root: URL, store: DozableStore, st
     try? "x\n".write(toFile: promptFile, atomically: true, encoding: .utf8)
     r = h.run(["workspace", "new", "app7", "--brief", "x", "--prompt-file", promptFile, "--json"], timeout: 60)
     check(r.code == 65 && !ws.exists("app7"), "O7 --brief with --prompt-file: refused (65), nothing made (\(r.code) \(r.out.prefix(200)))")
+    // 782: the description is optional — none at all makes it, with an empty one.
     r = h.run(["workspace", "new", "app7", "--json"], timeout: 60)
-    check(r.code == 64 && !ws.exists("app7"), "O7 no brief at all: usage (64), nothing made (\(r.code))")
+    check(r.code == 0 && ws.exists("app7") && (record("app7")?.brief.bytes ?? -1) == 0, "O7 no description at all: made, empty (\(r.code) \(r.err.prefix(200)))")
+
+    // N1–N6 (782): no name — the next free workspaceN, printed; `sandbox` is the workers' isolation (vm its alias, stored vm);
+    // the retired presets refused; the templates listed.
+    r = h.run(["workspace", "new", "--brief", "First", "--folder", repo.path, "--json"], timeout: 60)
+    let w1 = object(r)["name"] as? String ?? ""
+    check(r.code == 0 && w1.hasPrefix("workspace") && ws.exists(w1), "N1 no name: the next free one, \(w1) (\(r.code) \(r.err.prefix(200)))")
+    r = h.run(["workspace", "new", "--brief", "Second", "--folder", repo.path, "--json"], timeout: 60)
+    let w2 = object(r)["name"] as? String ?? ""
+    check(r.code == 0 && w2.hasPrefix("workspace") && w2 != w1, "N1 …again: the next one, \(w2) (\(r.code))")
+    for (word, n) in [("sandbox", "sbx"), ("vm", "sbxold")] {
+        r = h.run(["workspace", "new", n, "--brief", "Build it", "--folder", repo.path, "--worker", "Build", "--worker-isolation", word, "--dry-run", "--json"], timeout: 60)
+        check(r.code == 0 && !ws.exists(n), "N2 --worker-isolation \(word): the dry run accepts it (\(r.code) \(r.out.prefix(200)))")
+    }
+    for p in ["swift-tests", "research", "mac-admin"] {
+        r = h.run(["workspace", "new", "old-\(p)", "--preset", p, "--brief", "x", "--folder", repo.path, "--dry-run", "--json"], timeout: 60)
+        check(r.code == 65 && r.out.contains("was retired"), "N3 --preset \(p): retired, refused (\(r.code))")
+    }
+    for args in [["workspace", "new", "--help"], ["bot", "new", "--help"], ["--help"]] {
+        check(!h.run(args).out.contains("micro VM"), "N4 no \"micro VM\" in doz \(args.joined(separator: " "))")
+    }
+    r = h.run(["workspace", "templates", "--json"], timeout: 60)
+    let ids = ((try? JSONSerialization.jsonObject(with: Data(r.out.utf8))) as? [[String: Any]] ?? []).compactMap { $0["id"] as? String }
+    check(r.code == 0 && ids == ["solo", "solo-sandbox", "build-review", "fix-it", "video"], "N5 doz workspace templates: the five (\(ids))")
+    // N6: a workspace from a template (One agent: fenced, the stub agent) — its files in <projects_dir>/NAME, set up and started.
+    r = h.run(["workspace", "new", "tsolo", "--template", "solo", "--json"], timeout: 180)
+    let madeW6 = object(r)
+    let file = madeW6["file"] as? String ?? ""
+    check(r.code == 0 && ws.exists("tsolo") && file.hasSuffix("/tsolo/tsolo.space.yaml") && FileManager.default.fileExists(atPath: file),
+          "N6 new tsolo --template solo: made from its file, set up (\(r.code) \(r.out.prefix(300)) \(r.err.prefix(300)))")
+    r = h.run(["workspace", "new", "tbr", "--template", "build-review", "--json"], timeout: 60)
+    check(r.code != 0 && !ws.exists("tbr") && r.out.contains("needs a manager"), "N6 …a template that needs a manager, given none: refused, nothing made (\(r.code))")
+    // N7: defaults.projects_dir NOT under your home (a space file must be): the agents' folder is still <projects_dir>/NAME,
+    // made empty; the template's two files go in ~/doz-workspaces/NAME instead — decided before anything is written. The
+    // daemon is started again with that home (the CLI and the daemon must agree on it), and stopped after.
+    let savedBrief = h.env["DOZ_TEST_BRIEF_HOME"], savedHome = h.env["DOZ_TEST_HOME"]
+    h.run(["daemon", "stop"], timeout: 60)
+    _ = h.waitFor(20) { !h.hostRunning }
+    // (the home in Foundation's spelling, /tmp/…, the one a standardized path under it has — as the space rules compare)
+    let home7 = URL(fileURLWithPath: home.path).standardizedFileURL.path
+    h.env["DOZ_TEST_BRIEF_HOME"] = home7
+    h.env["DOZ_TEST_HOME"] = home7
+    r = h.run(["workspace", "new", "tsolo2", "--template", "solo", "--json"], timeout: 180)
+    let file7 = object(r)["file"] as? String ?? ""
+    let expected7 = WorkspaceStore.resolved(home.appendingPathComponent("doz-workspaces/tsolo2/tsolo2.space.yaml").path)
+    let file7Resolved = WorkspaceStore.resolved(file7)
+    // The agents' folder as the record says it (the suite's projects_dir, outside that home).
+    let shown7 = object(h.run(["workspace", "show", "tsolo2", "--json"], timeout: 60))
+    let projectsDir = ((shown7["folders"] as? [[String: Any]])?.first?["path"] as? String) ?? ""
+    let failed7 = (((object(r)["acted"] as? [String: Any])?["results"] as? [[String: Any]]) ?? []).filter { $0["status"] as? String == "failed" }
+        .map { ($0["text"] as? String ?? "") + " " + (($0["notes"] as? [String])?.joined(separator: "; ") ?? "") }
+    if !failed7.isEmpty { print("        N7 a step failed: \(failed7.joined(separator: " | ").prefix(400))") }
+    check(r.code == 0 && ws.exists("tsolo2") && file7Resolved == expected7 && fm.fileExists(atPath: expected7) && projectsDir.hasSuffix("/tsolo2")
+          && !projectsDir.hasPrefix(home.path) && !projectsDir.hasPrefix(home7) && fm.fileExists(atPath: projectsDir) && !fm.fileExists(atPath: projectsDir + "/tsolo2.space.yaml"),
+          "N7 projects_dir outside your home: made; its files in ~/doz-workspaces/tsolo2, its agents' folder <projects_dir>/tsolo2 (\(r.code) \(file7) \(r.out.prefix(200)) \(r.err.prefix(300)))")
+    h.run(["daemon", "stop"], timeout: 60)
+    _ = h.waitFor(20) { !h.hostRunning }
+    h.env["DOZ_TEST_BRIEF_HOME"] = savedBrief
+    h.env["DOZ_TEST_HOME"] = savedHome
 
     for n in names { h.run(["worker", "end", "app3", n], timeout: 60) }
     started.subtract(sessions)

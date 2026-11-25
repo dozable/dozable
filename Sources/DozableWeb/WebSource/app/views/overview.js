@@ -52,7 +52,7 @@ export async function viewOverview() {
     h('p', { class: 'sub' }, o.source === 'host' ? 'Live from the daemon.' : 'No daemon is running: read from the store (nothing is live). An action starts the daemon.'),
     h('div', { class: 'stats' },
       hostCard(o.host),
-      card('Sandboxes', String(o.totals.sandboxes), o.totals.live + ' with a VM'),
+      card('Sandboxes', String(o.totals.sandboxes), o.totals.live + ' running'),
       card('RAM held', mib(o.totals.ramHeldMiB), 'charged to this Mac now'),
       card('Disk', bytes(o.totals.diskBytes), 'allocated, all sandboxes')));
   if (!o.sandboxes.length) {
@@ -60,7 +60,7 @@ export async function viewOverview() {
     OV.root = null;
     return h('div', null, top, h('h2', null, 'All sandboxes'),
       h('div', { class: 'panel' }, h('div', { class: 'empty-big' }, icon('box'), h('div', { class: 'e-title' }, 'No sandboxes yet'),
-        h('p', null, 'A sandbox is a small Linux VM for one project. Quick add makes one with every default; New sandbox walks through each choice. In a terminal: doz new, or doz init then doz up.'),
+        h('p', null, 'A sandbox is a small Linux machine for one project. Quick add makes one with every default; New sandbox walks through each choice. In a terminal: doz new, or doz init then doz up.'),
         h('div', { class: 'actions center' }, quickAddButton()))));
   }
   const listHead = listHeadEl();

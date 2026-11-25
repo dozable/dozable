@@ -23,12 +23,15 @@ public struct WorkspacePlan: Codable, Equatable, Sendable {
     /// The commands that make the same workspace (`WorkspaceNewCommand.text`), and the one that starts it.
     public var commands: String
     public var startCommand: String
-    /// The wizard's "Start from" (`WorkspacePresets.builtIn`).
-    public var presets: [WorkspacePreset]
+    /// 782, the New workspace wizard: the next free name, each bot's fitness as its manager, and the refusals and gaps in
+    /// the wizard's words (`WorkspaceWizard`). Additive.
+    public var suggested: WorkspaceSuggestion?
+    public var managers: [WorkspaceManagerFit]?
+    public var findings: [WorkspaceFinding]?
     public init(name: String, refusals: [String], refusalCode: String?, gaps: [WorkspaceSetupCheck.Gap], notes: [String], lines: [String],
-                commands: String, startCommand: String, presets: [WorkspacePreset] = WorkspacePresets.builtIn) {
+                commands: String, startCommand: String) {
         self.name = name; self.refusals = refusals; self.refusalCode = refusalCode; self.gaps = gaps; self.notes = notes
-        self.lines = lines; self.commands = commands; self.startCommand = startCommand; self.presets = presets
+        self.lines = lines; self.commands = commands; self.startCommand = startCommand
     }
 }
 
@@ -52,24 +55,28 @@ public struct WorkspacePreset: Codable, Equatable, Sendable {
 }
 
 public enum WorkspacePresets {
-    /// The ONE table. Templates you make come later.
+    /// The ONE table. 782: the wizard starts from workspace templates (`WorkspaceTemplates`); the CLI's `--preset` keeps
+    /// these two — `blank`, and `remotion-video` (its template is `video`).
     public static let builtIn: [WorkspacePreset] = [
         // 775: a render first downloads Remotion's own browser (Chrome Headless Shell) from remotion.media — refused under
         // Standard, it failed as a name that does not resolve. Its npm packages are Standard's (Install: Node).
         WorkspacePreset(id: "remotion-video", title: "Remotion video",
-                        summary: "the manager and new workers in micro VMs · standard network + remotion.media (Remotion's browser)",
+                        summary: "the manager and new workers in Sandboxes · standard network + remotion.media (Remotion's browser)",
                         managerIsolation: "vm", workerIsolation: "vm", network: "standard", sites: ["remotion.media"]),
-        WorkspacePreset(id: "swift-tests", title: "Swift tests", summary: "fenced on this Mac · standard network (packages from GitHub)",
-                        managerIsolation: "fenced", workerIsolation: "fenced", network: "standard"),
-        WorkspacePreset(id: "mac-admin", title: "Mac admin", summary: "fenced on this Mac · locked network",
-                        managerIsolation: "fenced", workerIsolation: "fenced", network: "locked"),
-        WorkspacePreset(id: "research", title: "Research", summary: "fenced · locked network · folders added read-only",
-                        managerIsolation: "fenced", workerIsolation: "fenced", network: "locked", foldersReadOnly: true),
         WorkspacePreset(id: "blank", title: "Blank", summary: "choose everything yourself"),
     ]
+    /// 782 (D7): retired presets — refused, naming what to use instead.
+    public static let retired: [String: String] = [
+        "swift-tests": "--template solo, or choose the flags yourself",
+        "mac-admin": "choose the flags yourself",
+        "research": "--template build-review, or --folder DIR:ro",
+    ]
 
-    /// The preset called `id` (`doz workspace new --preset ID`); another name is refused, naming the real ones.
+    /// The preset called `id` (`doz workspace new --preset ID`); a retired one and another name are refused.
     public static func named(_ id: String) throws -> WorkspacePreset {
+        if let instead = retired[id] {
+            throw HostError(.invalidValue, "the preset \(id) was retired — \(instead) (doz workspace templates lists the templates)")
+        }
         guard let p = builtIn.first(where: { $0.id == id }) else {
             throw HostError(.invalidValue, "no preset \(id.prefix(40)) — the presets are " + builtIn.map(\.id).joined(separator: ", "))
         }
@@ -90,6 +97,14 @@ public enum WorkspacePresets {
             w.folders = folders
         }
     }
+}
+
+/// 782 (D1): `sandbox` is the word a person types and reads for the isolation stored as `vm`; `vm` stays its alias for good.
+/// Every input normalises with `stored` (the CLI's flags, the web actions, the daemon's requests); records, `--json` and
+/// space files keep `vm` until the next format version.
+public enum IsolationWord {
+    public static func stored(_ s: String) -> String { s == "sandbox" ? "vm" : s }
+    public static func stored(_ s: String?) -> String? { s.map { stored($0) } }
 }
 
 /// The workspace network presets a request may name (`defaults.network`).
@@ -121,13 +136,16 @@ public enum WorkspaceNetworks {
 public enum WorkspaceNewCommand {
     /// The argument vector (`doz workspace new NAME --prompt-file - …`); the brief is read from standard input.
     public static func argv(_ w: WorkspaceRequest) -> [String] {
-        var a = ["doz", "workspace", "new", w.name ?? "NAME", "--prompt-file", "-"]
+        var a = ["doz", "workspace", "new", w.name ?? "NAME"]
+        if !(w.brief ?? "").isEmpty { a += ["--prompt-file", "-"] }
         for r in w.refs ?? [] { a += ["--ref", r] }
         if w.newFolder == true { a.append("--new-folder") }
         for f in w.folders ?? [] { a += ["--folder", folderArgument(f)] }
         if w.project != nil { a.append("--from-project") } else if let n = w.network { a += ["--network", n] }
         for s in w.sites ?? [] { a += ["--site", s] }
         if let r = w.room { a += ["--room", r] }
+        if let r = w.roomName { a += ["--room-name", r] }
+        for i in w.invite ?? [] { a += ["--invite", i] }
         if w.noRoom == true { a.append("--no-room") }
         if let m = w.manager { a += ["--manager", m] }
         if let i = w.managerIsolation { a += ["--manager-isolation", i] }
@@ -156,8 +174,10 @@ public enum WorkspaceNewCommand {
     /// ends with a line break (a heredoc always ends with one).
     public static func text(_ w: WorkspaceRequest) -> String {
         let brief = w.brief ?? ""
+        // 782: no description — no heredoc.
+        if brief.isEmpty { return argv(w).map(quote).joined(separator: " ") + "\n" }
         let d = delimiter(brief)
-        return argv(w).map(quote).joined(separator: " ") + " <<'\(d)'\n" + brief + (brief.hasSuffix("\n") || brief.isEmpty ? "" : "\n") + d + "\n"
+        return argv(w).map(quote).joined(separator: " ") + " <<'\(d)'\n" + brief + (brief.hasSuffix("\n") ? "" : "\n") + d + "\n"
     }
 
     public static func startText(_ name: String) -> String { "doz workspace start \(quote(name))" }
@@ -220,7 +240,8 @@ enum WorkspacePlanLines {
         let n = rec.name
         out.append("workspace \(n) — setting up until it starts")
         let refs = rec.brief.refs.count
-        out.append("brief: \(rec.brief.bytes) bytes" + (refs == 0 ? "" : ", \(refs) reference\(refs == 1 ? "" : "s")"))
+        out.append(rec.brief.bytes == 0 && refs == 0 ? "description: none yet — the manager asks in the room"
+                   : "description: \(rec.brief.bytes) bytes" + (refs == 0 ? "" : ", \(refs) reference\(refs == 1 ? "" : "s")"))
         if rec.folders.isEmpty {
             out.append("folders: none — the manager works in \(DisplayPath.tilde(Workspace.defaultPath(name: n)))")
         } else {
@@ -239,7 +260,7 @@ enum WorkspacePlanLines {
         } else {
             out.append("manager: none — you drive")
         }
-        out.append("new workers: " + (workerIsolation.map { $0 == "vm" ? "micro VM" : $0 } ?? "fenced (the default)"))
+        out.append("new workers: " + (workerIsolation.map { $0 == "vm" ? "Sandbox" : $0 } ?? "fenced (the default)"))
         out.append("network: \(rec.defaults.networkWords ?? "locked (the default)") + the room")
         let adopted = rec.agents.filter { !$0.isManager }.map(\.name)
         if !adopted.isEmpty { out.append("adopted: " + adopted.joined(separator: ", ")) }

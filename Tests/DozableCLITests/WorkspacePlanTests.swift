@@ -171,7 +171,7 @@ final class WorkspacePlanTests: BotTestCase {
         }
         // Several at once: every refusal, in new's order.
         let several = try await plan(c, request("Bad Name") { $0.brief = ""; $0.workerIsolation = "unfenced" })
-        XCTAssertEqual(several.refusals.count, 3, "\(several.refusals)")
+        XCTAssertEqual(several.refusals.count, 2, "\(several.refusals) — 782: an empty description is no refusal")
         XCTAssertEqual(several.refusalCode, "invalid")
     }
 
@@ -196,9 +196,11 @@ final class WorkspacePlanTests: BotTestCase {
     func testGapsPerItem() async throws {
         let c = await daemon()
         try await newBot(c)
-        // An empty brief: new refuses it, and the start's gap says so.
+        // 782: an empty description is no refusal and no gap.
         var p = try await plan(c, request("demo") { $0.brief = "" })
-        XCTAssertEqual(p.gaps.map(\.item), ["brief"])
+        XCTAssertEqual(p.refusals, [])
+        XCTAssertEqual(p.gaps, [])
+        XCTAssertTrue(p.lines.contains("description: none yet — the manager asks in the room"), "\(p.lines)")
         // A manager with chat off: the chat gap.
         wchat.off = true
         p = try await plan(c, request("demo") { $0.manager = "mira" })
@@ -268,8 +270,139 @@ final class WorkspacePlanTests: BotTestCase {
     func testPresetsRoundTrip() throws {
         let data = try JSONEncoder().encode(WorkspacePresets.builtIn)
         XCTAssertEqual(try JSONDecoder().decode([WorkspacePreset].self, from: data), WorkspacePresets.builtIn)
-        XCTAssertEqual(WorkspacePresets.builtIn.map(\.id), ["remotion-video", "swift-tests", "mac-admin", "research", "blank"])
+        XCTAssertEqual(WorkspacePresets.builtIn.map(\.id), ["remotion-video", "blank"])
         XCTAssertFalse(WorkspacePresets.builtIn.contains { $0.workerIsolation == "unfenced" || $0.managerIsolation == "unfenced" })
+        // 782 (D7): the retired presets are refused, naming what to use instead.
+        for id in ["swift-tests", "mac-admin", "research"] {
+            XCTAssertThrowsError(try WorkspacePresets.named(id)) { e in
+                XCTAssertTrue(HostError.from(e).message.contains("was retired"), "\(e)")
+            }
+        }
+    }
+
+    // MARK: 782 — the wizard's answers
+
+    /// An empty description: made, nothing posted at the start, the manager's START asks what to work on.
+    func testAnEmptyDescriptionIsMadeAndNothingIsPosted() async throws {
+        let c = await daemon()
+        await made(c, request("quiet") { $0.brief = "" })
+        let d = try await show(c, "quiet")
+        XCTAssertEqual(d.brief.bytes, 0)
+        let s = await send(c, .workspaceStart, WorkspaceRequest(name: "quiet"))
+        XCTAssertNil(s.error, s.error?.message ?? "")
+        XCTAssertFalse(trace.all.contains { $0.hasPrefix("post quiet") }, "nothing posted as you: \(trace.all)")
+        let start = ManagerKickoff.startText(bot: "mira", workspace: "w", room: "w", isolation: .fenced, skills: [], instructions: nil, brief: "", refs: [])
+        XCTAssertTrue(start.contains(ManagerKickoff.noDescription))
+        XCTAssertTrue(start.contains("ask the person what to work on"))
+    }
+
+    /// No name: the next free workspaceN, skipping a workspace, a room, a non-empty projects folder, a sandbox or a session
+    /// of that name; the plan names it (`suggested`), and `new` makes it.
+    func testTheNextFreeNameSkipsEveryKindOfCollision() async throws {
+        let c = await daemon()
+        var p = try await plan(c, WorkspaceRequest())
+        XCTAssertEqual(p.suggested?.name, "workspace1")
+        XCTAssertEqual(p.suggested?.folder, WorkspaceStore.resolved(Workspace.defaultPath(name: "workspace1")))
+        XCTAssertEqual(p.name, "workspace1", "no name: the plan is the next free one's")
+        await made(c, request("workspace1"))
+        wchat.roomSet.insert("workspace2")                                    // a room of that name
+        let folder3 = WorkspaceStore.resolved(Workspace.defaultPath(name: "workspace3"))
+        try FileManager.default.createDirectory(atPath: folder3, withIntermediateDirectories: true)
+        FileManager.default.createFile(atPath: folder3 + "/x", contents: Data())   // a folder that holds something
+        defer { try? FileManager.default.removeItem(atPath: folder3) }
+        let folder4 = WorkspaceStore.resolved(Workspace.defaultPath(name: "workspace4"))
+        try FileManager.default.createDirectory(atPath: folder4, withIntermediateDirectories: true)   // empty: free
+        defer { try? FileManager.default.removeItem(atPath: folder4) }
+        p = try await plan(c, WorkspaceRequest())
+        XCTAssertEqual(p.suggested?.name, "workspace4", "\(String(describing: p.suggested))")
+        var w = request("x")
+        w.name = nil
+        let m = await send(c, .workspaceNew, w)
+        XCTAssertNil(m.error, m.error?.message ?? "")
+        XCTAssertEqual(try m.result?.decode(WorkspaceDetail.self).name, "workspace4")
+    }
+
+    /// Each bot's fitness as the manager, from the same checks as the set-up check's (`managerFindings`), in the wizard's
+    /// words with its one fix: fits; reached by inbox while fenced (Reach it by poll); a webhook; elsewhere; a program not
+    /// installed (a Sandbox bot stays fit); live elsewhere; retired ones are not listed.
+    func testManagerFitnessFollowsTheSetUpCheck() async throws {
+        let c = await daemon()
+        try await newBot(c, "mira")
+        try await newBot(c, "vera", isolation: "vm")
+        _ = try change(await ask(c, .botNew, "ida") { $0.agent = "claude-code"; $0.isolation = "fenced"; $0.deliver = "inbox" })
+        _ = try change(await ask(c, .botNew, "otto") { $0.agent = "claude-code"; $0.isolation = "unfenced"; $0.deliver = "inbox" })
+        var p = try await plan(c, request("demo"))
+        let fits = Dictionary(uniqueKeysWithValues: (p.managers ?? []).map { ($0.bot, $0) })
+        XCTAssertEqual(fits["mira"]?.fits, true)
+        XCTAssertEqual(fits["vera"]?.fits, true)
+        XCTAssertEqual(fits["otto"]?.fits, true, "unfenced and reached by inbox: the one combination that works for it")
+        XCTAssertEqual(fits["ida"]?.fits, false)
+        XCTAssertEqual(fits["ida"]?.why, "Reached by inbox, which only an unfenced session gets.")
+        XCTAssertEqual(fits["ida"]?.fix, WorkspaceWizardFix(label: "Reach it by poll", action: "poll"))
+        // Claude Code not installed: a fenced bot is folded, a Sandbox one is not.
+        setenv("DOZ_TEST_MAC_PATH", "/usr/bin:/bin", 1)
+        let c2 = await daemon()
+        p = try await plan(c2, request("demo"))
+        let f2 = Dictionary(uniqueKeysWithValues: (p.managers ?? []).map { ($0.bot, $0) })
+        XCTAssertEqual(f2["mira"]?.why, "Claude Code is not installed on this Mac.")
+        XCTAssertEqual(f2["vera"]?.fits, true)
+        // Words: every code has a sentence with no `doz` command in it.
+        for code in ["notBot", "retired", "elsewhere", "token", "keychain", "inbox", "webhook", "program", "agent", "placeTaken"] {
+            let (why, _) = WorkspaceWizard.managerWords(code: code, bot: "b", agent: "claude-code", place: "w", isolation: "fenced")
+            XCTAssertFalse(why.contains("doz "), why)
+        }
+    }
+
+    /// Findings: the refusals and gaps in the wizard's words, on their steps — never a `doz …` command or "brief".
+    func testFindingsAreInTheWizardsWords() async throws {
+        let c = await daemon()
+        try await newBot(c)
+        await made(c, request("taken"))
+        wchat.roomSet.insert("busy")
+        var p = try await plan(c, request("taken"))
+        XCTAssertTrue(p.findings?.contains(WorkspaceFinding(step: "name", field: "name", text: "There is already a workspace taken.")) == true, "\(p.findings ?? [])")
+        p = try await plan(c, request("busy"))
+        XCTAssertEqual(p.findings?.first { $0.field == "room" }?.fix?.action, "use-room", "\(p.findings ?? [])")
+        wchat.off = true
+        p = try await plan(c, request("demo") { $0.manager = "mira" })
+        XCTAssertEqual(p.findings?.first?.step, "chat")
+        XCTAssertEqual(p.findings?.first?.fix?.action, "chat-on")
+        wchat.off = false
+        for f in p.findings ?? [] { XCTAssertFalse(f.text.contains("doz ") || f.text.lowercased().contains("brief"), f.text) }
+        XCTAssertEqual(WorkspaceWizard.refusal("which workspace? (doz workspace ls)", name: "").text, "Give it a name.")
+        XCTAssertEqual(WorkspaceWizard.sentence("folder /x is gone — doz workspace edit w --remove-folder /x"), "Folder /x is gone.")
+    }
+
+    /// The room under another name, and who is invited to it (logged; a refusal for a bad name); the commands carry both.
+    func testTheRoomNameAndInvites() async throws {
+        let c = await daemon()
+        try await newBot(c)
+        await made(c, request("named") { $0.roomName = "team-room"; $0.invite = ["mira"] })
+        let d = try await show(c, "named")
+        XCTAssertEqual(d.rooms.first { $0.main }?.chatRoom, "team-room")
+        XCTAssertTrue(wchat.roomSet.contains("team-room"))
+        XCTAssertTrue(trace.all.contains { $0.contains("invite mira team-room") }, "\(trace.all)")
+        let log = await send(c, .workspaceLog, WorkspaceRequest(name: "named"))
+        XCTAssertTrue((try log.result?.decode([WorkspaceLogEntry].self) ?? []).contains { $0.action == "bot-invited" && $0.agent == "mira" })
+        let bad = try await plan(c, request("other") { $0.roomName = "Bad Name" })
+        XCTAssertFalse(bad.refusals.isEmpty)
+        XCTAssertTrue(WorkspaceNewCommand.argv(request("n") { $0.roomName = "r"; $0.invite = ["a", "b"] }).joined(separator: " ")
+            .contains("--room-name r --invite a --invite b"))
+    }
+
+    /// 782 (D1): `sandbox` is the input word for the isolation stored as vm — workers' default, a manager's, a bot's.
+    func testSandboxIsTheInputWordForVM() async throws {
+        XCTAssertEqual(IsolationWord.stored("sandbox"), "vm")
+        XCTAssertEqual(IsolationWord.stored("vm"), "vm")
+        XCTAssertEqual(IsolationWord.stored("fenced"), "fenced")
+        XCTAssertEqual(try ManagerIsolation.resolve(asked: "sandbox", botDefault: "fenced"), .vm)
+        XCTAssertEqual(try WorkerIsolation.resolve(asked: "sandbox", workspaceDefault: nil, botDefault: nil), .vm)
+        let c = await daemon()
+        await made(c, request("sbx") { $0.workerIsolation = "sandbox" })
+        XCTAssertEqual(try WorkspaceStore(store: store).read("sbx")?.defaults.isolation, "vm", "stored as vm")
+        _ = try change(await ask(c, .botNew, "sam") { $0.agent = "claude-code"; $0.isolation = "sandbox" })
+        let m = await send(c, .workspacePlan, request("p") { $0.manager = "sam" })
+        XCTAssertNil(m.error)
     }
 
     /// 775: the remotion-video preset allows remotion.media (where a render downloads Remotion's browser) on top of

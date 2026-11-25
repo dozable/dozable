@@ -61,7 +61,7 @@ function folderCard(f, sandboxOf) {
 }
 
 function pointsBlock(d, again) {
-  if (!d.points.length) return h('p', { class: 'muted' }, 'None: a restore point is per micro VM agent (its disk). Agents on this Mac work straight in your folders.');
+  if (!d.points.length) return h('p', { class: 'muted' }, 'None: a restore point is per Sandbox agent (its disk). Agents on this Mac work straight in your folders.');
   return h('div', { class: 'wsf-points' }, ...d.points.map((p) => h('div', { class: 'panel wsf-point', 'data-wsf-points': p.sandbox },
     h('div', { class: 'wsf-head' }, h('b', null, p.agent), h('span', { class: 'muted' }, ' · ' + p.sandbox), h('span', { class: 'ws-sp' }),
       h('button', { type: 'button', class: 'btn sm', 'data-take-point': p.sandbox, on: { click: () => takePoint(p.sandbox, again) } }, icon('camera'), 'Take a restore point')),

@@ -254,7 +254,7 @@ public enum AgentCapabilities {
     /// A micro VM's rows: isolation, folders, network, this Mac's ports, forwarded ports, secrets, the account, keys.
     static func vm(_ i: Input) -> [MacCapability] {
         let link = "doz net show \(i.place)"
-        var out = [row("isolation", "Isolation", "micro VM", "Its own Linux VM with no network card: Dozable's proxy is its only way out.")]
+        var out = [row("isolation", "Isolation", "Sandbox", "Its own small Linux machine with no network card: Dozable's proxy is its only way out.")]
         if i.folders.isEmpty {
             out.append(row("folders", "Folders", "none (isolated)", "Has no folder of this Mac — only its own disk."))
         } else {
@@ -282,7 +282,7 @@ public enum AgentCapabilities {
         }
         out.append(row("claude-login", "Claude login", i.account.map { "account \($0)" } ?? "none",
                        i.account.map { "Signs in as \($0) through the proxy; the program never sees the token." } ?? "No Claude login is given to it."))
-        out.append(row("keys", "Keys", i.keys ?? "none", "Keys never enter the VM: the proxy swaps a placeholder for each on its way out."))
+        out.append(row("keys", "Keys", i.keys ?? "none", "Keys never enter the Sandbox: the proxy swaps a placeholder for each on its way out."))
         return out
     }
 

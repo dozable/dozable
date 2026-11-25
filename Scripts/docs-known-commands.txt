@@ -238,6 +238,7 @@ workspace/up
 space/down
 workspace/down
 workspace/config
+workspace/templates
 space
 space/plan
 space/up

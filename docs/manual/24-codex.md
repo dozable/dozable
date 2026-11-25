@@ -1,7 +1,7 @@
 # Codex
 
 OpenAI's **Codex** runs in a Dozable sandbox the way Claude Code does: ready to work, without approval
-prompts (the VM and its network are the boundary), told where it runs, and with its credential kept on
+prompts (the Sandbox and its network are the boundary), told where it runs, and with its credential kept on
 your Mac — it never enters the sandbox. It can use **this Mac's own Codex login** (`mac` — nothing to
 add: your ChatGPT plan, through Codex's own sign-in) or an **OpenAI API key**.
 
@@ -43,7 +43,7 @@ offers only OpenAI accounts; an OpenAI key can be typed in the masked field.
 `codex` in a sandbox is Dozable's launcher, which:
 
 - runs Codex with **approvals and Codex's own Linux sandbox off**
-  (`--dangerously-bypass-approvals-and-sandbox`): the VM, the network permissions and the absent
+  (`--dangerously-bypass-approvals-and-sandbox`): the Sandbox, the network permissions and the absent
   credentials are the boundary. Set `recipes.openai.codex.approvals` to `ask` (or run
   `doz run NAME -e DOZ_CODEX_PERMISSIONS=ask -- codex`) to keep Codex's own approvals; `codex` run as
   root always keeps them;
@@ -93,7 +93,7 @@ Dozable daemon renews it on first use). `doz account ls` shows the account's pla
 
 - **In the sandbox**, Codex's `~/.codex/auth.json` holds only **placeholders** (`doz_cred_…`) where the
   tokens go, written at every session start. The id_token's details Codex reads (your plan, account id)
-  are there; its signature is not — nothing in the VM can be used anywhere else.
+  are there; its signature is not — nothing in the Sandbox can be used anywhere else.
 - **On the way out**, Dozable's proxy on your Mac puts the real access token into Codex's requests to
   `chatgpt.com` — only there.
 - **Renewal happens on your Mac.** OpenAI's tokens last about an hour; Dozable renews them with the
