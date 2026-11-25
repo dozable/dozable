@@ -568,15 +568,22 @@ async function walkChatOn() {
   await wizNext(1); await wizNext(2); await wizNext(3);
   check(await waitFor(`!!document.querySelector('[data-wsn-chat-off]') && !!document.querySelector('[data-chat-on-go]') && document.querySelector('[data-wsn-next]').disabled`, 10000),
     'chat on 3 the wizard\'s How they chat with chat off: only "Turn chat on", Next off (a manager needs a room)');
-  await evaluate(`document.querySelector('[data-chat-on-go]').click()`);
-  check(await waitFor(`!!document.querySelector('[data-wsn-room]') && ${PLANNED} && state.wsn.name === 'cwiz' && state.wsn.manager === 'mira' && !document.querySelector('[data-wsn-next]').disabled`, 90000),
+  await evaluate(`document.querySelector('[data-chat-on-go]')?.click()`);
+  const chatAsked = Date.now();
+  // (the wizard says "Starting chat…" until the chat status and the plan both say on — waited for, up to 3 minutes)
+  const cameOn = await waitFor(`!!document.querySelector('[data-wsn-room]') && ${PLANNED} && state.wsn.name === 'cwiz' && state.wsn.manager === 'mira' && !document.querySelector('[data-wsn-next]').disabled`, 180000);
+  console.log(`  chat on 3: the wizard showed the room ${Math.round((Date.now() - chatAsked) / 1000)} s after Turn chat on`);
+  check(cameOn,
     'chat on 3 …on: its room, the plan again, nothing chosen lost, Next on — ' + JSON.stringify(await evaluate(`({ room: !!document.querySelector('[data-wsn-room]'),
       err: document.querySelector('[data-chat-on-error]')?.textContent || '', findings: (state.wsn?.plan?.findings || []).map((f) => f.text), name: state.wsn?.name, on: state.chat.on })`)));
-  await wizNext(4);
-  await evaluate(`document.querySelector('[data-wsn-start]').click()`);
-  await waitFor(`${PLANNED} && !document.querySelector('[data-wsn-create]').disabled`, 10000);
-  await evaluate(`document.querySelector('[data-wsn-create]').click()`);
-  check(await waitFor(`state.view === 'workspace' && state.param === 'cwiz' && !state.modal`, 60000)
+  // A failed row above must not abort the walk: every click below is guarded, and the wizard is closed when it stays open.
+  if (cameOn) await wizNext(4);
+  await evaluate(`document.querySelector('[data-wsn-start]')?.click()`);
+  await waitFor(`${PLANNED} && !!document.querySelector('[data-wsn-create]') && !document.querySelector('[data-wsn-create]').disabled`, 10000);
+  await evaluate(`document.querySelector('[data-wsn-create]')?.click()`);
+  const madeCwiz = await waitFor(`state.view === 'workspace' && state.param === 'cwiz' && !state.modal`, 60000);
+  if (!madeCwiz && (await evaluate(`!!state.modal`))) await wizClose();
+  check(madeCwiz
     && (dozJSON(['workspace', 'show', 'cwiz']) || {}).rooms?.some((r) => r.chatRoom === 'cwiz'), 'chat on 3 Create: cwiz made, with its room');
   check(pageErrors.length === errorsBefore, 'chat on: no page error' + (pageErrors.length > errorsBefore ? ': ' + pageErrors.slice(errorsBefore, errorsBefore + 3).join(' | ') : ''));
 }
@@ -953,7 +960,7 @@ async function walkNewWorkspace() {
   check(await evaluate(NO_MICRO_VM), 'wizard 1 no "micro VM" anywhere on the gallery');
   await wizShot('01-gallery');
   // 2. ⤢ on Fix-it team: the full-page view — the drawing labelled, the agents, Use this template focused; Esc closes it alone.
-  await evaluate(`document.querySelector('[data-wsn-card="fix-it"] [data-wz-expand]').click()`);
+  await evaluate(`document.querySelector('[data-wsn-card="fix-it"] [data-wz-expand]')?.click()`);
   check(await waitFor(`!!document.querySelector('.wz-view [data-wz-view="Fix-it team"]') && !!document.querySelector('.wz-view [data-wz-pic="hero"] svg')
     && document.activeElement === document.querySelector('[data-wz-view-use]') && document.querySelectorAll('.wz-view .wz-agent').length === 5`, 15000),
     'wizard 2 ⤢ opens the full-page view: the drawing labelled, five agents, focus on Use this template');
@@ -963,7 +970,7 @@ async function walkNewWorkspace() {
   check(await waitFor(`!document.querySelector('.wz-view') && state.modal === 'new-workspace' && document.activeElement === document.querySelector('[data-wsn-card="fix-it"] [data-wz-expand]')`, 5000),
     'wizard 2 Escape closes the view alone — the wizard stays, focus back on ⤢');
   // 3. A template's one screen: Build & review — its drawing in the header, Name workspaceN, a new empty folder, the manager.
-  await evaluate(`document.querySelector('[data-wsn-template="build-review"]').click()`);
+  await evaluate(`document.querySelector('[data-wsn-template="build-review"]')?.click()`);
   check(await waitFor(`!!document.querySelector('[data-wsn="template"][data-wsn-for="build-review"]') && ${PLANNED} && /^workspace[0-9]+$/.test(state.wsn.name)
     && document.querySelector('[data-wsn-name]').value === state.wsn.name && document.querySelector('[data-wsn-new-folder]').checked
     && !!document.querySelector('[data-wsn-head-pic] [data-wz-pic-drawn]') && !!document.querySelector('select[data-wsn-manager]')
@@ -972,10 +979,10 @@ async function walkNewWorkspace() {
   check(await evaluate(`[...document.querySelectorAll('select[data-wsn-manager] option')].map((o) => o.value).includes('mira') && /A new bot, boss[0-9]+/.test(document.querySelector('select[data-wsn-manager]').textContent)`),
     'wizard 3 …the manager list: the bots that can manage (mira) and a new bot made at Create');
   await wizShot('02-template-confirm');
-  await evaluate(`document.querySelector('[data-wsn-head-pic] [data-wz-expand]').click()`);
+  await evaluate(`document.querySelector('[data-wsn-head-pic] [data-wz-expand]')?.click()`);
   check(await waitFor(`!!document.querySelector('.wz-view') && !document.querySelector('[data-wz-view-use]')`, 8000), 'wizard 3 the header\'s ⤢: the full view with no action (this screen is the action)');
   await wizShot('02b-template-header-expanded');
-  await evaluate(`document.querySelector('[data-wz-view-close]').click()`);
+  await evaluate(`document.querySelector('[data-wz-view-close]')?.click()`);
   await waitFor(`!document.querySelector('.wz-view')`, 5000);
   // 4. The name: the folder follows as you type; a taken one says so and disables the button.
   const suggested = await evaluate(`state.wsn.name`);
@@ -985,14 +992,14 @@ async function walkNewWorkspace() {
   await wizType('[data-wsn-name]', suggested);
   await waitFor(`!document.querySelector('[data-wsn-create]').disabled`, 10000);
   // 5. ← back to the gallery; Custom's five steps (wiz1: no manager, a description, Create and start).
-  await evaluate(`document.querySelector('[data-wsn-back]').click()`);
+  await evaluate(`document.querySelector('[data-wsn-back]')?.click()`);
   check(await waitFor(`!!document.querySelector('[data-wsn="gallery"]')`, 5000), 'wizard 5 ← goes back to the gallery');
-  await evaluate(`document.querySelector('[data-wsn-template="custom"]').click()`);
+  await evaluate(`document.querySelector('[data-wsn-template="custom"]')?.click()`);
   check(await wizStep(0) && await waitFor(`${PLANNED} && /^workspace[0-9]+$/.test(document.querySelector('[data-wsn-name]').value) && document.querySelector('[data-wsn-new-folder]').checked
     && document.querySelectorAll('[data-wsn-step]').length === 5 && !!document.querySelector('[data-wsn-head-pic] [data-wz-pic-drawn]')`, 10000),
     'wizard 5 Custom: Name · Manager · Workers · How they chat · Confirm, the name and a new empty folder filled in, the header drawn');
   await wizShot('04-custom-1-name');
-  await evaluate(`document.querySelector('[data-wsn-add-description]').click()`);
+  await evaluate(`document.querySelector('[data-wsn-add-description]')?.click()`);
   await waitFor(`!!document.querySelector('[data-wsn-description]')`, 5000);
   await setField('[data-wsn-description]', 'Launch notes for the walk: short and plain.');
   await wizShot('04b-custom-1-description');
@@ -1003,7 +1010,7 @@ async function walkNewWorkspace() {
   check(await evaluate(`/Fenced on this Mac/.test(${text('[data-wsn-bot="mira"]')} + document.querySelector('[data-wsn-bot="mira"]').closest('label').textContent) && ${NO_MICRO_VM}`),
     'wizard 5 …mira\'s chip says where she runs (never asked again)');
   await wizShot('05-custom-2-manager');
-  await evaluate(`document.querySelector('[data-wsn-bot=""]').click()`);
+  await evaluate(`document.querySelector('[data-wsn-bot=""]')?.click()`);
   await waitFor(`state.wsn.manager === null`, 5000);
   check(await wizNext(2) && await evaluate(`document.querySelector('[data-wsn-wiso="fenced"]').checked && !document.querySelector('[data-wsn-wiso="unfenced"]')
     && document.querySelectorAll('[data-wsn-net]').length === 3`), 'wizard 5 step 3 Workers: Fenced on this Mac preselected, Sandbox, never unfenced; Locked · Standard · Open');
@@ -1011,17 +1018,17 @@ async function walkNewWorkspace() {
   check(await wizNext(3) && await waitFor(`!!document.querySelector('[data-wsn-room]') && document.querySelector('[data-wsn-room]').value === 'wiz1'`, 8000),
     'wizard 5 step 4 How they chat: the room #wiz1, who is in it');
   await wizShot('07-custom-4-chat');
-  await evaluate(`document.querySelector('[data-wsn-head-pic] [data-wz-expand]').click()`);
+  await evaluate(`document.querySelector('[data-wsn-head-pic] [data-wz-expand]')?.click()`);
   await waitFor(`!!document.querySelector('.wz-view')`, 5000);
   await wizShot('07b-custom-header-expanded');
-  await evaluate(`document.querySelector('[data-wz-view-close]').click()`);
+  await evaluate(`document.querySelector('[data-wz-view-close]')?.click()`);
   await waitFor(`!document.querySelector('.wz-view')`, 5000);
   check(await wizNext(4) && await waitFor(`${PLANNED} && !!document.querySelector('[data-wsn-ok]') && !document.querySelector('[data-wsn-create]').disabled`, 10000),
     'wizard 5 step 5 Confirm: "Everything checks out", Create and start enabled');
   check(await evaluate(`!/brief/i.test(document.querySelector('[data-wsn-body="confirm"]').innerText) && !/doz /.test(document.querySelector('[data-wsn-body="confirm"] .w-body').innerText)`),
     'wizard 5 …Confirm names no brief and no doz command');
   await wizShot('08-custom-5-confirm');
-  await evaluate(`document.querySelector('[data-wsn-create]').click()`);
+  await evaluate(`document.querySelector('[data-wsn-create]')?.click()`);
   check(await waitFor(`state.view === 'workspace' && state.param === 'wiz1' && !state.modal`, 60000), 'wizard 5 Create and start → #/w/wiz1/room');
   const w1 = dozJSON(['workspace', 'show', 'wiz1']) || {};
   check(!!w1.flags?.startedAt && w1.folders?.length === 1 && w1.folders[0].path.endsWith('/wiz1') && w1.defaults?.isolation === 'fenced' && !w1.agents?.length,
@@ -1029,19 +1036,19 @@ async function walkNewWorkspace() {
   check(await waitFor(`location.hash === '#/w/wiz1/room' && !!document.querySelector('[data-wsn-made="wiz1"]')`, 10000), 'wizard 5 …its room in front, the note "wiz1 is made and started"');
   // 6. A second New workspace opens fresh — after a half-done one left by an address.
   check(await openWizardFromHome(), 'wizard 6 a second New workspace opens at the gallery');
-  await evaluate(`document.querySelector('[data-wsn-template="custom"]').click()`);
+  await evaluate(`document.querySelector('[data-wsn-template="custom"]')?.click()`);
   await wizStep(0);
   await wizType('[data-wsn-name]', 'halfdone');
   await goHash('#/bots');
   await waitFor(`!state.modal && state.view === 'bots'`, 8000);
   check(await openWizardFromHome() && await evaluate(`state.wsn.screen === 'gallery' && state.wsn.name !== 'halfdone'`), 'wizard 6 …left half-done through an address, New workspace is fresh');
   // 7. Custom with a new bot made inline: never leaving the wizard, made only at Create; Sandbox workers; an invite redraws.
-  await evaluate(`document.querySelector('[data-wsn-template="custom"]').click()`);
+  await evaluate(`document.querySelector('[data-wsn-template="custom"]')?.click()`);
   await wizStep(0);
   await wizType('[data-wsn-name]', 'wiz2');
   await wizNext(1);
   for (let i = 0; i < 2; i++) {
-    await evaluate(`document.querySelector('[data-wsn-new-bot]').click()`);
+    await evaluate(`document.querySelector('[data-wsn-new-bot]')?.click()`);
     check(await waitFor(`!!document.querySelector('[data-wsn-bot-form]') && location.hash === '#/new-workspace' && state.modal === 'new-workspace'`, 5000)
       && await evaluate(`/Bot name/.test(${text('[data-wsn-bot-form]')}) && !document.querySelector('[data-wsn-bot-runs="unfenced"]').classList.contains('is-on')`),
       `wizard 7 + New bot (${i + 1}) opens inline — "Bot name", unfenced not preselected, still the wizard's address`);
@@ -1052,11 +1059,11 @@ async function walkNewWorkspace() {
     }
   }
   await setField('[data-wsn-bot-name]', 'boss9');
-  await evaluate(`document.querySelector('[data-wsn-bot-make]').click()`);
+  await evaluate(`document.querySelector('[data-wsn-bot-make]')?.click()`);
   check(await waitFor(`state.wsn.manager === 'boss9' && !!document.querySelector('[data-wsn-bot="boss9"]')?.checked && !document.querySelector('[data-wsn-bot-form]')`, 8000)
     && !(dozJSON(['bot', 'ls']) || { bots: [] }).bots.some((b) => b.name === 'boss9'), 'wizard 7 Make the bot: boss9 chosen, not made yet (doz bot ls)');
   await wizNext(2);
-  await evaluate(`document.querySelector('[data-wsn-wiso="vm"]').click()`);
+  await evaluate(`document.querySelector('[data-wsn-wiso="vm"]')?.click()`);
   await waitFor(`state.wsn.workerIsolation === 'vm'`, 5000);
   await wizNext(3);
   const before = await evaluate(`document.querySelector('[data-wsn-head-pic] img')?.src || ''`);
@@ -1064,10 +1071,10 @@ async function walkNewWorkspace() {
   check(await waitFor(`state.wsn.invite.includes('mira') && (document.querySelector('[data-wsn-head-pic] img')?.src || '') !== ${JSON.stringify(before)}`, 8000),
     'wizard 7 inviting mira redraws the header\'s drawing at once');
   await wizNext(4);
-  await evaluate(`document.querySelector('[data-wsn-start]').click()`);
+  await evaluate(`document.querySelector('[data-wsn-start]')?.click()`);
   check(await waitFor(`${PLANNED} && /^Create$/.test(${text('[data-wsn-create]')}.trim()) && !document.querySelector('[data-wsn-create]').disabled`, 10000),
     'wizard 7 Start it now unticked: the one button reads Create');
-  await evaluate(`document.querySelector('[data-wsn-create]').click()`);
+  await evaluate(`document.querySelector('[data-wsn-create]')?.click()`);
   check(await waitFor(`state.view === 'workspace' && state.param === 'wiz2' && !state.modal`, 60000), 'wizard 7 Create → #/w/wiz2');
   const w2 = dozJSON(['workspace', 'show', 'wiz2']) || {};
   const m2 = (w2.agents || []).find((a) => a.role === 'manager');
@@ -1098,18 +1105,18 @@ async function walkNewWorkspace() {
     const box = document.getElementById('wm-box'); return { below: c[1].top >= c[0].bottom - 1, w: box.scrollWidth - box.clientWidth }; })()`);
   check(stack.below && stack.w <= 0, 'wizard 10 …the cards stack, no sideways scroll');
   if (SHOTS) await shot('wizard-phone-01-gallery');
-  await evaluate(`document.querySelector('[data-wsn-card="fix-it"] [data-wz-expand]').click()`);
+  await evaluate(`document.querySelector('[data-wsn-card="fix-it"] [data-wz-expand]')?.click()`);
   await waitFor(`!!document.querySelector('.wz-view [data-wz-pic="hero"] svg')`, 10000);
   const vs = await evaluate(`(() => { const p = document.querySelector('.wz-view-pic').getBoundingClientRect(), s = document.querySelector('.wz-view-side').getBoundingClientRect(); return s.top >= p.bottom - 1; })()`);
   check(vs, 'wizard 10 …the full view stacks: the drawing above the information');
   if (SHOTS) await shot('wizard-phone-01b-expanded-fix-it');
-  await evaluate(`document.querySelector('[data-wz-view-close]').click()`);
-  await evaluate(`document.querySelector('[data-wsn-template="fix-it"]').click()`);
+  await evaluate(`document.querySelector('[data-wz-view-close]')?.click()`);
+  await evaluate(`document.querySelector('[data-wsn-template="fix-it"]')?.click()`);
   await waitFor(`!!document.querySelector('[data-wsn-for="fix-it"]') && ${PLANNED}`, 10000);
   if (SHOTS) await shot('wizard-phone-02-template-confirm');
-  await evaluate(`document.querySelector('[data-wsn-back]').click()`);
+  await evaluate(`document.querySelector('[data-wsn-back]')?.click()`);
   await waitFor(`!!document.querySelector('[data-wsn="gallery"]')`, 5000);
-  await evaluate(`document.querySelector('[data-wsn-template="custom"]').click()`);
+  await evaluate(`document.querySelector('[data-wsn-template="custom"]')?.click()`);
   await wizStep(0);
   check(await waitFor(`/Step 1 of 5/.test(${text('.wm-steps .step-compact')})`, 5000), 'wizard 10 …Custom\'s stepper reads "Step 1 of 5 · Name"');
   for (const [i, n] of [[0, '04-custom-1-name'], [1, '05-custom-2-manager'], [2, '06-custom-3-workers'], [3, '07-custom-4-chat'], [4, '08-custom-5-confirm']]) {
@@ -1128,10 +1135,10 @@ async function walkNewWorkspace() {
 async function walkTemplateCreate() {
   const errorsBefore = pageErrors.length;
   check(await openWizardFromHome(), 'template 1 New workspace');
-  await evaluate(`document.querySelector('[data-wsn-template="solo"]').click()`);
+  await evaluate(`document.querySelector('[data-wsn-template="solo"]')?.click()`);
   check(await waitFor(`!!document.querySelector('[data-wsn-for="solo"]') && ${PLANNED} && !document.querySelector('[data-wsn-create]').disabled`, 15000), 'template 1 One agent: its one screen, ready');
   const name = await evaluate(`state.wsn.name`);
-  await evaluate(`document.querySelector('[data-wsn-create]').click()`);
+  await evaluate(`document.querySelector('[data-wsn-create]')?.click()`);
   const made = await waitFor(`state.view === 'workspace' && state.param === ${JSON.stringify(name)} && !state.modal`, 180000);
   check(made, `template 1 Create and start → #/w/${name}/room` + (made ? '' : ' ' + JSON.stringify(await evaluate(`({ err: document.querySelector('[data-wsn-error]')?.textContent, ops: [...state.ops.values()].slice(-3).map((o) => [o.action, o.state, o.text]) })`))));
   const d = dozJSON(['workspace', 'show', name]) || {};

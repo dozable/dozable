@@ -3459,6 +3459,7 @@ a.btn.is-disabled { color: var(--ink-3); cursor: not-allowed; }
 .wz-finds { display: flex; flex-direction: column; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; }
 .wz-find { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); padding: var(--sp-3); border-radius: var(--r-md); background: var(--warn-tint); }
 .wz-find .icon { width: 15px; height: 15px; color: var(--warn); }
+.wz-starting { display: flex; align-items: center; gap: var(--sp-2); margin: 0; color: var(--ink-2); }
 .wz-ok { display: flex; align-items: center; gap: var(--sp-2); margin: 0; color: var(--ok); }
 .wz-acts-as-you { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3); border-radius: var(--r-md); background: var(--warn-tint); }
 .wz-acts-as-you p { display: flex; align-items: center; gap: var(--sp-2); margin: 0; }

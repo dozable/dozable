@@ -184,6 +184,25 @@ func cliWorkspaceOneShotRows(_ h: CLIHarness, root: URL, store: DozableStore, st
           "N6 new tsolo --template solo: made from its file, set up (\(r.code) \(r.out.prefix(300)) \(r.err.prefix(300)))")
     r = h.run(["workspace", "new", "tbr", "--template", "build-review", "--json"], timeout: 60)
     check(r.code != 0 && !ws.exists("tbr") && r.out.contains("needs a manager"), "N6 …a template that needs a manager, given none: refused, nothing made (\(r.code))")
+    // N7: defaults.projects_dir NOT under your home (a space file must be): the agents' folder is still <projects_dir>/NAME,
+    // made empty; the template's two files go in ~/doz-workspaces/NAME instead — decided before anything is written. The
+    // daemon is started again with that home (the CLI and the daemon must agree on it), and stopped after.
+    let savedBrief = h.env["DOZ_TEST_BRIEF_HOME"], savedHome = h.env["DOZ_TEST_HOME"]
+    h.run(["daemon", "stop"], timeout: 60)
+    _ = h.waitFor(20) { !h.hostRunning }
+    h.env["DOZ_TEST_BRIEF_HOME"] = home.path
+    h.env["DOZ_TEST_HOME"] = home.path
+    let projectsDir = WorkspaceStore.resolved(Workspace.defaultPath(name: "tsolo2"))
+    r = h.run(["workspace", "new", "tsolo2", "--template", "solo", "--json"], timeout: 180)
+    let file7 = object(r)["file"] as? String ?? ""
+    let expected7 = WorkspaceStore.resolved(home.appendingPathComponent("doz-workspaces/tsolo2/tsolo2.space.yaml").path)
+    check(r.code == 0 && ws.exists("tsolo2") && file7 == expected7 && fm.fileExists(atPath: expected7) && fm.fileExists(atPath: projectsDir)
+          && !fm.fileExists(atPath: projectsDir + "/tsolo2.space.yaml"),
+          "N7 projects_dir outside your home: made; its files in ~/doz-workspaces/tsolo2, its agents' folder <projects_dir>/tsolo2 (\(r.code) \(file7) \(r.out.prefix(200)) \(r.err.prefix(300)))")
+    h.run(["daemon", "stop"], timeout: 60)
+    _ = h.waitFor(20) { !h.hostRunning }
+    h.env["DOZ_TEST_BRIEF_HOME"] = savedBrief
+    h.env["DOZ_TEST_HOME"] = savedHome
 
     for n in names { h.run(["worker", "end", "app3", n], timeout: 60) }
     started.subtract(sessions)

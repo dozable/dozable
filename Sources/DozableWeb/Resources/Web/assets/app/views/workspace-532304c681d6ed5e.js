@@ -22,7 +22,7 @@ import { menuButton } from '../components/menus-2bfb74f31fa5969c.js';
 import { pageFailure, toast } from '../components/notices-0ff282536e70c5c2.js';
 import { dialog } from '../components/dialog-705988b4803973e1.js';
 import { startsOnce } from '../components/ws-gaps-f707ec4a91eba159.js';
-import { newWorkspaceRefusal } from './new-workspace-1842ebb075efaa99.js';
+import { newWorkspaceRefusal } from './new-workspace-b2f549433bdfdf05.js';
 import { briefCard } from '../components/ws-brief-6d299449d3aef0e9.js';
 import { driverChip, managerChip, workspacePill } from '../components/ws-marks-d5ea1fd9ab813391.js';
 import { renderNavWorkspaces } from '../components/ws-nav-57b568846edcc491.js';

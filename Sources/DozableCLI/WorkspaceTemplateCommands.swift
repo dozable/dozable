@@ -36,34 +36,49 @@ public enum WorkspaceTemplateMaker {
             n = p.suggested?.name ?? p.name
         }
         try WorkspaceName.validate(n)
-        let dir = WorkspaceStore.resolved(Workspace.defaultPath(name: n))
         let fm = FileManager.default
-        let made = !fm.fileExists(atPath: dir)
-        if !made {
+        // The agents' folder: a folder of your own (nothing is written there), else <projects_dir>/NAME, made empty now.
+        let projectFolder = WorkspaceStore.resolved(Workspace.defaultPath(name: n))
+        func folderState(_ p: String) throws -> (exists: Bool, empty: Bool) {
             var isDir: ObjCBool = false
-            guard fm.fileExists(atPath: dir, isDirectory: &isDir), isDir.boolValue else { throw HostError(.exists, "\(DisplayPath.tilde(dir)) is a file, not a folder") }
-            if folder == nil, let items = try? fm.contentsOfDirectory(atPath: dir), !items.isEmpty {
-                throw HostError(.exists, "\(DisplayPath.tilde(dir)) is not empty — choose another name, or a folder of your own")
-            }
+            guard fm.fileExists(atPath: p, isDirectory: &isDir) else { return (false, true) }
+            guard isDir.boolValue else { throw HostError(.exists, "\(DisplayPath.tilde(p)) is a file, not a folder") }
+            return (true, ((try? fm.contentsOfDirectory(atPath: p)) ?? []).isEmpty)
+        }
+        let work = folder ?? projectFolder
+        if folder == nil, !(try folderState(work)).empty {
+            throw HostError(.exists, "\(DisplayPath.tilde(work)) is not empty — choose another name, or a folder of your own")
+        }
+        // The template's two files: in <projects_dir>/NAME — unless that is not where a space file may be (it must be under
+        // your home, never the store, ~/.claude or ~/Library: SpaceRecordFile), then in ~/doz-workspaces/NAME. Decided before
+        // anything is written; when neither may hold them, refused with what to change.
+        let home = SpaceRecordFile.home()
+        let fallback = WorkspaceStore.resolved(URL(fileURLWithPath: home).appendingPathComponent("doz-workspaces").appendingPathComponent(n).path)
+        let mayHold = { (d: String) in SpaceRecordFile.placeRefusal(d + "/\(n).space.yaml", home: home, store: store.root.path) == nil }
+        guard let dir = [projectFolder, fallback].first(where: mayHold) else {
+            throw HostError(.invalid, "a workspace template's files are kept in a folder under your home, and \(DisplayPath.tilde(projectFolder)) is not one — set defaults.projects_dir to a folder under your home (doz config set defaults.projects_dir ~/doz-workspaces)")
         }
         let file = dir + "/\(n).space.yaml", desc = dir + "/DESCRIPTION.md"
         guard !fm.fileExists(atPath: file), !fm.fileExists(atPath: desc) else {
             throw HostError(.exists, "\(DisplayPath.tilde(dir)) already holds a space file — choose another name")
         }
-        let work = folder ?? dir
+        _ = try folderState(dir)
         let (yaml, description) = try {
             // The owner is you as chat knows you (up checks it): the chat server's human, else the name chat on would give.
             let owner = (try? ChatDirectory.load(ChatPaths(store: store)))?.human ?? ChatNames.defaultHuman()
             do { return try WorkspaceTemplates.render(id, space: n, owner: owner, manager: manager, folder: work) } catch { throw HostError(.invalid, "\(error)") }
         }()
-        TestSafety.checkMadeFolder(dir)
-        if made {
-            do { try MacFenceHostFS.ensureDirectory(dir, mode: 0o700) } catch { throw HostError(.failed, "cannot make \(DisplayPath.tilde(dir)): \(error)") }
+        // Made now (0700), and taken back when a step before up fails: the agents' folder and the files' folder.
+        var madeNow: [String] = []
+        for d in Set(folder == nil ? [work, dir] : [dir]).sorted() where !fm.fileExists(atPath: d) {
+            TestSafety.checkMadeFolder(d)
+            do { try MacFenceHostFS.ensureDirectory(d, mode: 0o700) } catch { throw HostError(.failed, "cannot make \(DisplayPath.tilde(d)): \(error)") }
+            madeNow.append(d)
         }
         func takeBack() {
             try? fm.removeItem(atPath: file)
             try? fm.removeItem(atPath: desc)
-            if made { try? fm.removeItem(atPath: dir) }
+            for d in madeNow.reversed() { try? fm.removeItem(atPath: d) }
         }
         guard fm.createFile(atPath: desc, contents: Data(description.utf8), attributes: [.posixPermissions: 0o600]),
               fm.createFile(atPath: file, contents: Data(("# Made from the workspace template \"\(t.title)\" (\(t.id), version \(t.version)).\n" + yaml).utf8),

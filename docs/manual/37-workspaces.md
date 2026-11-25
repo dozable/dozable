@@ -231,8 +231,9 @@ in one line; and **Use this template**. Escape, **✕** or a click outside close
   bot, bossN**, made when you create the workspace.
 - **Create and start.**
 
-The template's files, `NAME.space.yaml` and `DESCRIPTION.md`, are written to `~/doz-workspaces/NAME/`, and the
-workspace is set up and started from them. It opens on its room. No built-in template runs an agent unfenced.
+The template's files, `NAME.space.yaml` and `DESCRIPTION.md`, are written to `~/doz-workspaces/NAME/` (your
+`defaults.projects_dir`; when that is not under your home folder, the files go in `~/doz-workspaces/NAME/` and the agents
+still work in `defaults.projects_dir`), and the workspace is set up and started from them. It opens on its room. No built-in template runs an agent unfenced.
 
 **Custom** has five short steps — **Name · Manager · Workers · How they chat · Confirm**. Every step's header draws the
 workspace as chosen so far, with **⤢** for the full view.

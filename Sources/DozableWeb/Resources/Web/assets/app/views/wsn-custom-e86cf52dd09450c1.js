@@ -16,7 +16,7 @@ import { chatOnForm } from '../components/chat-on-1c3183f3e321c30d.js';
 import { choiceCard } from '../components/choice-fdde57632eb1dcb5.js';
 import { pageFailure, toast } from '../components/notices-0ff282536e70c5c2.js';
 import { BRIEF_MAX_BYTES } from '../components/ws-brief-6d299449d3aef0e9.js';
-import { botOf, bots, changed, chatOn, managerWhere, projectPreset, render, save } from './wsn-state-ef95c075332d3960.js';
+import { botOf, bots, changed, chatOn, managerWhere, projectPreset, render, save } from './wsn-state-ae837409fa92979b.js';
 import { chatNavCheck } from './chat-9afb11a937fb03b6.js';
 
 const DELIVER_WORDS = { poll: 'reached by poll', inbox: 'reached by inbox', webhook: 'reached by webhook' };
@@ -226,10 +226,13 @@ function stepWorkers(w) {
 // ── 4 · How they chat ────────────────────────────────────────────────────────────────────────────────────────────────
 function stepChat(w) {
   const hasManager = !!w.manager;
+  if (!chatOn() && w.chatStarting) {
+    return { body: [h('p', { class: 'wz-starting', 'data-wsn-chat-starting': '' }, icon('hourglass'), 'Starting chat…')], ok: () => false };
+  }
   if (!chatOn()) {
     return {
       body: [h('p', { 'data-wsn-chat-off': '' }, 'Chat is off. A manager and its workers talk in a room, so chat comes on with this workspace.'),
-        chatOnForm({ onOn: async () => { await chatNavCheck(); changed(true); chatComing(w); } })],
+        chatOnForm({ onOn: async () => { w.chatStarting = true; await chatNavCheck(); changed(true); chatComing(w); } })],
       ok: () => !hasManager,
     };
   }
@@ -278,15 +281,18 @@ function stepChat(w) {
   };
 }
 
-/// Chat just turned on: its server may still be starting — the plan is asked again (and the step drawn) until chat answers.
+/// Chat just turned on (its operation is done): the dashboard's chat status and the daemon's plan can still say off for a
+/// while. Both are read again every second — the step drawn each time chat's state changes — until chat is on AND the plan
+/// says so, while the wizard stays on this step (at most 3 minutes). Until then the step says "Starting chat…", Next off.
 function chatComing(w) {
-  let n = 0;
+  let n = 0, wasOn = chatOn();
   const again = async () => {
-    if (state.wsn !== w || n++ > 30) return;
-    const waiting = !chatOn() || findingsOf(w.plan && w.plan.findings, 'chat').some((f) => f.field === 'chat');
-    if (!waiting) { render(false); return; }
+    if (state.wsn !== w || w.screen !== 'custom' || w.step !== 3 || n++ > 180) { if (state.wsn === w) w.chatStarting = false; return; }
     await chatNavCheck();
-    changed(true);
+    const on = chatOn(), planOn = !findingsOf(w.plan && w.plan.findings, 'chat').some((f) => f.field === 'chat');
+    if (on && planOn) { w.chatStarting = false; render(false); return; }
+    changed(on !== wasOn);              // the plan asked again; drawn when chat's state changed
+    wasOn = on;
     setTimeout(again, 1000);
   };
   setTimeout(again, 1000);

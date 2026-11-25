@@ -226,10 +226,13 @@ function stepWorkers(w) {
 // ── 4 · How they chat ────────────────────────────────────────────────────────────────────────────────────────────────
 function stepChat(w) {
   const hasManager = !!w.manager;
+  if (!chatOn() && w.chatStarting) {
+    return { body: [h('p', { class: 'wz-starting', 'data-wsn-chat-starting': '' }, icon('hourglass'), 'Starting chat…')], ok: () => false };
+  }
   if (!chatOn()) {
     return {
       body: [h('p', { 'data-wsn-chat-off': '' }, 'Chat is off. A manager and its workers talk in a room, so chat comes on with this workspace.'),
-        chatOnForm({ onOn: async () => { await chatNavCheck(); changed(true); chatComing(w); } })],
+        chatOnForm({ onOn: async () => { w.chatStarting = true; await chatNavCheck(); changed(true); chatComing(w); } })],
       ok: () => !hasManager,
     };
   }
@@ -278,15 +281,18 @@ function stepChat(w) {
   };
 }
 
-/// Chat just turned on: its server may still be starting — the plan is asked again (and the step drawn) until chat answers.
+/// Chat just turned on (its operation is done): the dashboard's chat status and the daemon's plan can still say off for a
+/// while. Both are read again every second — the step drawn each time chat's state changes — until chat is on AND the plan
+/// says so, while the wizard stays on this step (at most 3 minutes). Until then the step says "Starting chat…", Next off.
 function chatComing(w) {
-  let n = 0;
+  let n = 0, wasOn = chatOn();
   const again = async () => {
-    if (state.wsn !== w || n++ > 30) return;
-    const waiting = !chatOn() || findingsOf(w.plan && w.plan.findings, 'chat').some((f) => f.field === 'chat');
-    if (!waiting) { render(false); return; }
+    if (state.wsn !== w || w.screen !== 'custom' || w.step !== 3 || n++ > 180) { if (state.wsn === w) w.chatStarting = false; return; }
     await chatNavCheck();
-    changed(true);
+    const on = chatOn(), planOn = !findingsOf(w.plan && w.plan.findings, 'chat').some((f) => f.field === 'chat');
+    if (on && planOn) { w.chatStarting = false; render(false); return; }
+    changed(on !== wasOn);              // the plan asked again; drawn when chat's state changed
+    wasOn = on;
     setTimeout(again, 1000);
   };
   setTimeout(again, 1000);

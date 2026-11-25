@@ -198,7 +198,9 @@ your bot (`external: {bot}`: space files refuse an owned manager).
 - **Making one** (`WorkspaceTemplateMaker.make`, in the CLI's module — the resolver's): the next free name when none is
   given; the files written into `<projects_dir>/NAME/` (made 0700 — with no folder of your own it is also the agents'
   folder; with `--folder DIR` the agents work in DIR and nothing is written there; a folder that is not empty, or holds a
-  space file, is refused); the file resolved and checked; `workspace-up-plan`, then `workspace-up` on that plan's sha (an
+  space file, is refused). A space file must be under your home (`SpaceRecordFile`): when `<projects_dir>` is not, the two
+  files go in `~/doz-workspaces/NAME/` and the agents' folder stays `<projects_dir>/NAME` — decided before anything is
+  written (CLI row N7); the file resolved and checked; `workspace-up-plan`, then `workspace-up` on that plan's sha (an
   unfenced manager bot only with `--yes` / the dashboard's tick). A refusal before up takes the files back.
 - **Reads**: `doz workspace templates [ID] [--files] [--json]`; the dashboard's `GET /api/v1/templates`.
 - **Making**: `doz workspace new [NAME] --template ID [--manager BOT] [--folder DIR] [--yes]`; the dashboard's

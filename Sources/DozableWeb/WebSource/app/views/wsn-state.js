@@ -17,7 +17,7 @@ const KEPT = ['screen', 'template', 'step', 'name', 'nameTouched', 'newFolder', 
 export function fresh() {
   return { screen: 'gallery', template: null, step: 0, name: '', nameTouched: false, newFolder: true, folder: null, description: '', descOpen: false,
     manager: null, managerPicked: false, newBot: null, botForm: null, workerIsolation: 'fenced', network: 'locked', netPicked: false,
-    room: { mode: 'new', name: '' }, invite: [], start: true, actsAsYou: false, plan: null, planError: '', error: '', busy: false, rooms: null };
+    room: { mode: 'new', name: '' }, invite: [], start: true, actsAsYou: false, chatStarting: false, plan: null, planError: '', error: '', busy: false, rooms: null };
 }
 export function save() {
   const w = state.wsn;
