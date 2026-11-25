@@ -127,7 +127,7 @@ struct WorkspaceTemplatesCommand: ParsableCommand {
         guard let id else {
             let all = WorkspaceTemplates.list()
             if g.json { Out.json(all); return }
-            if all.isEmpty { Out.stdout("This build carries no workspace templates.\n"); return }
+            if all.isEmpty { Out.stdout("This build carries none of the workspace templates.\n"); return }
             Out.stdout(Out.table([["ID", "TEMPLATE", "MANAGER", "AGENTS"]] + all.map {
                 [$0.id, $0.title, $0.needs.manager ? "your bot" : "—", $0.agents.filter { $0.where != "manager" }.map(\.name).joined(separator: ", ")]
             }) + "\nMake one: doz workspace new [NAME] --template ID\n")

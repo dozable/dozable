@@ -274,7 +274,7 @@ func cliWorkspaceWorkerRows(_ h: CLIHarness, root: URL, store: DozableStore, sta
     r = h.run(["worker", "add", "wk", "pat", "--task", "x"], timeout: 60)
     check(r.code == 4 && r.err.contains("already in chat"), "32 NAME a participant: refused (\(r.code): \(r.err.prefix(160)))")
     r = h.run(["worker", "add", "wk", "--cpus", "2", "--task", "x"], timeout: 60)
-    check(r.code == 65 && r.err.contains("--isolation vm"), "32 --cpus fenced: refused (\(r.code): \(r.err.prefix(160)))")
+    check(r.code == 65 && r.err.contains("--isolation sandbox"), "32 --cpus fenced: refused (\(r.code): \(r.err.prefix(160)))")
     r = h.run(["worker", "add", "wk", "--sandbox", "x", "--isolation", "vm", "--task", "x"], timeout: 60)
     check(r.code == 65 && r.err.contains("--sandbox or --isolation"), "32 --sandbox with --isolation: refused (\(r.code))")
     // The manager's sandbox: vmm (a VM manager, recorded, never booted) marked started by adopting a running session.

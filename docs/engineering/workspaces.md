@@ -206,7 +206,7 @@ your bot (`external: {bot}`: space files refuse an owned manager).
 - The presets (`WorkspacePresets.builtIn`) are now `blank` and `remotion-video` (its template is `video`); `swift-tests`,
   `mac-admin` and `research` were retired (D7) — `--preset` refuses them naming what to use.
 - `WorkspaceTemplatesTests` (the five in order; each renders into a file the resolver reads with no problem; never
-  unfenced; ids never paths; the release carries them); `make test-cli-workspace` W5–W6.
+  unfenced; ids never paths; the release carries them); `make test-cli-workspace` N1–N6 (the one-shot rows).
 
 ### One-shot new: `--brief`, `--preset`, `--worker`, `workspace create`
 

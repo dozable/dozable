@@ -22,7 +22,7 @@ import { addNote } from '../components/notes-b982b305c6f4f5bc.js';
 import { pageFailure, toast } from '../components/notices-0ff282536e70c5c2.js';
 import { stepperNode } from '../components/stepper-9f1fb5c64eac92d6.js';
 import { drawing, expandButton, fullView, viewSection } from '../components/wsn-picture-a9cd56eac9fafa49.js';
-import { actsAsYouNeeded, customStep, nameAndFolder, nameIssue } from './wsn-custom-fa3e9a211a55e00e.js';
+import { actsAsYouNeeded, customStep, nameAndFolder, nameIssue } from './wsn-custom-3d54fcb36459162a.js';
 import { WSN_REMOTE, askPlan, botOf, bots, forgetNewWorkspace, fresh, loadTemplates, managerWhere, newWorkspaceRefusal, onPlan, onRender,
   projectPreset, restore, save } from './wsn-state-ef95c075332d3960.js';
 

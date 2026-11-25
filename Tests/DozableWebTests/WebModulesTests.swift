@@ -179,7 +179,7 @@ final class WebModulesTests: XCTestCase {
         XCTAssertEqual(room, ["app/views/workspace.js"])
         XCTAssertTrue(try read("app/views/chat.js").contains("chatOnForm("))
         XCTAssertTrue(try read("app/components/ws-gaps.js").contains("chatOnInline("))
-        XCTAssertTrue(try read("app/views/wsn-custom.js").contains("chatOnForm({ onOn: async () => { await chatNavCheck(); changed(true); } })"), "the wizard's How they chat")
+        XCTAssertTrue(try read("app/views/wsn-custom.js").contains("chatOnForm({ onOn: async () => { await chatNavCheck(); changed(true); chatComing(w); } })"), "the wizard's How they chat")
         XCTAssertTrue(try read("app/views/ws-home.js").contains("gapsList(gaps, { onChatOn: cur.o.onChatOn })"), "Home's setting-up checklist")
         XCTAssertTrue(try read("app/views/workspace.js").contains("onChatOn: chatCameOn"))
     }

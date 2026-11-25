@@ -229,7 +229,7 @@ function stepChat(w) {
   if (!chatOn()) {
     return {
       body: [h('p', { 'data-wsn-chat-off': '' }, 'Chat is off. A manager and its workers talk in a room, so chat comes on with this workspace.'),
-        chatOnForm({ onOn: async () => { await chatNavCheck(); changed(true); } })],
+        chatOnForm({ onOn: async () => { await chatNavCheck(); changed(true); chatComing(w); } })],
       ok: () => !hasManager,
     };
   }
@@ -276,6 +276,20 @@ function stepChat(w) {
     ],
     ok: () => !f.some((x) => x.field === 'chat') && !(w.room.mode === 'existing' && !w.room.name),
   };
+}
+
+/// Chat just turned on: its server may still be starting — the plan is asked again (and the step drawn) until chat answers.
+function chatComing(w) {
+  let n = 0;
+  const again = async () => {
+    if (state.wsn !== w || n++ > 30) return;
+    const waiting = !chatOn() || findingsOf(w.plan && w.plan.findings, 'chat').some((f) => f.field === 'chat');
+    if (!waiting) { render(false); return; }
+    await chatNavCheck();
+    changed(true);
+    setTimeout(again, 1000);
+  };
+  setTimeout(again, 1000);
 }
 
 // ── 5 · Confirm ──────────────────────────────────────────────────────────────────────────────────────────────────────

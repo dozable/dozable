@@ -55,7 +55,7 @@
 //     14 with the daemon stopped the wizard's plan answers. SHOTS keeps wizard-{light,dark,phone}-* pictures.
 //   · Add a worker, chat still on, the FAKE claude (it reads START, says "NAME is up" with dozchat, sleeps), a scratch fence
 //     home: 1 the Agents tab's + Add a worker opens #/w/demo2/agents/new — four columns, cloud disabled, fenced preselected,
-//     the control row worker ls's words; 2 the live plan (as --dry-run's), micro VM shows its size, unfenced needs the tick
+//     the control row worker ls's words; 2 the live plan (as --dry-run's), Sandbox shows its size, unfenced needs the tick
 //     (never added); 3 a bot live elsewhere greyed with the sentence, a taken name's refusal beside the name, worker ls
 //     unchanged; 4 Show the command is --dry-run's; 5 Add and start: in the panel, chat who, its "is up" line; 6 End…, ticked;
 //     7 a chip opens the isolation guide at its card, four cards in order; 9 at 390 px the cards stack; 10 (below) with the
@@ -690,8 +690,8 @@ async function walkWorkspacePage() {
   const net = await evaluate(`document.querySelector('#ws-panel [data-ws-network]').dataset.wsNetwork`);
   check(JSON.stringify(agents) === JSON.stringify(show.agents.map((a) => a.name).sort()) && JSON.stringify(folders) === JSON.stringify(show.folders.map((f) => f.path))
     && net === (show.defaults.network || 'locked'), `the side panel is doz workspace show demo2 --json (${agents.join(', ')}; ${folders.length} folder; ${net})`);
-  check(await evaluate(`document.querySelector('#ws-panel [data-ws-agent="beta"]').dataset.iso === 'micro VM' && !!document.querySelector('#ws-panel [data-ws-agent="beta"] a[href="#/w/demo2/agent/beta"]')`),
-    'beta: micro VM, linking to its screen in the workspace');
+  check(await evaluate(`document.querySelector('#ws-panel [data-ws-agent="beta"]').dataset.iso === 'Sandbox' && !!document.querySelector('#ws-panel [data-ws-agent="beta"] a[href="#/w/demo2/agent/beta"]')`),
+    'beta: Sandbox, linking to its screen in the workspace');
   check(await evaluate(`!!document.querySelector('#ws-panel #chat-people-pane')`), '"In this room" is the room\'s own people list, in the panel');
   await goHash('#/w/demo3/room');
   check(await waitFor(`state.param === 'demo3' && /acts as you/.test(${text('#ws-panel [data-ws-agent="otto"]')}) && !!document.querySelector('#ws-head .acts-as-you')`, 10000),
@@ -793,8 +793,8 @@ async function walkAgents() {
     '#/w/demo2/agents → the Agents tab');
   const rows = (await evaluate(`[...document.querySelectorAll('[data-agents-table="demo2"] tr[data-agent-row]')].map((r) => r.dataset.agentRow).filter(Boolean)`)).sort();
   check(JSON.stringify(rows) === JSON.stringify(show.agents.map((a) => a.name).sort()), `…exactly the agents of doz workspace show demo2 --json (${rows.join(', ')})`);
-  check(await evaluate(`document.querySelector('[data-agent-row="beta"] [data-place]')?.dataset.place === 'this Mac' && document.querySelector('[data-agent-row="beta"] [data-iso]')?.dataset.iso === 'micro VM'`),
-    '…beta with its place and isolation chips (this Mac · micro VM)');
+  check(await evaluate(`document.querySelector('[data-agent-row="beta"] [data-place]')?.dataset.place === 'this Mac' && document.querySelector('[data-agent-row="beta"] [data-iso]')?.dataset.iso === 'Sandbox'`),
+    '…beta with its place and isolation chips (this Mac · Sandbox)');
   check(await evaluate(`(() => { const c = document.querySelector('tr[data-kind="cloud"]'); return !!c && c.getAttribute('aria-disabled') === 'true' && /cloud worker/.test(c.textContent); })()`),
     '…the greyed cloud row, last');
   check(await evaluate(`!!document.querySelector('[data-wsa-view="grid"][disabled]') && /coming/.test(document.querySelector('[data-wsa-view="grid"]').textContent)`), '…Grid drawn disabled, "coming"');
@@ -997,7 +997,8 @@ async function walkNewWorkspace() {
   await setField('[data-wsn-description]', 'Launch notes for the walk: short and plain.');
   await wizShot('04b-custom-1-description');
   await wizType('[data-wsn-name]', 'wiz1');
-  check(await wizNext(1) && await waitFor(`!!document.querySelector('[data-wsn-bot="mira"]')?.checked && state.wsn.manager === 'mira'`, 8000),
+  check(await wizNext(1) && await waitFor(`!!document.querySelector('[data-wsn-bot="mira"]') && !!state.wsn.manager
+    && document.querySelector('[data-wsn-bot]:checked')?.value === state.wsn.manager && document.querySelector('.wz-roster [data-wsn-bot]').value === state.wsn.manager`, 8000),
     'wizard 5 step 2 Manager: mira listed with where it runs, the first fitting bot preselected');
   check(await evaluate(`/Fenced on this Mac/.test(${text('[data-wsn-bot="mira"]')} + document.querySelector('[data-wsn-bot="mira"]').closest('label').textContent) && ${NO_MICRO_VM}`),
     'wizard 5 …mira\'s chip says where she runs (never asked again)');
@@ -1226,7 +1227,8 @@ async function walkBots() {
     '1 …each row\'s key keeper and isolation as the CLI says ("acts as you" on the unfenced one)');
   await leakSweep('row 1 (the roster)');
 
-  // 2. #/bots/~new makes nova: fenced (the default), inbox, instructions; its fingerprint as the CLI says.
+  // 2. #/bots/~new makes nova: fenced (the default), reached by poll (782: inbox is offered only to a bot that runs
+  // unfenced), instructions; its fingerprint as the CLI says.
   await goHash('#/bots/~new');
   check(await waitFor(`state.view === 'bot' && !!document.querySelector('[data-bot-form="~new"]')`, 10000), '2 #/bots/~new → the new bot\'s form');
   check(await evaluate(`document.querySelector('[data-bf-choice="isolation:fenced"]').checked && !document.querySelector('[data-bf-choice="isolation:unfenced"]').checked`),
@@ -1234,13 +1236,13 @@ async function walkBots() {
   check(await evaluate(`document.querySelector('[data-bf-choice="isolation:elsewhere"]').disabled
     && /doz bot new .* --isolation elsewhere --to-file/.test(document.querySelector('[data-bot-form] .bf-elsewhere')?.dataset.cmd || '')`), '2 …elsewhere disabled, with its command');
   await setField('[data-bot-form] input[data-bf="name"]', 'nova');
-  await evaluate(`document.querySelector('[data-bf-choice="deliver:inbox"]').click()`);
+  check(await evaluate(`document.querySelector('[data-bf-choice="deliver:inbox"]').disabled && document.querySelector('[data-bf-choice="deliver:poll"]').checked`),
+    '2 inbox is not offered to a fenced bot; poll is chosen');
   await setField('[data-bot-form] textarea[data-bf="instructions"]', 'Answer in one line.\nAsk before anything costly.\n');
-  check(await waitFor(`/collects its messages with dozchat/.test(${text('[data-bot-form]')})`, 3000), '2 inbox for a fenced bot says it collects its messages with dozchat');
   await evaluate(`document.querySelector('[data-bot-make]').click()`);
   check(await waitFor(`location.hash === '#/bots/nova' && !!document.querySelector('[data-bot-page="nova"] [data-bot-fp]')`, 30000), '2 Make → #/bots/nova' + ((await soft(`document.querySelector('[data-bf-error]')?.textContent || ''`)) || '').replace(/^(.+)$/, ' (the form says: $1)'));
   const nova = botShow('nova');
-  check(nova.isolation?.default === 'fenced' && nova.deliver === 'inbox' && nova.instructions?.bytes > 0 && nova.token?.keeper === 'dozable', '2 …doz bot show nova: fenced, inbox, instructions, held');
+  check(nova.isolation?.default === 'fenced' && nova.deliver === 'poll' && nova.instructions?.bytes > 0 && nova.token?.keeper === 'dozable', '2 …doz bot show nova: fenced, poll, instructions, held');
   check(await evaluate(`document.querySelector('[data-bot-fp]').dataset.botFp`) === nova.token?.fingerprint && /held by Dozable · fp /.test(await evaluate(text('[data-bot-key]'))),
     '2 the page\'s fingerprint is doz bot show nova --json\'s: "held by Dozable · fp …"');
   await leakSweep('row 2 (a new bot)');
@@ -1372,7 +1374,7 @@ async function walkAddWorker() {
   check(await waitFor(`location.hash === '#/w/demo2/agents/new' && state.view === 'addworker' && !!document.querySelector('[data-add-worker-page="demo2"] [data-aw-compare]') && ${AW_PLANNED}`, 15000),
     'add 1 "+ Add a worker" in the Agents tab opens #/w/demo2/agents/new');
   const cols = await evaluate(`[...document.querySelectorAll('[data-aw-compare] thead th[data-col]')].map((t) => t.dataset.col)`);
-  check(JSON.stringify(cols) === '["vm","fenced","unfenced","cloud"]', `add 1 the comparison table's columns: micro VM, fenced, unfenced, cloud (${cols})`);
+  check(JSON.stringify(cols) === '["vm","fenced","unfenced","cloud"]', `add 1 the comparison table's columns: Sandbox, fenced, unfenced, cloud (${cols})`);
   check(await evaluate(`document.querySelector('[data-aw-col="cloud"]').disabled && document.querySelector('[data-aw-col="fenced"]').checked && !document.querySelector('[data-aw-col="unfenced"]').checked`),
     'add 1 cloud drawn disabled (later); fenced preselected, unfenced not');
   check(await evaluate(`[...document.querySelectorAll('[data-aw-compare] thead [data-iso-guide]')].map((a) => a.getAttribute('href')).join(' ') === '#/guide/isolation/vm #/guide/isolation/fenced #/guide/isolation/unfenced'`),
