@@ -911,7 +911,9 @@ async function wizNext(step) {
 }
 async function wizType(sel, value) { await setField(sel, value); await sleep(600); await waitFor(PLANNED, 10000); }
 async function wizClose() {
-  await evaluate(`document.querySelector('#wm-box [data-wm-close]').click()`);
+  // (the modal may be drawing again under load: its close button waited for, never clicked blind)
+  await waitFor(`!!document.querySelector('#wm-box [data-wm-close]')`, 10000);
+  await evaluate(`document.querySelector('#wm-box [data-wm-close]')?.click()`);
   if (await waitFor(`!!document.querySelector('dialog.dlg[open]')`, 2000)) await submitDialog();
   return waitFor(`!state.modal`, 8000);
 }
