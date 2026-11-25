@@ -226,6 +226,9 @@ function stepWorkers(w) {
 // ── 4 · How they chat ────────────────────────────────────────────────────────────────────────────────────────────────
 function stepChat(w) {
   const hasManager = !!w.manager;
+  // While chat is off here, the step watches chat's state itself (whoever turns it on — this button, another tab, a terminal,
+  // or a page drawn again from its kept choices) and is drawn again, the plan asked again, when it changes.
+  if (!chatOn()) watchChat(w);
   if (!chatOn() && w.chatStarting) {
     return { body: [h('p', { class: 'wz-starting', 'data-wsn-chat-starting': '' }, icon('hourglass'), 'Starting chat…')], ok: () => false };
   }
@@ -279,6 +282,21 @@ function stepChat(w) {
     ],
     ok: () => !f.some((x) => x.field === 'chat') && !(w.room.mode === 'existing' && !w.room.name),
   };
+}
+
+/// One watcher at a time: every second while the wizard shows How they chat with chat off, the chat status is read again;
+/// when chat comes on the plan is asked again and the step drawn.
+let watching = null;
+function watchChat(w) {
+  if (watching === w) return;
+  watching = w;
+  const tick = async () => {
+    if (state.wsn !== w || state.modal !== 'new-workspace' || w.screen !== 'custom' || w.step !== 3) { watching = null; return; }
+    await chatNavCheck();
+    if (chatOn()) { watching = null; changed(true); chatComing(w); return; }
+    setTimeout(tick, 1000);
+  };
+  setTimeout(tick, 1000);
 }
 
 /// Chat just turned on (its operation is done): the dashboard's chat status and the daemon's plan can still say off for a

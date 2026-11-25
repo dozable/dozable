@@ -555,6 +555,12 @@ async function walkChatOn() {
     + JSON.stringify(await evaluate(`({ noroom: !!document.querySelector('[data-ws-noroom]'), gaps: [...document.querySelectorAll('[data-ws-setup] [data-gap]')].map((g) => g.dataset.gap),
       room: state.chat.room, err: document.querySelector('[data-ws-make-room-error]')?.textContent || '', btn: document.querySelector('[data-ws-make-room]')?.disabled,
       ops: [...state.ops.values()].filter((o) => o.action === 'workspace-edit' || /room/.test(o.label || '')).map((o) => [o.action, o.label, o.state, o.text]) })`)) + ' ' + JSON.stringify((dozJSON(['workspace', 'show', 'cw']) || {}).rooms));
+  await wizardChatOn();
+  check(pageErrors.length === errorsBefore, 'chat on: no page error' + (pageErrors.length > errorsBefore ? ': ' + pageErrors.slice(errorsBefore, errorsBefore + 3).join(' | ') : ''));
+}
+
+/// chat on 3 — the wizard: chat off at How they chat, Turn chat on there, the room once chat answers; Create.
+async function wizardChatOn() {
   // 3. The wizard: chat off at How they chat — only Turn chat on, Next off (a manager needs a room); on: the room, nothing
   // typed lost; Create and start.
   doz(['chat', 'off']);
@@ -585,7 +591,6 @@ async function walkChatOn() {
   if (!madeCwiz && (await evaluate(`!!state.modal`))) await wizClose();
   check(madeCwiz
     && (dozJSON(['workspace', 'show', 'cwiz']) || {}).rooms?.some((r) => r.chatRoom === 'cwiz'), 'chat on 3 Create: cwiz made, with its room');
-  check(pageErrors.length === errorsBefore, 'chat on: no page error' + (pageErrors.length > errorsBefore ? ': ' + pageErrors.slice(errorsBefore, errorsBefore + 3).join(' | ') : ''));
 }
 
 async function walkWorkspacePage() {
@@ -3676,6 +3681,10 @@ try {
     check(doz(['chat', 'on', '--name', 'ada']).status === 0, 'chat on (WIZARD_ONLY)');
     doz(['workspace', 'new', 'demo', '--brief', 'Walk the dashboard.']);
     doz(['bot', 'new', 'mira', '--agent', 'claude-code']);
+    await send('Page.reload');
+    await waitFor(`typeof state === 'object' && !!state.csrf`, 30000);
+    await wizardChatOn();
+    doz(['chat', 'on', '--name', 'ada']);
     await send('Page.reload');
     await waitFor(`typeof state === 'object' && !!state.csrf`, 30000);
     await walkNewWorkspace();
