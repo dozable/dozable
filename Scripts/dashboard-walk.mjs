@@ -1683,6 +1683,13 @@ function botAsk(bot, args, room = 'askw') {
   if (r.status) console.log('  ·    ' + bot + '\'s ask "' + args[0] + '" in ' + room + ': ' + (String(r.stdout).trim() || String(r.stderr).trim()).slice(0, 240));
   try { return JSON.parse(r.stdout).msg_id || ''; } catch (_) { return ''; }
 }
+/// A decision card inside Home — the room's card (`section.chat-ask`), its inputs, or any [data-ask] outside the workspace's
+/// drawing. The drawing (the hero's SVG) shows an open ask as a static bubble (`g.ask-card` — no control, no answer path):
+/// that is the picture, not a card. → null, or what was found.
+const HOME_DECISION_CARD = `(() => { const e = [...document.querySelectorAll('#ws-home [data-ask], #ws-home .chat-ask, #ws-home .chat-ask-input')].find((x) => !x.closest('svg'));
+  return e ? { tag: e.tagName, cls: String(e.getAttribute('class') || '') } : null; })()`;
+/// The drawing's ask bubbles on Home hold no control and no link (nothing there answers).
+const HOME_DRAWN_ASKS_INERT = `[...document.querySelectorAll('#ws-home svg [data-ask]')].every((g) => !g.querySelector('a, button, input, [tabindex], foreignObject'))`;
 const askNumber = (id) => (((dozJSON(['chat', 'asks', 'askw']) || {}).asks || []).find((a) => a.msgId === id) || {}).number || 0;
 const CARD = (id) => `document.querySelector('[data-ask="${id}"]')`;
 async function walkAsks() {
@@ -3259,7 +3266,8 @@ async function walkHome() {
   await goHash('#/w/askw');
   check(await waitFor(`document.querySelector('#ws-home [data-ws-home-ask="${ask}"] a[data-ws-home-answer]')?.getAttribute('href') === '#/w/askw/room'`, 15000)
     && /Ready for Home\?/.test(await evaluate(text('#ws-home [data-ws-card="needs"]'))), 'home 4 an open ask in its room is in Needs you, "Answer in the room" → #/w/askw/room');
-  check(await evaluate(`!document.querySelector('#ws-home [data-ask]') && !document.querySelector('#ws-home .chat-ask-input')`), 'home 4 …never answered here (no decision card on Home)');
+  const h4 = await evaluate(HOME_DECISION_CARD);
+  check(!h4 && await evaluate(HOME_DRAWN_ASKS_INERT), 'home 4 …never answered here (no decision card on Home; the drawing\'s ask is a picture, no control)' + (h4 ? ' ' + JSON.stringify(h4) : ''));
   doz(['chat', 'decide', 'askw', '#' + askNumber(ask), 'A']);
   await goHash('#/w/askw/agents');
   await goHash('#/w/askw');
@@ -3671,6 +3679,35 @@ try {
     failed = failures.length > 0;
     console.log(`dashboard-walk (CHAT_WINDOW_ONLY): ${passed} passed, ${failures.length} failed` + (failed ? '\n  ' + failures.join('\n  ') : ''));
     throw Object.assign(new Error('chat window only'), { spaceOnly: true });
+  }
+  if (process.env.HOME4_ONLY === '1') {
+    // 782 diagnosis: home 4 alone, N times (HOME4_N, default 20) — an open ask in askw's room, then askw's Home: no decision
+    // card there. Says what matched when one is found (the hero's drawing, or a card).
+    const [p1, p2] = [await freePort(), await freePort()];
+    chatPagePort = p1;
+    doz(['config', 'set', 'chat.page_port', String(p1)]);
+    doz(['config', 'set', 'chat.line_port', String(p2)]);
+    check(doz(['chat', 'on', '--name', 'ada']).status === 0, 'chat on (HOME4_ONLY)');
+    doz(['chat', 'add', 'askerbot', '--to-file', S + '/askerbot.token']);
+    doz(['workspace', 'new', 'askw', '--prompt-file', '-'], 'Answer the bots.\n');
+    doz(['workspace', 'start', 'askw']);
+    doz(['chat', 'send', 'askw', '/invite @askerbot']);
+    await send('Page.reload');
+    await waitFor(`typeof state === 'object' && !!state.csrf`, 30000);
+    const n = Number(process.env.HOME4_N || 20);
+    for (let i = 1; i <= n; i++) {
+      await goHash('#/w/askw/agents');
+      const ask = botAsk('askerbot', ['Ready for Home ' + i + '?', '--option', 'yes=Yes', '--option', 'no=No']);
+      await goHash('#/w/askw');
+      await waitFor(`document.querySelector('#ws-home [data-ws-home-ask="${ask}"] a[data-ws-home-answer]')?.getAttribute('href') === '#/w/askw/room'`, 15000);
+      const what = await evaluate(HOME_DECISION_CARD);
+      const drawn = await evaluate(`document.querySelectorAll('#ws-home svg [data-ask]').length`);
+      check(!what && await evaluate(HOME_DRAWN_ASKS_INERT), 'home 4 (' + i + ') no decision card on Home (the drawing shows ' + drawn + ' ask, inert)' + (what ? ' ' + JSON.stringify(what) : ''));
+      doz(['chat', 'decide', 'askw', '#' + askNumber(ask), 'A']);
+    }
+    failed = failures.length > 0;
+    console.log(`dashboard-walk (HOME4_ONLY): ${passed} passed, ${failures.length} failed`);
+    throw Object.assign(new Error('home 4 only'), { spaceOnly: true });
   }
   if (process.env.WIZARD_ONLY === '1') {
     // 782: only the New workspace wizard's rows: chat on at OS-chosen ports, a workspace and a bot, then the rows.
