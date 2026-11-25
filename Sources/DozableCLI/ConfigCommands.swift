@@ -164,8 +164,10 @@ struct ConfigShow: AsyncParsableCommand {
             // 669 (659 Q10): Dozable's own, and one line for the recipes; --all lists every recipe's keys too.
             let rows = all ? report.settings : report.settings.filter { $0.agent == nil }
             var t = [["SETTING", "VALUE", "SOURCE", "DEFAULT"]]
+            let declined = Self.declinedNote(settings: s, accounts: AccountStore(store: g.dozableStore, settings: s).load())
             for r in rows {
-                t.append([r.key, Self.shown(r.value), sourceWord(r), r.value == r.defaultValue ? "" : Self.shown(r.defaultValue)])
+                let value = Self.shown(r.value) + (r.key == SettingKey.macAccount ? declined.map { " — \($0)" } ?? "" : "")
+                t.append([r.key, value, sourceWord(r), r.value == r.defaultValue ? "" : Self.shown(r.defaultValue)])
             }
             Out.stdout(Out.table(t))
             if !all {
@@ -177,6 +179,15 @@ struct ConfigShow: AsyncParsableCommand {
         // 700: always-on off with the timeout 0 — nothing switches the daemon off by idling.
         if recipe == nil, let w = s.daemonIdleWarning { Out.stdout("\n\(w)\n") }
         Out.stdout("\nfile: \(report.path ?? "none (neither XDG_CONFIG_HOME nor HOME is set)")\(report.exists ? "" : " (not created yet — doz config init)")\n")
+    }
+
+    /// 778.B2: `mac.account` in a store that declined this Mac's login — what a fenced session uses instead
+    /// (`HostCore.fencedDefaultAccount`, the daemon's one rule), e.g. "declined by this store: none"; nil otherwise.
+    static func declinedNote(settings: DozableSettings, accounts: AccountsFile) -> String? {
+        guard accounts.macDeclined == true else { return nil }
+        let used = HostCore.fencedDefaultAccount(settings: settings, accounts: accounts)
+        guard used != settings.string(SettingKey.macAccount) else { return nil }
+        return "declined by this store: \(used)"
     }
 
     static func shown(_ v: TOMLValue) -> String {

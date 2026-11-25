@@ -23,7 +23,7 @@ final class MacFenceCapabilitiesTests: XCTestCase {
             let cli = run.dryRunShape(settings, fence: fence, workdir: "/Users/x/src/app", absolute: { $0 })
             let shared = MacCapabilityShape.planned(session: "claude", workdir: "/Users/x/src/app", argv: ["claude"], fenced: fence,
                                                     request: fence ? run.fenceRequest(settings, absolute: { $0 }) : nil,
-                                                    settings: settings, home: MacSessions.plannedHome())
+                                                    settings: settings, accounts: AccountsFile(), home: MacSessions.plannedHome())
             XCTAssertEqual(cli, shared, args.joined(separator: " "))
             XCTAssertEqual(MacFence.capabilities(cli), MacFence.capabilities(shared))
         }
@@ -51,7 +51,7 @@ final class MacFenceCapabilitiesTests: XCTestCase {
     func testThePlannedHistoryRowShowsTheHomeWithATilde() {
         let home = TestSafety.realHome.path
         let s = MacCapabilityShape.planned(session: "claude", workdir: home + "/src/app", argv: ["claude"], fenced: true,
-                                           request: MacFenceRequest(permissions: ["standard"]), settings: DozableSettings(text: nil), home: home)
+                                           request: MacFenceRequest(permissions: ["standard"]), settings: DozableSettings(text: nil), accounts: AccountsFile(), home: home)
         let history = MacFence.capabilities(s).first { $0.id == "history" }
         XCTAssertEqual(history?.state, "keep")
         XCTAssertTrue(history?.sentence.contains("~/.claude/projects/…") == true, history?.sentence ?? "no row")

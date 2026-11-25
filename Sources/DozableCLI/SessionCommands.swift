@@ -725,7 +725,8 @@ struct Run: AsyncParsableCommand {
         let argv = command.isEmpty ? [ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh", "-l"] : command
         return MacCapabilityShape.planned(session: session ?? (((MacPlace.program(argv) ?? argv[0]) as NSString).lastPathComponent), workdir: workdir, argv: argv,
                                           fenced: fence, request: fence ? fenceRequest(settings, absolute: absolute) : nil,
-                                          settings: settings, home: MacSessions.plannedHome())
+                                          settings: settings, accounts: AccountStore(store: g.dozableStore, settings: settings).load(),
+                                          home: MacSessions.plannedHome())
     }
 
     /// Whether this `doz run @mac` is fenced: the flag, else `mac.fence` (its environment variable, the file), else its

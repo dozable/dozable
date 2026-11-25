@@ -462,7 +462,8 @@ public struct WebMacPlan: Codable, Equatable, Sendable {
             q = f
         }
         let shape = MacCapabilityShape.planned(session: r.session ?? (r.program == .claude ? "claude" : (shell as NSString).lastPathComponent),
-                                               workdir: r.folder, argv: argv, fenced: fenced, request: q, settings: settings, home: home)
+                                               workdir: r.folder, argv: argv, fenced: fenced, request: q, settings: settings,
+                                               accounts: AccountStore(store: store, settings: settings).load(), home: home)
         let caps = MacFence.capabilities(shape)
         // Copy-only shapes: an unfenced case, Swift's toggles, the person's own agent config (or a Keychain the settings open).
         let why: String?

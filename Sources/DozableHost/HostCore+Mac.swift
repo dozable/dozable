@@ -114,7 +114,7 @@ extension HostCore {
 
     /// 778: the account a fenced session on this Mac uses when none is asked: `mac.account` when someone set it; else, when
     /// the store declined this Mac's login, the store's default account (never `mac`) or none; else `mac`.
-    static func fencedDefaultAccount(settings: DozableSettings, accounts: AccountsFile) -> String {
+    public static func fencedDefaultAccount(settings: DozableSettings, accounts: AccountsFile) -> String {
         let r = settings.resolve(SettingKey.macAccount)
         if r.source != .default, case .string(let s) = r.value, !s.isEmpty, !(s == "mac" && accounts.macDeclined == true) { return s }
         if accounts.macDeclined == true {

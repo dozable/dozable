@@ -87,7 +87,7 @@ public struct MacCapabilityShape: Sendable, Equatable {
     /// request (`agentConfig`/`history`/`account` as the flags gave them, nil: the settings) and the settings. One shape
     /// for both, so the page says exactly what the CLI says. `home`: the person's home (the agent folder's name).
     public static func planned(session: String, workdir: String, argv: [String], fenced: Bool, request q: MacFenceRequest?,
-                               settings: DozableSettings, home: String) -> MacCapabilityShape {
+                               settings: DozableSettings, accounts: AccountsFile, home: String) -> MacCapabilityShape {
         var s = MacCapabilityShape(session: session, workdir: workdir, fenced: fenced)
         s.claude = MacPlace.isClaude(argv)
         guard fenced, let q else { return s }
@@ -108,7 +108,9 @@ public struct MacCapabilityShape: Sendable, Equatable {
             s.agentConfig = MacAgentConfig.resolveMode(flag: q.agentConfig, recipe: r, settings: settings).0
             s.personHome = home + "/" + m.homeName
             s.history = settings.history(agent: r.id, own: q.history.map { TOMLValue.string($0) }).value
-            s.account = q.account ?? settings.string(SettingKey.macAccount) ?? "mac"
+            // 778.B2: the account the session will use — the daemon's one rule (a store that declined this Mac's login never
+            // falls back to `mac`).
+            s.account = q.account ?? HostCore.fencedDefaultAccount(settings: settings, accounts: accounts)
         }
         return s
     }

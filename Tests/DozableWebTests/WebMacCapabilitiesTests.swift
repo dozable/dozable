@@ -128,7 +128,7 @@ final class WebMacCapabilitiesTests: XCTestCase {
         let plan = Self.plan(r, settings: settings)
         var q = MacFenceRequest(permissions: ["standard"], localPorts: [3000])
         q.github = "read"
-        let shape = MacCapabilityShape.planned(session: "claude", workdir: r.folder, argv: ["claude"], fenced: true, request: q, settings: settings, home: "/Users/x")
+        let shape = MacCapabilityShape.planned(session: "claude", workdir: r.folder, argv: ["claude"], fenced: true, request: q, settings: settings, accounts: AccountsFile(), home: "/Users/x")
         XCTAssertEqual(plan.capabilities, MacFence.capabilities(shape).map(WebMacCapability.init))
         XCTAssertEqual(plan.describe, MacFence.capabilitiesText(MacFence.capabilities(shape)))
         XCTAssertEqual(plan.agentConfig, "private")
