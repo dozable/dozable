@@ -647,7 +647,8 @@ extension HostCore {
         let place: WorkerKickoff.Where = p.shared ? .shared(p.place) : p.isolation == .vm ? .vm : p.isolation == .unfenced ? .unfenced : .fenced
         let start = Data(WorkerKickoff.startText(name: name, workspace: n, room: p.rooms[0], task: p.entry.task ?? "", director: p.director, place: place,
                                                  skills: p.bot?.skills ?? [], instructions: instructions,
-                                                 inbox: p.isolation == .unfenced && p.bot?.deliver == "inbox").utf8)
+                                                 inbox: p.isolation == .unfenced && p.bot?.deliver == "inbox",
+                                                 skillFiles: AgentSkillFiles.paths(AgentSkillFiles.worker, isolation: p.isolation)).utf8)
         let vars = WorkerLaunch.tokenVariables(name: name, shared: p.shared)
         let plan: ManagerLaunch.Plan
         switch p.isolation {

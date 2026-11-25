@@ -627,7 +627,8 @@ if [[ -z "$DRY_RUN" ]]; then
         [[ -L "$packed/bin/dozchat" && "$(readlink "$packed/bin/dozchat")" == ../libexec/doz/dozchat-mac ]] || fail "bin/dozchat in the tarball is not the link to dozchat-mac"
     fi
     # 675 (H8): the layout contract — docs/manual/33-bundling-doz-in-an-app.md. Checked on what people download.
-    for f in doz VERSION RELEASE DozableKit_DozableKit.bundle/deckhold DozableKit_DozableKit.bundle/skills/doz/SKILL.md "kernels/$KERNEL_NAME" licences/kernel/PROVENANCE.md licences/kernel/kernel.config \
+    for f in doz VERSION RELEASE DozableKit_DozableKit.bundle/deckhold DozableKit_DozableKit.bundle/skills/doz/SKILL.md \
+             DozableKit_DozableKit.bundle/skills/chat-room-member/SKILL.md DozableKit_DozableKit.bundle/skills/chat-worker/SKILL.md "kernels/$KERNEL_NAME" licences/kernel/PROVENANCE.md licences/kernel/kernel.config \
              manual/llms.txt manual/llms-full.txt manual/VERSION manual/01-getting-started.md; do
         [[ -e "$packed/libexec/doz/$f" ]] || fail "the tarball has no libexec/doz/$f (the layout contract)"
     done

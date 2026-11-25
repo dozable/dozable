@@ -285,17 +285,26 @@ extension HostCore {
                 logAgentJoined(n, agent: bot, room: room)
             }
         }
-        // 3. The kick-off, as you, before the manager — once. The first run opens just before it (each room's last seq its
-        // start marker, as data): the brief is the run's first message.
+        // 3. The first run opens (each room's last seq its start marker, as data); the kick-off — the brief, as you, once —
+        // is posted AFTER the manager's session is started (below), so a manager reached by inbox has a session to be
+        // handed it (posted before, it was marked failed: no running Claude session). A polling manager collects it with
+        // its first receive either way. Order: the run opened → the manager started → the brief.
         var kickedOff = false
+        var kickoffDue = false
         if rec.flags.startedAt == nil, w.noRun == true {
             // 765: `up --no-run` — started with no run: nothing posted (the goal is posted when a run opens).
             rec = try await workspaceUpdate(n) { r in r.flags.startedAt = Date(); return [] }
             notes.append("no run is open (--no-run): the brief is not posted — doz workspace run \(n) opens one")
         } else if rec.flags.startedAt == nil {
             _ = try? await openRun(n)
+            kickoffDue = true
+        }
+        /// The kick-off, once: the first run's opening message (771: the brief, then any accepted lesson), and `startedAt`.
+        /// A post that fails leaves `startedAt` nil — the next start posts it.
+        func kickOff() async throws {
+            guard kickoffDue else { return }
+            kickoffDue = false
             if let room, let chat, ready {
-                // 771: the first run's opening message — the brief, then any accepted lesson.
                 let text = WorkDescription.openingMessage(brief: workspaceBriefText(rec) ?? "", refs: rec.brief.refs, addenda: rec.addenda, goal: nil)
                 try chat.post(room: room, content: text)
                 kickedOff = true
@@ -310,6 +319,7 @@ extension HostCore {
         }
         // No manager: you drive.
         guard let m = rec.manager, let bot = m.bot else {
+            try await kickOff()
             note(nil, "workspace \(n) started (no manager)")
             return WorkspaceStarted(name: n, kickedOff: kickedOff, notes: notes.isEmpty ? nil : notes,
                                     workspace: await startDone(n, rec))
@@ -318,6 +328,8 @@ extension HostCore {
         let place = m.place.sandbox ?? m.place.session ?? ManagerLaunch.sessionName(workspace: n)
         let info = await managerLauncher.info(isolation: iso, place: place)
         if info.running {
+            // Its session runs (a start whose brief could not be posted, tried again): the brief now.
+            try await kickOff()
             notes.append("\(bot) is running already")
             return WorkspaceStarted(name: n, kickedOff: kickedOff, manager: bot, isolation: iso.rawValue, session: place, alreadyRunning: true,
                                     notes: notes, workspace: await startDone(n, rec))
@@ -329,7 +341,8 @@ extension HostCore {
         } catch {
             let e = HostError.from(error)
             throw HostError(e.code, "\(bot) did not start: \(e.message)"
-                            + (rec.flags.startedAt != nil ? " — doz workspace start \(n) again (the brief is not posted twice)" : ""))
+                            + (kickoffDue ? " — nothing was posted; doz workspace start \(n) again"
+                                          : " — doz workspace start \(n) again (the brief is not posted twice)"))
         }
         notes += launched.notes
         // 6. The record.
@@ -341,6 +354,17 @@ extension HostCore {
                                       fingerprint: launched.fingerprint)]
         }
         note(nil, "workspace \(n): manager \(bot) started (\(iso.rawValue), \(place)), token fp \(launched.fingerprint)")
+        // 7. The kick-off. A manager reached by inbox: once its Claude Code has recorded itself (bounded), so the brief is
+        // handed to it, not failed.
+        if kickoffDue {
+            if iso == .unfenced, let b = try? bots.read().bot(bot), b.deliver == "inbox",
+               !(await managerSessionRecorded(place)) {
+                notes.append("\(bot)'s Claude Code had not recorded its session yet — the brief may be marked not delivered to it (it is in its START)")
+            }
+            do { try await kickOff() } catch {
+                throw HostError(HostError.from(error).code, "\(bot) started, but the brief could not be posted: \(HostError.from(error).message) — doz workspace start \(n) again posts it")
+            }
+        }
         return WorkspaceStarted(name: n, kickedOff: kickedOff, manager: bot, isolation: iso.rawValue, session: place,
                                 notes: notes.isEmpty ? nil : notes, workspace: await startDone(n, rec))
     }
@@ -373,7 +397,8 @@ extension HostCore {
         let start = Data(ManagerKickoff.startText(bot: bot, workspace: rec.name, room: rec.mainRoom?.chatRoom ?? rec.name, isolation: iso,
                                                   skills: b.skills, instructions: instructions,
                                                   brief: WorkDescription.goal(brief: workspaceBriefText(rec) ?? "", addenda: rec.addenda),
-                                                  refs: rec.brief.refs, inbox: iso == .unfenced && b.deliver == "inbox").utf8)
+                                                  refs: rec.brief.refs, inbox: iso == .unfenced && b.deliver == "inbox",
+                                                  skillFiles: AgentSkillFiles.paths(AgentSkillFiles.manager, isolation: iso)).utf8)
         var notes: [String] = []
         let fingerprint: String
         let plan: ManagerLaunch.Plan
@@ -672,8 +697,13 @@ extension HostCore {
         let dir = home + "/" + l.startDir
         let base = home + "/" + ManagerLaunch.vmStartFolder
         let owned = dir == base ? "'\(dir)'" : "'\(base)' '\(dir)'"
-        let script = "set -e; umask 077; mkdir -p '\(dir)'; printf %s '\(l.start.base64EncodedString())' | base64 -d > '\(dir)/start.md'; "
+        // The chat skills START names (`AgentSkillFiles`): copied beside it under ~/.doz-workspace/skills/NAME/SKILL.md.
+        let skills = AgentSkillFiles.vmCopies(AgentSkillFiles.chatSkills).sorted { $0.key < $1.key }.map { name, data in
+            "mkdir -p '\(home)/\(AgentSkillFiles.vmFolder)/\(name)'; printf %s '\(data.base64EncodedString())' | base64 -d > '\(home)/\(AgentSkillFiles.vmFolder)/\(name)/SKILL.md'; "
+        }.joined()
+        let script = "set -e; umask 077; mkdir -p '\(dir)'; printf %s '\(l.start.base64EncodedString())' | base64 -d > '\(dir)/start.md'; " + skills
             + (dir == base ? "chown -R '\(user)' '\(dir)'; " : "chown '\(user)' \(owned); chown -R '\(user)' '\(dir)'; ")
+            + (skills.isEmpty ? "" : "chown -R '\(user)' '\(home)/\(AgentSkillFiles.vmFolder)'; ")
             + "chmod 0700 \(owned); chmod 0600 '\(dir)/start.md'"
         let x = try await m.sandbox.exec(["sh", "-c", script], timeoutSeconds: 30)
         if x.exitCode != 0 { throw HostError(.failed, "could not put START in \(l.sandbox) (exit \(x.exitCode))") }
@@ -782,5 +812,37 @@ extension HostCore {
             removed += 1
         }
         if removed > 0 { HostLog.line("workspaces: \(removed) manager token folder\(removed == 1 ? "" : "s") of no running session deleted") }
+    }
+}
+
+extension HostCore {
+    /// Whether a Claude Code session named `name` has recorded itself in the sessions folder the chat server reads (a
+    /// `<pid>.json` of a running pid with that name and a socket) — waiting up to `timeout` for it. Read only.
+    func managerSessionRecorded(_ name: String, timeout: Duration = .seconds(20)) async -> Bool {
+        let folder = ChatClaudeSessions.folder()
+        let clock = ContinuousClock()
+        let deadline = clock.now + timeout
+        while true {
+            if ClaudeSessionRecords.running(named: name, in: folder) { return true }
+            if clock.now >= deadline { return false }
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+    }
+}
+
+/// Claude Code's session records on this Mac, as the chat server reads them (`ChatInbox`): `<pid>.json` with `name`,
+/// `messagingSocketPath`, a pid that runs. Read only — nothing there is written.
+public enum ClaudeSessionRecords {
+    public static func running(named name: String, in folder: String) -> Bool {
+        let folder = MacFencePaths.resolve(folder) ?? folder
+        guard !name.isEmpty, let files = try? FileManager.default.contentsOfDirectory(atPath: folder) else { return false }
+        for f in files where f.hasSuffix(".json") {
+            guard let pid = Int32(f.dropLast(5)), pid > 0,
+                  let d = try? MacFenceHostFS.readRegular(folder + "/" + f, maximum: 64 << 10),
+                  let o = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any],
+                  o["name"] as? String == name, let sock = o["messagingSocketPath"] as? String, !sock.isEmpty else { continue }
+            if kill(pid, 0) == 0 { return true }
+        }
+        return false
     }
 }

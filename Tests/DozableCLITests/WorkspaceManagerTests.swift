@@ -198,7 +198,7 @@ final class WorkspaceManagerTests: BotTestCase {
         XCTAssertTrue(s.kickedOff)
         XCTAssertEqual(s.manager, "mira")
         XCTAssertEqual(s.session, "demo")
-        XCTAssertEqual(trace.all, ["invite mira demo", "post demo", "open demo"], "check → invite → post → open")
+        XCTAssertEqual(trace.all, ["invite mira demo", "open demo", "post demo"], "check → invite → open → post: the brief after the manager starts")
         XCTAssertEqual(wchat.posts.first?.1, "Make the launch video.")
         let o = try XCTUnwrap(launcher.orders.first)
         XCTAssertEqual(o.isolation, .fenced)
@@ -212,7 +212,8 @@ final class WorkspaceManagerTests: BotTestCase {
                        || String(decoding: o.start, as: UTF8.self).contains("dzc_"), "no token in what is launched")
         let rec = try XCTUnwrap(record("demo"))
         XCTAssertNotNil(rec.flags.startedAt)
-        XCTAssertEqual(try WorkspaceStore(store: store).log("demo").map(\.action).suffix(5), ["bot-invited", "agent-joined", "run-opened", "kicked-off", "manager-started"])
+        XCTAssertEqual(try WorkspaceStore(store: store).log("demo").map(\.action).suffix(5), ["bot-invited", "agent-joined", "run-opened", "manager-started", "kicked-off"],
+                       "the run opened → the manager started → the brief")
         let logText = String(decoding: try Data(contentsOf: URL(fileURLWithPath: WorkspaceStore(store: store).folder("demo") + "/log.jsonl")), as: UTF8.self)
         XCTAssertFalse(logText.contains("Make the launch video") || logText.contains("dzc_"), "the log has hashes, never the brief or a token")
         XCTAssertTrue(logText.contains(BotTokens.fingerprint(token)))
@@ -241,29 +242,44 @@ final class WorkspaceManagerTests: BotTestCase {
         XCTAssertEqual(trace.all, [])
     }
 
-    func testAPostFailureOpensNothing() async throws {
+    /// The brief is posted after the manager starts: a post that fails then leaves the manager running and the brief owed —
+    /// the next start posts it (once), nothing opened again.
+    func testAPostFailureAfterTheLaunchIsPostedByTheNextStart() async throws {
         let c = await mgr()
         try await newBot(c)
         _ = try await newWorkspace(c)
         wchat.failPost = true
         let m = await ws(c, .workspaceStart, "demo")
-        XCTAssertNotNil(m.error)
+        XCTAssertTrue(m.error?.message.contains("mira started, but the brief could not be posted") == true, m.error?.message ?? "")
+        XCTAssertTrue(m.error?.message.contains("doz workspace start demo again posts it") == true)
         XCTAssertNil(try record("demo")?.flags.startedAt)
-        XCTAssertEqual(launcher.orders.count, 0)
+        XCTAssertEqual(launcher.orders.count, 1, "the manager was started")
+        wchat.failPost = false
+        let s = try started(await ws(c, .workspaceStart, "demo"))
+        XCTAssertTrue(s.kickedOff)
+        XCTAssertEqual(s.alreadyRunning, true)
+        XCTAssertEqual(launcher.orders.count, 1, "not opened again")
+        XCTAssertEqual(wchat.posts.count, 1)
+        XCTAssertNotNil(try record("demo")?.flags.startedAt)
     }
 
-    func testAnOpenFailureKeepsTheKickOffAndARetryPostsNothing() async throws {
+    /// A launch that fails posts nothing (the brief is posted after the manager starts); the next start posts it once.
+    func testAnOpenFailurePostsNothingAndARetryPostsTheBriefOnce() async throws {
         let c = await mgr()
         try await newBot(c)
         _ = try await newWorkspace(c)
         launcher.failLaunch = true
         let m = await ws(c, .workspaceStart, "demo")
-        XCTAssertTrue(m.error?.message.contains("doz workspace start demo again (the brief is not posted twice)") == true, m.error?.message ?? "")
-        XCTAssertNotNil(try record("demo")?.flags.startedAt)
+        XCTAssertTrue(m.error?.message.contains("nothing was posted; doz workspace start demo again") == true, m.error?.message ?? "")
+        XCTAssertNil(try record("demo")?.flags.startedAt)
+        XCTAssertEqual(wchat.posts.count, 0)
         launcher.failLaunch = false
         let s = try started(await ws(c, .workspaceStart, "demo"))
-        XCTAssertFalse(s.kickedOff)
+        XCTAssertTrue(s.kickedOff)
         XCTAssertEqual(wchat.posts.count, 1, "the brief is posted once")
+        XCTAssertEqual(try WorkspaceStore(store: store).log("demo").filter { $0.action == "run-opened" }.count, 1, "one run")
+        _ = try started(await ws(c, .workspaceStart, "demo"))
+        XCTAssertEqual(wchat.posts.count, 1, "never twice")
     }
 
     func testOneLiveWorkspacePerBot() async throws {

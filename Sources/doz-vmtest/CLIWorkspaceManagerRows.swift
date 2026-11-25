@@ -10,7 +10,8 @@ import DozableHost
 //
 //  12. bot new mira (fenced, poll); workspace new mgr --manager mira: fenced, not started, setting up, the room empty
 //  13. a gap (a folder removed, chat off): start refused listing every gap; the record unchanged; nothing posted; no session
-//  14. start mgr: the room has the invite, then your brief as your first message, then mira's "is up"; sessions @mac --json
+//  14. start mgr: the room has the invite, then your brief as your first message (posted once mira's session is started —
+//      the log: run-opened → manager-started → kicked-off) and mira's "is up"; sessions @mac --json
 //      shows it fenced in workspace mgr; the state idle or working
 //  15. the leak sweep: no dzc_ in ps, sessions.json, workspace.json, log.jsonl, daemon.log, server.log or any --json;
 //      etc/secrets/CHAT_TOKEN holds a doz_cred_ placeholder; the record's secret has bot mira and no item
@@ -23,9 +24,11 @@ import DozableHost
 //  19i. an unfenced manager bot reached by INBOX (the 0.60.0 bug: a Claude Code started without --name records a name
 //      of its own, so the chat server never found it): the FAKE claude here records itself in the scratch sessions folder
 //      as Claude Code does — the name it was given with --name, else its folder's name and some hex — with a socket the
-//      suite listens on. Start: it is named after its session, presence is not "not running", your message is in its
-//      inbox (delivered), `dozchat protocol` with its token is queued into its inbox, START never says to poll;
-//      stop: its record gone, the token file gone
+//      suite listens on. Start: it is named after its session, presence is not "not running", the kick-off brief and
+//      your message are in its inbox (delivered, never failed), `dozchat protocol` with its token is queued into its
+//      inbox, START never says to poll and names the chat-room-member skill's file by its absolute path (nothing under
+//      the fence home's ~/.claude); stop + start, then sleep + wake: the same session name recorded, a message delivered
+//      again; stop: its record gone, the token file gone
 //  20. a VM manager recorded, no VM booted: new vmw --manager vera --manager-isolation vm → vm; a sandbox of its name
 //      already there → the check lists it; nothing boots
 //  21. refusals: an unknown, retired or elsewhere bot; a fenced inbox bot (the fix named); a webhook bot; releasing a
@@ -176,8 +179,13 @@ func cliWorkspaceManagerRows(_ h: CLIHarness, root: URL, store: DozableStore, st
     let invited = ms.firstIndex { ($0["content"] as? String)?.lowercased().contains("invited mira") == true }
     let briefAt = ms.firstIndex { $0["from"] as? String == "ada" && ($0["content"] as? String)?.contains(marker) == true }
     let upAt = ms.firstIndex { $0["from"] as? String == "mira" }
-    check(invited != nil && briefAt != nil && upAt != nil && invited! < briefAt! && briefAt! < upAt!,
-          "14 …the invite, then your brief, then mira (\(invited ?? -1), \(briefAt ?? -1), \(upAt ?? -1))")
+    // The brief is posted once mira's session is started: after the invite; mira's "is up" may come before or after it.
+    check(invited != nil && briefAt != nil && upAt != nil && invited! < briefAt! && invited! < upAt!,
+          "14 …the invite, then your brief and mira (\(invited ?? -1), \(briefAt ?? -1), \(upAt ?? -1))")
+    let logActions = text(ws.folder("mgr") + "/log.jsonl").components(separatedBy: "\n").compactMap { l -> String? in
+        ((try? JSONSerialization.jsonObject(with: Data(l.utf8))) as? [String: Any])?["action"] as? String }
+    let iRun = logActions.firstIndex(of: "run-opened"), iMgr = logActions.firstIndex(of: "manager-started"), iKick = logActions.firstIndex(of: "kicked-off")
+    check(iRun != nil && iMgr != nil && iKick != nil && iRun! < iMgr! && iMgr! < iKick!, "14 …the log: the run opened → the manager started → the brief (\(logActions.suffix(6)))")
     check(mine("mgr").count == 1 && mine("mgr").first.map { ($0["content"] as? String)?.contains(marker) == true } == true,
           "14 …the brief is your first message")
     let row = macRow("mgr")
@@ -340,8 +348,27 @@ func cliWorkspaceInboxManagerRow(_ h: CLIHarness, mbrief: String, mwork: String,
     let folder = ((try? fm.contentsOfDirectory(atPath: temp)) ?? []).filter { $0.hasPrefix("doz-") }
         .map { temp + "/" + $0 + "/manager-inbx" }.first { fm.fileExists(atPath: $0) } ?? ""
     let startText = (try? String(contentsOfFile: folder + "/start.md", encoding: .utf8)) ?? ""
-    check(startText.contains("arrives in this session by itself") && !startText.contains("`dozchat receive --wait 60 --ack` to collect"),
-          "19i START says what is said arrives in the session, never to poll (\(startText.count) bytes)")
+    check(startText.contains("arrives in this session by itself") && !startText.contains("dozchat receive"),
+          "19i START says what is said arrives in the session, names no dozchat receive (\(startText.count) bytes)")
+    let skillLine = startText.split(separator: "\n").first { $0.hasPrefix("- chat-room-member: read /") }.map(String.init) ?? ""
+    let skillPath = String(skillLine.dropFirst("- chat-room-member: read ".count))
+    check(skillPath.hasPrefix("/") && skillPath.hasSuffix("/DozableKit_DozableKit.bundle/skills/chat-room-member/SKILL.md")
+          && ((try? String(contentsOfFile: skillPath, encoding: .utf8)) ?? "").hasPrefix("---\nname: chat-room-member"),
+          "19i START names the chat-room-member skill's file by its absolute path, beside this doz (\(skillLine))")
+    let fenceHome = (h.env["DOZ_TEST_FENCE_HOME"] ?? "") + "/.claude"
+    check(!fm.fileExists(atPath: fenceHome + "/skills/chat-room-member"), "19i …nothing written under ~/.claude (the fence home's)")
+    // The kick-off brief, posted once the session runs: handed to it, never failed.
+    func state(_ needle: String) -> String {
+        let all = (try? JSONSerialization.jsonObject(with: h.run(["chat", "read", "inbx", "--json"]).outData)) as? [[String: Any]] ?? []
+        guard let m = all.first(where: { $0["from"] as? String == "ada" && ($0["content"] as? String)?.contains(needle) == true }),
+              let d = try? JSONSerialization.data(withJSONObject: m) else { return "" }
+        return String(decoding: d, as: UTF8.self)
+    }
+    let briefMark = ((try? String(contentsOfFile: mbrief, encoding: .utf8)) ?? "").components(separatedBy: " ").last?
+        .trimmingCharacters(in: .whitespacesAndNewlines) ?? "MANAGER-BRIEF"
+    check(h.waitFor(10) { state(briefMark).contains("in the session's inbox in") } && !state(briefMark).contains("\"failed\""),
+          "19i the kick-off brief is delivered into its inbox, not failed (\(state(briefMark).suffix(300)))")
+    check(inbox.texts.contains { $0.contains(briefMark) }, "19i …the brief's text is in the session's inbox")
     // Presence.
     r = h.run(["chat", "who"])
     let row = r.out.split(separator: "\n").first { $0.hasPrefix("boss") }.map(String.init) ?? ""
@@ -374,6 +401,24 @@ func cliWorkspaceInboxManagerRow(_ h: CLIHarness, mbrief: String, mwork: String,
     let e = String(decoding: err.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
     check(p.terminationStatus == 0 && !e.contains("no running Claude session"), "19i dozchat protocol answers (\(p.terminationStatus) \(e.prefix(160)))")
     check(h.waitFor(10) { inbox.texts.count > before }, "19i …the protocol is in its inbox")
+    // Stop + start, then sleep + wake: the same name recorded again, a message delivered again.
+    func deliveredAgain(_ label: String) {
+        check(h.waitFor(15) { records().contains { $0["name"] as? String == "inbx" } }, "\(label): the session name inbx is recorded again (\(records().map { $0["name"] as? String ?? "?" }))")
+        let again = "AGAIN-\(UUID().uuidString.prefix(8))"
+        _ = h.run(["chat", "send", "inbx", "again @boss \(again)"])
+        check(h.waitFor(10) { inbox.texts.contains { $0.contains(again) } } && h.waitFor(10) { state(again).contains("in the session's inbox in") },
+              "\(label): …a message is delivered into its inbox again (\(state(again).suffix(200)))")
+    }
+    r = h.run(["workspace", "manager", "stop", "inbx"], timeout: 60)
+    check(r.code == 0 && h.waitFor(10) { !records().contains { $0["name"] as? String == "inbx" } }, "19i stop inbx (\(r.code))")
+    r = h.run(["workspace", "start", "inbx"], timeout: 120)
+    check(r.code == 0 && !r.out.contains("posted the brief"), "19i start inbx again: nothing posted (\(r.code) \(r.err.prefix(200)))")
+    deliveredAgain("19i after stop + start")
+    r = h.run(["workspace", "sleep", "inbx"], timeout: 180)
+    check(r.code == 0 && h.waitFor(10) { !records().contains { $0["name"] as? String == "inbx" } }, "19i sleep inbx (\(r.code) \(r.err.prefix(200)))")
+    r = h.run(["workspace", "wake", "inbx"], timeout: 180)
+    check(r.code == 0, "19i wake inbx (\(r.code) \(r.err.prefix(200)))")
+    deliveredAgain("19i after sleep + wake")
     // Stop: the session ends, its record goes with it, the token folder too.
     r = h.run(["workspace", "manager", "stop", "inbx"], timeout: 60)
     check(r.code == 0 && h.waitFor(10) { !records().contains { $0["name"] as? String == "inbx" } } && !fm.fileExists(atPath: folder),

@@ -548,7 +548,8 @@ extension HostCore {
         let wherePlace: WorkerKickoff.Where = shared ? .shared(place) : iso == .vm ? .vm : iso == .unfenced ? .unfenced : .fenced
         let start = Data(WorkerKickoff.startText(name: name, workspace: n, room: room, task: a.task ?? "", director: director, place: wherePlace,
                                                  skills: bot?.skills ?? [], instructions: bot.flatMap { bots.readInstructions($0.name) },
-                                                 inbox: iso == .unfenced && bot?.deliver == "inbox").utf8)
+                                                 inbox: iso == .unfenced && bot?.deliver == "inbox",
+                                                 skillFiles: AgentSkillFiles.paths(AgentSkillFiles.worker, isolation: iso)).utf8)
         let vars = WorkerLaunch.tokenVariables(name: name, shared: shared)
         var newToken = false
         /// An anonymous worker's new token: its participant's replaced (the old one refused from now on).

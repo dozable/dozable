@@ -267,6 +267,8 @@ public actor MacSessions {
         fence.dozExecutable = MacFencePaths.resolve(HostLauncher.executablePath)
         // dozchat, the chat-room member: always, when this build carries it (no setting).
         fence.dozchatExecutable = MacDozchat.forFence()
+        // The chat skills' files, read by path from START.
+        fence.chatSkillFiles = AgentSkillFiles.forFence()
         if fence.sshAgent { fence.agentSocket = try Self.door(places.socketDirectory, session, "agent") }
         if fence.github != nil {
             fence.ghSocket = try Self.door(places.socketDirectory, session, "gh")
