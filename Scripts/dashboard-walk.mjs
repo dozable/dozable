@@ -3109,6 +3109,8 @@ async function walkSpace() {
     await clickAt(`[...document.querySelectorAll('#space .space-editor #se-problems-list .prob.k-ask')].find((b) => /Ship the editor/.test(b.textContent))`);
     await waitFor(`!!${SE('dialog.ask-dlg[open] .ask-option')}`, 8000);
     await clickAt(`[...document.querySelectorAll('#space .space-editor dialog.ask-dlg .ask-option')].find((b) => b.textContent === 'Yes')`);
+    // (Send is enabled once the option is chosen: waited for, never clicked before)
+    await waitFor(`!![...document.querySelectorAll('#space .space-editor dialog.ask-dlg .dlg-foot button')].find((b) => b.textContent === 'Send' && !b.disabled)`, 8000);
     await clickAt(`[...document.querySelectorAll('#space .space-editor dialog.ask-dlg .dlg-foot button')].find((b) => b.textContent === 'Send')`);
     const answered = await waitFor(`[...state.ops.values()].filter((o) => o.action === 'chat-decide' && o.state === 'done').length > ${decidedBefore}`, 30000);
     const isOpen = () => ((dozJSON(['chat', 'asks', 'spc3']) || {}).asks || []).some((a) => a.msgId === askId);
