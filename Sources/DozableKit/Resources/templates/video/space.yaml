@@ -15,12 +15,12 @@ agents:
   manager:
     external: { bot: {{manager}} }
     role: manager
-  editor:
+  {{who}}-editor:
     kind: claude-code
     role: worker
     where: studio
     prompt: Write and change the Remotion project in /workspace as the room asks.
-  renderer:
+  {{who}}-renderer:
     kind: claude-code
     role: worker
     where: studio
@@ -28,7 +28,7 @@ agents:
 
 chat:
   rooms:
-    {{space}}: { main: true, members: [owner, manager, editor, renderer] }
+    {{space}}: { main: true, members: [owner, manager, {{who}}-editor, {{who}}-renderer] }
 
 x-dozable:
   lifetime: standing

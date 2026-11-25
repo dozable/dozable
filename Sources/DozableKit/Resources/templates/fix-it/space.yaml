@@ -17,24 +17,24 @@ agents:
   manager:
     external: { bot: {{manager}} }
     role: manager
-  builder:
+  {{who}}-builder:
     kind: claude-code
     role: worker
     where: build
     prompt: Build the project in /workspace after each change and post the result in the room.
-  tester:
+  {{who}}-tester:
     kind: claude-code
     role: worker
     where: build
     prompt: Run the tests after each build; post failures in the room and record each run's outcome in the journal.
-  reviewer:
+  {{who}}-reviewer:
     kind: claude-code
     role: reviewer
     where: desk
     access: ro
     network: { preset: locked, allow: [github.com] }
     prompt: Review each change the builder reports, read-only, and post your findings; propose a lesson when one recurs.
-  helper:
+  {{who}}-helper:
     kind: claude-code
     role: worker
     where: desk
@@ -42,7 +42,7 @@ agents:
 
 chat:
   rooms:
-    {{space}}: { main: true, members: [owner, manager, builder, tester, reviewer, helper] }
+    {{space}}: { main: true, members: [owner, manager, {{who}}-builder, {{who}}-tester, {{who}}-reviewer, {{who}}-helper] }
 
 persist:
   team-chat: { room: {{space}} }
@@ -63,5 +63,5 @@ x-dozable:
   feeds:
     journal: { to: room }
   permissions:
-    reviewer: [reviewer]
+    {{who}}-reviewer: [reviewer]
     manager: [description.decide]

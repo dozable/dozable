@@ -49,6 +49,23 @@ final class WorkspaceTemplatesTests: XCTestCase {
         XCTAssertThrowsError(try WorkspaceTemplates.render("build-review", space: "w", owner: "you", manager: nil, folder: "/x"), "a manager is needed")
     }
 
+    /// Chat names are global: each template's own agents are named for the workspace, under chat's rule (a letter first,
+    /// at most 40), so two workspaces from one template never share one.
+    func testTwoWorkspacesFromOneTemplateDoNotShareAgentNames() throws {
+        let a = try WorkspaceTemplates.render("fix-it", space: "w1", owner: "you", manager: "mira", folder: "/x").space
+        let b = try WorkspaceTemplates.render("fix-it", space: "w2", owner: "you", manager: "mira", folder: "/x").space
+        XCTAssertTrue(a.contains("  w1-builder:") && b.contains("  w2-builder:") && a.contains("members: [owner, manager, w1-builder"))
+        XCTAssertTrue(a.contains("w1-reviewer: [reviewer]"), "the permissions key follows; the role stays")
+        let long = String(repeating: "a", count: 40), digit = "3d-video"
+        for space in [long, digit, "workspace12"] {
+            let who = WorkspaceTemplates.who(space)
+            XCTAssertNil(ChatNames.refusal(who + "-reviewer"), "\(space) → \(who)")
+        }
+        XCTAssertEqual(WorkspaceTemplates.who("3d-video"), "w3d-video")
+        let bare = try WorkspaceTemplates.render("solo", space: "w", owner: "you", manager: nil, folder: "/x", bareNames: true).space
+        XCTAssertTrue(bare.contains("  agent:") && !bare.contains("{{"), "the gallery's drawing says the plain names")
+    }
+
     func testIDsArePlainNames() {
         XCTAssertTrue(WorkspaceTemplates.isID("fix-it"))
         for bad in ["", "../skills", "Fix", "a/b", String(repeating: "a", count: 41)] { XCTAssertFalse(WorkspaceTemplates.isID(bad), bad) }

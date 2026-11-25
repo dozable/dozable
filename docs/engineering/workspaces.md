@@ -192,7 +192,9 @@ review), `fix-it` (Fix-it team, the canonical demo made generic), `video` (Remot
 found as the skills are; `ORDER` gives the gallery's order; read-only, replaced by the next install; the release's layout
 check names each). `template.json` is what the gallery reads (`id, version, title, summary, needs.manager, agents [{name,
 role, where, readOnly?}], room, network`); `space.yaml` is space/3.1 with four placeholders — `{{space}}`, `{{owner}}` (you
-as chat knows you: up checks it), `{{manager}}`, `{{folder}}` — rendered each as a JSON string (`${…}` is a space file's own
+as chat knows you: up checks it), `{{manager}}`, `{{folder}}` — rendered each as a JSON string — and `{{who}}`, the
+prefix of the template's own agents' names (chat names are global: two workspaces from one template must not share
+`builder`; `WorkspaceTemplates.who` — the workspace's name, a letter first, room left for `-reviewer` under 40) (`${…}` is a space file's own
 environment substitution, so the placeholders are not). No template runs an agent unfenced; one that needs a manager takes
 your bot (`external: {bot}`: space files refuse an owned manager).
 - **Making one** (`WorkspaceTemplateMaker.make`, in the CLI's module — the resolver's): the next free name when none is

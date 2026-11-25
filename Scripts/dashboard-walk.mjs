@@ -1148,8 +1148,8 @@ async function walkTemplateCreate() {
   check(made, `template 1 Create and start → #/w/${name}/room` + (made ? '' : ' ' + JSON.stringify(await evaluate(`({ err: document.querySelector('[data-wsn-error]')?.textContent, ops: [...state.ops.values()].slice(-3).map((o) => [o.action, o.state, o.text]) })`))));
   const d = dozJSON(['workspace', 'show', name]) || {};
   const file = PROJECTS + '/' + name + '/' + name + '.space.yaml';
-  check(existsSync(file) && existsSync(PROJECTS + '/' + name + '/DESCRIPTION.md') && (d.agents || []).some((a) => a.name === 'agent'),
-    `template 1 ${name}: its space file and description in its own folder, its agent "agent"`);
+  check(existsSync(file) && existsSync(PROJECTS + '/' + name + '/DESCRIPTION.md') && (d.agents || []).some((a) => a.name === name + '-agent'),
+    `template 1 ${name}: its space file and description in its own folder, its agent "${name}-agent"`);
   if (SHOTS) await shot('wizard-light-03-done');
   check(pageErrors.length === errorsBefore, 'template: no page error' + (pageErrors.length > errorsBefore ? ': ' + pageErrors.slice(errorsBefore).join(' | ') : ''));
 }

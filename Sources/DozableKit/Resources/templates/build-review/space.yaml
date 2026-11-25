@@ -15,12 +15,12 @@ agents:
   manager:
     external: { bot: {{manager}} }
     role: manager
-  builder:
+  {{who}}-builder:
     kind: claude-code
     role: worker
     where: box
     prompt: Build what is asked in the room, in /workspace, and say what changed after each change.
-  reviewer:
+  {{who}}-reviewer:
     kind: claude-code
     role: reviewer
     where: desk
@@ -30,7 +30,7 @@ agents:
 
 chat:
   rooms:
-    {{space}}: { main: true, members: [owner, manager, builder, reviewer] }
+    {{space}}: { main: true, members: [owner, manager, {{who}}-builder, {{who}}-reviewer] }
 
 x-dozable:
   lifetime: standing
@@ -42,4 +42,4 @@ x-dozable:
       isolation: fenced
       network: { preset: standard, allow: [github.com] }
   permissions:
-    reviewer: [reviewer]
+    {{who}}-reviewer: [reviewer]

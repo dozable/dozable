@@ -12,7 +12,7 @@ folders:
   work: { external: {{folder}}, main: true }
 
 agents:
-  agent:
+  {{who}}-agent:
     kind: claude-code
     role: worker
     where: box
@@ -20,7 +20,7 @@ agents:
 
 chat:
   rooms:
-    {{space}}: { main: true, members: [owner, agent] }
+    {{space}}: { main: true, members: [owner, {{who}}-agent] }
 
 x-dozable:
   lifetime: standing

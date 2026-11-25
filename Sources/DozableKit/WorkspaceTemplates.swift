@@ -41,7 +41,19 @@ public struct WorkspaceTemplate: Codable, Equatable, Sendable {
 
 public enum WorkspaceTemplates {
     public static let folder = "templates"
-    public static let placeholders = ["space", "owner", "manager", "folder"]
+    public static let placeholders = ["space", "owner", "manager", "folder", "who"]
+    /// The longest agent name a template gives (`reviewer`, `renderer`): a prefix leaves room for it under chat's 40.
+    static let longestAgent = 8
+
+    /// `{{who}}`: the prefix of the template's own agents' names — chat names are global, so two workspaces from one
+    /// template must not share them. The workspace's name, cut to leave room for `-reviewer` under chat's 40 characters, and
+    /// starting with a letter (a chat name's rule).
+    public static func who(_ space: String) -> String {
+        var w = String(space.prefix(40 - longestAgent - 1))
+        while w.hasSuffix("-") { w.removeLast() }
+        if let f = w.unicodeScalars.first, !("a"..."z").contains(f) { w = "w" + w.prefix(40 - longestAgent - 2) }
+        return w.isEmpty ? "w" : w
+    }
     /// The names a gallery's drawing is rendered with.
     public static let sample = (space: "workspace", owner: "you", manager: "manager", folder: "/work")
 
@@ -85,7 +97,9 @@ public enum WorkspaceTemplates {
 
     /// A template's space file and description, rendered: `{{space}}`, `{{manager}}`, `{{folder}}` each replaced by its
     /// value as a JSON string (YAML reads it). A placeholder left over, or a template that needs a manager given none, throws.
-    public static func render(_ id: String, space: String, owner: String, manager: String?, folder: String, in dir: URL? = directory()) throws -> (space: String, description: String) {
+    /// `bareNames`: the agents' names without their prefix (`{{who}}-` left out) — the gallery's drawing, never a workspace.
+    public static func render(_ id: String, space: String, owner: String, manager: String?, folder: String, bareNames: Bool = false,
+                              in dir: URL? = directory()) throws -> (space: String, description: String) {
         let t = try read(id, in: dir)
         if t.needs.manager, manager == nil { throw TemplateError.invalid("\(t.title) needs a manager: one of your bots") }
         let base = dir!.appendingPathComponent(id)
@@ -98,6 +112,8 @@ public enum WorkspaceTemplates {
             return d.replacingOccurrences(of: "\\/", with: "/")
         }
         var out = yaml
+        // `{{who}}` raw (a chat name's characters only), before the quoted ones.
+        out = bareNames ? out.replacingOccurrences(of: "{{who}}-", with: "") : out.replacingOccurrences(of: "{{who}}", with: who(space))
         out = out.replacingOccurrences(of: "{{space}}", with: q(space))
         out = out.replacingOccurrences(of: "{{owner}}", with: q(owner))
         out = out.replacingOccurrences(of: "{{manager}}", with: q(manager ?? ""))

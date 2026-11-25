@@ -35,7 +35,8 @@ public enum WebTemplates {
         WorkspaceTemplates.list().map { t in
             var t = t
             let s = WorkspaceTemplates.sample
-            if let r = try? WorkspaceTemplates.render(t.id, space: s.space, owner: s.owner, manager: t.needs.manager ? s.manager : nil, folder: s.folder) {
+            if let r = try? WorkspaceTemplates.render(t.id, space: s.space, owner: s.owner, manager: t.needs.manager ? s.manager : nil, folder: s.folder,
+                                                       bareNames: true) {
                 t.picture = WebSpace.picture(r.space) ?? r.space
             }
             return t
