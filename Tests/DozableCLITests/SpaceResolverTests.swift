@@ -151,4 +151,34 @@ final class SpaceResolverTests: XCTestCase {
             XCTAssertEqual(SpaceResolver.parse(printed, name: "printed").0, r.merged, s)
         }
     }
+
+    /// 779: the brief's references reach the daemon absolute — a relative one is the space file's folder's (as `brief.file`
+    /// is), `~` and `~/…` the home seam's, an address and an absolute path as written — in both forms of the brief; plan and
+    /// up send the same document, so the model the plan shows has them too. `config` prints the file as written.
+    func testTheBriefsReferencesAreResolvedAgainstTheFilesFolderAndTheHome() throws {
+        try write("t.space.yaml", "doz: space/3.1\nspace: t\nowner: ada\nbrief: { file: BRIEF.md, refs: [README.md, docs/a.md, ../up.md, ~/notes.md, \"~\", /etc/hosts, https://example.com/x] }\n")
+        var res = SpaceResolver()
+        res.home = "/tmp/doz-home-seam"
+        let r = res.resolve(dir.appendingPathComponent("t.space.yaml").path)
+        let d = URL(fileURLWithPath: dir.path).standardizedFileURL.path
+        let want = [d + "/README.md", d + "/docs/a.md", (d as NSString).deletingLastPathComponent + "/up.md", "/tmp/doz-home-seam/notes.md",
+                    "/tmp/doz-home-seam", "/etc/hosts", "https://example.com/x"]
+        XCTAssertEqual(SpaceDoc.strings(SpaceDoc.at(r.filled, "/brief/refs")), want)
+        XCTAssertEqual(SpaceDoc.strings(SpaceDoc.at(r.merged, "/brief/refs")).first, "README.md", "the merged file as written (config)")
+        let (problems, model) = r.check()
+        XCTAssertFalse(problems.contains(where: \.isError), "\(problems.map(\.text))")
+        XCTAssertEqual(model?.briefRefs, want, "the plan's model")
+        let spec = try ChatJSON.parse(Data(r.request(profiles: [], brief: nil).spec.utf8))
+        XCTAssertEqual(SpaceDoc.strings(SpaceDoc.at(spec, "/brief/refs")), want, "what up sends")
+        // The x-dozable form, the same.
+        try write("u.space.yaml", "doz: space/3\nspace: u\nowner: ada\nbrief: B.md\nx-dozable: { brief: { refs: [README.md] } }\n")
+        let u = res.resolve(dir.appendingPathComponent("u.space.yaml").path)
+        XCTAssertEqual(SpaceDoc.strings(SpaceDoc.at(u.filled, "/x-dozable/brief/refs")), [d + "/README.md"])
+    }
+
+    /// The default home is the seam's (`TestSafety.spaceHome`), so a guarded run's `~/…` never names the real home.
+    func testTheResolversHomeIsTheSpaceHome() {
+        XCTAssertEqual(SpaceResolver().home, TestSafety.spaceHome())
+        XCTAssertEqual(SpaceResolver().resolve("/nonexistent/x.space.yaml").home, TestSafety.spaceHome())
+    }
 }

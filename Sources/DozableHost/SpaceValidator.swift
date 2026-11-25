@@ -744,6 +744,8 @@ public enum SpaceValidator {
         }
 
         func placeDef(_ n: String) -> JValue? { declared.first { $0.key == n }?.value }
+        /// 779: the workspace's network as the file writes it (the top-level `network:`; nil: none — `locked`).
+        var workspaceNetwork: WorkspacePlace.Policy? { WorkspacePlaces.network(SpaceDozable.member(raw, "network", at: .top)) }
         /// A declared place's isolation (`vm` for an external one; nil: no such place).
         func placeIsolation(_ n: String) -> String? {
             guard let d = placeDef(n) else { return nil }
@@ -878,9 +880,9 @@ public enum SpaceValidator {
 
         /// 774: the places the plan lists — the declared ones, each `sandboxes:` entry, the workspace's own VM when used.
         mutating func places() {
-            // What each session's fence (or the VM's proxy) is given today: the workspace's default network, `locked` (a
-            // space file's `network:` is recorded, not applied — said in the notes).
-            let ws = WorkspacePlace.Policy.text(WorkspacePlaces.networkDefault)
+            // 779: what each session's fence (or the VM's proxy) is given when its place says none: the workspace's network —
+            // the top-level `network:`, recorded as the workspace's default at up — else Dozable's default, `locked`.
+            let ws = workspaceNetwork ?? WorkspacePlace.Policy.text(WorkspacePlaces.networkDefault)
             for m in declared where SpaceDoc.member(m.value, "external") != nil || WorkspacePlace.isolations.contains(SpaceDoc.string(SpaceDoc.member(m.value, "isolation")) ?? "") {
                 model.places.append(WorkspacePlaces.declared(m.key, m.value, workspaceNetwork: ws))
             }
@@ -1250,9 +1252,10 @@ public enum SpaceValidator {
             if let pn = place, let pd = placeDef(pn), SpaceDoc.member(pd, "external") == nil {
                 let placeNet = WorkspacePlaces.network(SpaceDoc.member(pd, "network"))
                 let mine = WorkspacePlaces.network(net)
-                let shown = placeNet.map(\.words) ?? WorkspacePlaces.networkDefault
+                // 779: a place with no network of its own has the workspace's.
+                let shown = (placeNet ?? workspaceNetwork).map(\.words) ?? WorkspacePlaces.networkDefault
                 if placeIsolation(pn) == "fenced" {
-                    if let m = mine, !WorkspacePlaces.narrows(m, within: placeNet) {
+                    if let m = mine, !WorkspacePlaces.narrows(m, within: placeNet ?? workspaceNetwork) {
                         err(np, "\"\(r.name)\"'s network is wider than its place \(pn)'s (\(shown)): an agent's own network may only narrow its place's",
                             "a narrower preset (locked < standard < open) and only hosts the place allows — or widen the place's network")
                     }

@@ -1143,7 +1143,8 @@ public final class DozableWebServer: @unchecked Sendable {
             // read-only HostOp — the record's file, never a path from the request. Another computer only with serve.chat read
             // or write (decided above), and it never saves (`canSave` false: the command instead).
             try Self.requireJSONBody(md)
-            return json(WebSpaceFile(try await data.workspaceSpace(try WebSpace.decodeRead(body)), canSave: !ctx.principal.isRemote))
+            let f = try await data.workspaceSpace(try WebSpace.decodeRead(body))
+            return json(WebSpaceFile(f, canSave: !ctx.principal.isRemote, picture: WebSpace.picture(f.text)))
         case .workspaceSpacePlan:
             // The page's open text planned: read in doz ui under the space file's rules (the record's path; `${VAR}` from the
             // .env beside it only), then the existing read-only `workspace-up-plan` — nothing written, no daemon started.

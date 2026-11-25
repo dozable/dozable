@@ -1,0 +1,88 @@
+# The canonical demo workspace: one file that shows Dozable's major features, for screenshots, posts, the manual and
+# demos. Every key here is
+# real space/3.1 + Dozable's x-dozable keys as of 0.52.58; `doz workspace plan -f app.space.yaml` checks it.
+#
+#   the brief and its references · the owner · a main project folder and a folder fresh each run
+#   places: a micro VM shared by two workers, and a fenced place on the Mac (a fence per session, its own view,
+#           network and GitHub as you). Not shown: an unfenced "as you" place (it asks you to confirm at every up)
+#   agents: a manager bot · builder and tester in the micro VM · a reviewer fenced, read-only, network narrowed
+#           · a named helper that lasts with the workspace, its memory kept
+#   chat: the workspace's room · feeds: the journal in the room, the Mac's notices to the manager
+#   permissions requested (never granted by the file) · what persists between runs · layout pins for the drawing
+doz: space/3.1
+space: app
+about:
+  title: A typical workspace
+  summary: A manager and four agents fix a flaky test, review each other's work and keep the lessons.
+  tags: [demo]
+brief: { file: BRIEF.md, refs: [README.md] }
+owner: ada
+network: { preset: standard, allow: [registry.npmjs.org] }
+
+folders:
+  repo:    { external: ~/code/app, main: true }                  # the work outlives every run
+  notes:   { x-dozable: { lifetime: run } }                       # fresh each run, archived at its end
+
+agents:
+  manager:
+    external: { bot: mira }                                       # one of your Agents / Bots
+    role: manager
+  builder:
+    kind: claude-code
+    role: worker
+    where: build                                                  # the micro VM
+    prompt: Build the project in /workspace after each change and post the result in the room.
+  tester:
+    kind: claude-code
+    role: worker
+    where: build                                                  # shares the VM (and its /workspace) with builder
+    prompt: Run the tests after each build; post failures in the room and record each run's outcome in the journal.
+  reviewer:
+    kind: claude-code
+    role: reviewer
+    where: desk                                                   # fenced on the Mac: its own fence
+    access: ro                                                    # reads the project, writes nothing
+    network: { preset: locked, allow: [github.com] }              # narrower than its place's
+    prompt: Review each change the builder reports, read-only, and post your findings; propose a lesson when one recurs.
+  helper:
+    kind: claude-code
+    role: worker
+    where: desk
+    prompt: Keep notes in the notes folder and help whoever the manager asks you to.
+
+chat:
+  rooms:
+    app: { main: true, members: [owner, manager, builder, tester, reviewer, helper] }
+
+persist:
+  team-chat: { room: app }                                        # the room and its history carry over between runs
+
+x-dozable:
+  lifetime: standing
+  places:
+    build:
+      isolation: vm
+      image: claude-code
+      cpus: 4
+      memory: 8G
+      network: { preset: standard, allow: [registry.npmjs.org] }
+      credentials: [github:read]
+    desk:
+      isolation: fenced
+      view: { notes: rw }
+      network: { preset: standard, allow: [github.com, registry.npmjs.org] }
+      credentials: [github:read]
+  feeds:
+    journal: { to: room }                                         # the journal's outcomes, as cards in the room
+    accounts: { to: manager }
+    network: { to: manager }
+    health: { to: room }
+  permissions:
+    reviewer: [reviewer]                                          # requested, never granted: you grant with doz grant
+    manager: [description.decide]
+
+x-editor:
+  layout:
+    app: { at: [0, 0] }
+    notes: { at: [8, 0] }
+    build: { at: [0, 6.5] }

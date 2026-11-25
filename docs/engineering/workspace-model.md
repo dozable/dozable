@@ -202,8 +202,8 @@ memory?, view, network, credentials, from}`, each policy part a sentence, a fold
   (`PlaceFence`, made at up's worker-add by `WorkspacePlaces.fence`, checked by `HostCore.placeFence`, applied by
   `PlaceFence.apply(to: MacFenceRequest)`), only through mechanisms the fence already has: `view` → `MacFenceRequest.read`
   (ro) / `write` (rw), the session's own folder (the workspace's main one) always read-write — a view making it read-only
-  is refused at up; `network` → the proxy's words (the preset and `site:HOST` each), over the workspace's default
-  (`locked`); `credentials` → the fence's named ones (`github:read`/`github`, `github:push`, `ssh-agent`; a key account →
+  is refused at up; `network` → the proxy's words (the preset and `site:HOST` each); a place with none has the
+  workspace's network (779: the top-level `network:`, else `locked`); `credentials` → the fence's named ones (`github:read`/`github`, `github:push`, `ssh-agent`; a key account →
   65). **Precedence** (the format's): workspace default < place < agent — an agent's own `network:` in a fenced place may
   only narrow the place's (`WorkspacePlaces.narrows`: preset no wider, hosts a subset unless the place is open; else 65)
   and narrows its own fence alone.
@@ -522,8 +522,13 @@ Rules (`SpaceValidator` + `SpaceDozable.swift`):
   `network.allow` → 65 (`… can't be empty`). A per-resource `lifetime:` in a 3.1 file gets the lifetime's own words.
 - A space/3 file extends only `space-defaults/3` files: a `space-defaults/3.1` one → 65 at its `/doz`.
 - At most one folder with `main` (either form).
-- `restart` is recorded and noted, not applied yet; `network`, `about`, `layout` and the per-resource `lifetime: run` are
-  checked and kept, not acted on yet. The meaning of no space/3 key changes.
+- `restart` is recorded and noted, not applied yet; an agent's own `network` outside a place, `about`, `layout` and the
+  per-resource `lifetime: run` are checked and kept, not acted on yet. 779: the top-level `network` is the workspace's
+  network — `SpaceIntent.network`/`sites`, recorded by up as `defaults.network`/`sites` (every agent it starts; a place
+  that declares none, `WorkspacePlaces.declared`), a later up's change applied by its edit step (`SpaceUp.networkChange`);
+  none written stays `locked`. (The reference's vectors read a VM agent's network against `standard` when the file says
+  none — a validation rule only.) A brief's `refs` reach the daemon absolute: the CLI resolves a relative one against the
+  space file's folder and `~/` against the home seam (`SpaceResolver.absoluteRefs`). The meaning of no space/3 key changes.
 - Vectors: the reference's rows (vendored, read-only) and Dozable's own `Fixtures/space31/validation-errors-3.1.json`,
   through the same harness (`SpaceValidationTableTests`); `Space31Tests`.
 

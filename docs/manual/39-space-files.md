@@ -98,10 +98,17 @@ agents:
   old: { external: { sandbox: my-sandbox } }   # an agent in a sandbox that exists: adopted, never started
 ```
 
-- **`brief`** is a path, `{ text }` or `{ file }` — one of them — with optional `refs:`.
+- **`brief`** is a path, `{ text }` or `{ file }` — one of them — with optional `refs:`: files or folders the agents
+  should read, or `http(s)://` addresses. A relative path is the space file's folder's (as the brief's file is) and `~/…`
+  is your home; `up` records each one as an absolute path (the plan shows them so), and refuses one that is not there.
 - **`about.title`** is the workspace's title. A top-level `title:` still reads in a 3.1 file, with a note; both is an error.
-- **`network`** is recorded at the top level or on an agent; **`restart`** (`no` or `on-failure`) is recorded and noted.
-  Neither is applied in this version.
+- **The top-level `network`** is the workspace's network: `up` records it as the workspace's default, which every agent
+  it starts gets — the manager, workers, and an agent in a place that declares no network of its own (below) — and the
+  workspace's Network card shows. `allow:` holds host names (no port). A file that says none is `locked`. A later `up`
+  of a changed `network:` changes the workspace's default (the plan names the change); an agent already running keeps
+  the network it started with until it starts again.
+- An agent's own `network` outside a place, and **`restart`** (`no` or `on-failure`), are recorded and noted, not applied
+  in this version.
 - **The lifetime is not a 3.1 key**: it stays under `x-dozable` in either version and is never required (a file that says
   none is read as `runs`). A top-level `lifetime:` in a 3.1 file is refused (65) with the fix.
 - **`agent_defaults: { where: sandbox }`** runs every agent that does not say where in the workspace's own VM, a sandbox
@@ -152,12 +159,12 @@ x-dozable:
   - **`view`** (`{ notes: ro, out: rw }`): more folders of the space, read-only or read-write. The agent's own folder
     (the workspace's main one) is always read-write; a view cannot make it read-only.
   - **`network`** (as the top-level `network:`: `locked`, `standard`, `open` or `{ preset, allow: [HOST…] }`): the
-    fence's network, over the workspace's default (`locked`). An agent in the place may write its own `network:` only to
-    narrow it — a preset no wider and only hosts the place allows (otherwise 65); it narrows that agent's fence alone.
+    fence's network; a place that declares none has the workspace's (the top-level `network:`, else `locked`). An agent
+    in the place may write its own `network:` only to narrow it — a preset no wider and only hosts the place allows (otherwise 65); it narrows that agent's fence alone.
   - **`credentials`**: `github:read` (or `github`), `github:push` — GitHub as you, through a placeholder — and
     `ssh-agent`. A fence holds no key accounts (65).
-- **A vm place** takes its `network` and `credentials` (`github:read`, `github:push`, or a key account's name) when its
-  sandbox is made; every agent in it shares them, so an agent's own `network:` must equal the place's (65). Its `view` can
+- **A vm place** takes its `network` (none: the workspace's) and `credentials` (`github:read`, `github:push`, or a key
+  account's name) when its sandbox is made; every agent in it shares them, so an agent's own `network:` must equal the place's (65). Its `view` can
   name only the workspace's main folder, read-write: a sandbox shares one folder, at `/workspace`.
 - **An unfenced place enforces nothing**, so it declares no view, network or credentials (the plan refuses them, 65) and
   says so: the plan shows each as "none: acts as you". An agent is never put in an unfenced place by `agent_defaults`:

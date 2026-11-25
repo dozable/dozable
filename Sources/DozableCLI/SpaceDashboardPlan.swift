@@ -52,6 +52,13 @@ enum SpaceDashboardPlan {
         return plan
     }
 
+    /// The workspace drawn (`workspace-space`'s `picture`): the file's own text read with the CLI's reader and put in the
+    /// renderer's words (`SpacePicture`); nil when it needs none, or does not read (the renderer then says why, from the text).
+    static func picture(_ text: String) -> String? {
+        guard let doc = SpaceResolver.parse(text, name: "").0, let d = SpacePicture.document(doc) else { return nil }
+        return SpacePicture.text(d)
+    }
+
     /// The brief beside the file, as a look (its sha256 and size, or why not) — read under the same rules; never its text.
     static func briefLook(_ brief: String, file: String, store: String) -> SpaceBriefLook? {
         guard !brief.isEmpty else { return nil }

@@ -48,6 +48,15 @@ public enum WebSpace {
         return s
     }
 
+    /// The workspace drawn: a space file's text in the words the vendored renderer reads (`SpacePicture` — Dozable's places
+    /// and feeds translated), nil when the text already is. The CLI's reader parses it (Yams is the CLI's alone): `doz ui`
+    /// installs it before serving, as it does the project files' parser; with none installed the picture is the file's text.
+    public typealias PictureReader = @Sendable (String) -> String?
+    private static let pictureLock = NSLock()
+    nonisolated(unsafe) private static var pictureReader: PictureReader?
+    public static func installPictureReader(_ r: @escaping PictureReader) { pictureLock.withLock { pictureReader = r } }
+    public static func picture(_ text: String) -> String? { pictureLock.withLock({ pictureReader })?(text) }
+
     /// The request each read sends — the CLI's own.
     public static func request(_ op: HostOp, _ w: WorkspaceRequest) -> HostRequest {
         var r = HostRequest(op)
@@ -57,7 +66,8 @@ public enum WebSpace {
 }
 
 /// `POST /api/v1/workspace-space`'s answer: the file as it is now (its path shown with `~`, never the absolute one) and
-/// whether this browser may save it.
+/// whether this browser may save it; `picture`, when the renderer needs other words for it (`WebSpace.picture`): what the
+/// workspace's pictures draw (the editor and the plan always take `text`).
 public struct WebSpaceFile: Codable, Equatable, Sendable {
     public var workspace: String
     public var file: String
@@ -68,9 +78,11 @@ public struct WebSpaceFile: Codable, Equatable, Sendable {
     public var canSave: Bool
     /// When it may not: what to do instead.
     public var command: String?
-    public init(_ f: WorkspaceSpaceFile, canSave: Bool) {
+    public var picture: String?
+    public init(_ f: WorkspaceSpaceFile, canSave: Bool, picture: String? = nil) {
         workspace = f.workspace; file = f.file; shownPath = f.shownPath; text = f.text; sha256 = f.sha256; bytes = f.bytes
         self.canSave = canSave
         command = canSave ? nil : "doz workspace edit \(f.workspace) --space-file \(f.shownPath) --if-match \(f.sha256)"
+        self.picture = picture
     }
 }

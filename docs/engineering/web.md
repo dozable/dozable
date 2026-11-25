@@ -1583,6 +1583,16 @@ pictures), and the hero on its Home tab, full width — on no other tab —, a l
   `changed` follows the sandboxes (and an agent's status while a sandbox is live), so a space whose agents all run on this
   Mac changes on screen at the next hello, arrival, operation end or sandbox change — a `doz workspace down` in a terminal
   is no event of its own (the backlog's `workspaces` topic on `changed`).
+- **What is drawn** (779): the renderer reads a file with its OWN reader — the peer's at its pin, which knows space/3.1 and
+  only the `x-dozable` keys of its pin —, while the space editor's page hands the editor Dozable's plan
+  (`workspace-space-plan`), so the editor never meets that reader's verdict. A file using Dozable's newer keys
+  (`x-dozable.places` with `where: PLACE`, `x-dozable.feeds`) drew the problem marker ("\"desk\" is not a place",
+  "unknown key \"feeds\" in x-dozable") though `plan` and the editor accept it. So `workspace-space`'s answer carries
+  `picture` — the same file in the renderer's words (`SpacePicture`, read in doz ui by the CLI's reader, installed with
+  `WebSpace.installPictureReader`): a vm place (owned or external) a sandbox of its name and `where: sandbox:PLACE`, a
+  fenced or unfenced place's agents `where: mac` with its `isolation`, places and feeds left out; the version line first,
+  then each top-level key as JSON's flow form. nil for a file that needs none (it is drawn from `text`). The plan's
+  verdict, the editor and a save always use `text`. `SpacePictureTests`, the walk's "places" rows.
 - **Drawing**: one render per animation frame, the hero first, then the thumbnails top to bottom. A thumbnail is an `<img>`
   of `render()`'s markup as a `data:` URL (the CSP's `img-src 'self' data:`; one drawing at 160 × 100, `detail: 'thumb'`, for
   Home and the sidebar); the hero (1200 × 500, 800 × 560 at ≤ 760 px — a media listener, never on resize) is an element from `renderElement` (no parser, no innerHTML). The theme is always passed (the

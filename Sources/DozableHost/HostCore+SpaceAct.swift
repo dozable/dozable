@@ -214,6 +214,9 @@ extension HostCore {
             else if let m = i.mainRoom, m.external { w.room = m.chatRoom }
             w.manager = i.manager?.bot
             w.refs = i.briefRefs
+            // 779: the file's network is the workspace's default (every agent it starts; a place with none of its own).
+            w.network = i.network
+            w.sites = i.sites
             await workspaceGate.lock("workspaces")
             defer { workspaceGate.unlock("workspaces") }
             let d = try await workspaceNew(w, space: (ref, brief))
@@ -232,10 +235,20 @@ extension HostCore {
             if rec.manager?.bot != i.manager?.bot {
                 if let b = i.manager?.bot { w.manager = b } else { w.noManager = true }
             }
-            guard w.addFolders != nil || w.removeFolders != nil || w.manager != nil || w.noManager != nil else { return [] }
             await workspaceGate.lock("workspaces")
             defer { workspaceGate.unlock("workspaces") }
-            return try await workspaceEdit(w).notes ?? []
+            var notes: [String] = []
+            // 779: the file's network changed since the last up: the workspace's default follows it (the agents it starts
+            // from now on; one already running keeps the network it started with until it starts again).
+            if SpaceUp.networkChange(rec, i) != nil {
+                var now = try workspaceRecord(n)
+                now.defaults.network = i.network
+                now.defaults.sites = i.sites
+                try workspaces.write(now)
+            }
+            guard w.addFolders != nil || w.removeFolders != nil || w.manager != nil || w.noManager != nil else { return notes }
+            notes += try await workspaceEdit(w).notes ?? []
+            return notes
 
         case "room":
             guard let r = i.rooms.first(where: { "room \($0.name)" == st.subject }) else { return [] }

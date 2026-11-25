@@ -1865,6 +1865,8 @@ public struct WebWorkspaceDetail: Codable, Equatable, Sendable {
     /// When the work started (nil: setting up), and the network preset its agents get by default (nil: locked).
     public var startedAt: Date?
     public var network: String?
+    /// The sites its agents reach on top of that preset (`defaults.sites` — a space file's `network.allow`; nil: none).
+    public var sites: [String]?
     /// New workers' default isolation (`defaults.isolation`; nil: fenced).
     public var workerIsolation: String?
     /// While it is setting up: what its start would refuse now, each with its fix and the New workspace wizard's step
@@ -1885,7 +1887,7 @@ public struct WebWorkspaceDetail: Codable, Equatable, Sendable {
         agents = d.agents.map(WebWorkspaceAgent.init)
         notes = d.notes ?? []
         finishedAt = d.flags.finishedAt; archivedAt = d.flags.archivedAt
-        startedAt = d.flags.startedAt; network = d.defaults.network
+        startedAt = d.flags.startedAt; network = d.defaults.network; sites = (d.defaults.sites ?? []).isEmpty ? nil : d.defaults.sites
         workerIsolation = d.defaults.isolation
         gaps = d.gaps.map { $0.map { WebWorkspacePlan.Gap(item: $0.item, why: $0.why, fix: $0.fix, step: WebWorkspacePlan.step($0.item)) } }
         hidden = 0
