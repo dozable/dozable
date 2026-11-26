@@ -22,7 +22,7 @@ import { secretEntryAllowed } from '../core/settings-1dd31ee086a35147.js';
 import { state } from '../core/state-f551ebce9066b2c8.js';
 import { btn } from '../components/button-030d384b64f8d75d.js';
 import { callout } from '../components/callout-a906e34ef11cba9d.js';
-import { renderModal, wizardCloseRequest } from '../components/modal-71b846c971893796.js';
+import { renderModal, wizardCloseRequest } from '../components/modal-025aa4b8cb1f1195.js';
 import { pageFailure, toast } from '../components/notices-7a75ec167a650349.js';
 import { startQuickMade } from './quick-make-be3fa752903f716c.js';
 import { planCommand, reachList } from '../components/plan-view-bb0ec2e9a93d9acc.js';

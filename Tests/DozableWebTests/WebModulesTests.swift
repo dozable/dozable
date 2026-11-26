@@ -455,6 +455,16 @@ final class WebModulesTests: XCTestCase {
         XCTAssertTrue(try read("app/views/new-workspace.js").contains("[line, tone] = madeNote(name, line, tone,"), "every made workspace's note")
     }
 
+    /// The "Discard this new workspace?" question goes with its wizard: closed or replaced any other way (the browser's Back,
+    /// a new address), it never floats over the next page or wizard, and a late Discard acts on no other wizard.
+    func testTheDiscardQuestionGoesWithItsWizard() throws {
+        let modal = try String(contentsOf: Self.root.appendingPathComponent("Sources/DozableWeb/WebSource/app/components/modal.js"), encoding: .utf8)
+        XCTAssertTrue(modal.contains("export function closeWizardModal() {\n  dropCloseAsk();"), "closing the wizard takes its question")
+        XCTAssertTrue(modal.contains("if (was !== v) dropCloseAsk();"), "another wizard takes it too")
+        XCTAssertTrue(modal.contains("if (state.modal !== asked) return;"), "a late Discard acts on no other wizard")
+        XCTAssertTrue(modal.contains("closeAsk = dialog("), "the question is kept to be taken")
+    }
+
     /// Leaving a modal for an address: the page under it is kept as it was ONLY when the history entry is that page's own
     /// (the browser's Back, the modal's close) — every routed page stamps its entry (`history.state.dozPage`) and in-page
     /// address changes keep the stamp; an address that replaced the modal's entry routes the page again, even when it equals

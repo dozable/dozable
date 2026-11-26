@@ -17,7 +17,7 @@ import { chatRooms } from '../components/bot-invite-cc12bb753cf9238b.js';
 import { btn } from '../components/button-030d384b64f8d75d.js';
 import { callout } from '../components/callout-a906e34ef11cba9d.js';
 import { cmdLine } from '../components/cmd-line-0addb11225f36cdd.js';
-import { wizardCloseRequest, wizMount } from '../components/modal-71b846c971893796.js';
+import { wizardCloseRequest, wizMount } from '../components/modal-025aa4b8cb1f1195.js';
 import { addNote } from '../components/notes-b982b305c6f4f5bc.js';
 import { pageFailure, toast } from '../components/notices-7a75ec167a650349.js';
 import { stepperNode } from '../components/stepper-9f1fb5c64eac92d6.js';
