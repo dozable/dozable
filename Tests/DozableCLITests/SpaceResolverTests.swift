@@ -108,13 +108,58 @@ final class SpaceResolverTests: XCTestCase {
     }
 
     func testPickingTheOneFile() throws {
-        XCTAssertThrowsError(try SpaceResolver.find(in: dir.path)) { XCTAssertTrue("\($0)".contains("no *.space.yaml")) }
+        XCTAssertThrowsError(try SpaceResolver.find(in: dir.path)) { XCTAssertTrue("\($0)".contains("(or *.space.yaml)")) }
         try write("a.space.yaml", Self.head)
         try write("a.space.override.yaml", "title: x\n")
         XCTAssertEqual(try SpaceResolver.find(in: dir.path), dir.appendingPathComponent("a.space.yaml").path)
         try write("b.space.yaml", Self.head)
         XCTAssertThrowsError(try SpaceResolver.find(in: dir.path)) { XCTAssertTrue("\($0)".contains("a.space.yaml, b.space.yaml")) }
         XCTAssertEqual(SpaceResolver.overridePath("/x/a.space.yaml"), "/x/a.space.override.yaml")
+    }
+
+    /// 787: doz writes NAME.workspace.yaml and reads NAME.space.yaml forever; both beside each other: the .workspace.yaml is
+    /// read, the other ignored — said once, as a warning, wherever the file's problems are shown.
+    func testBothNamesAreReadAndTheNewOneWinsBesideTheOld() throws {
+        XCTAssertThrowsError(try SpaceResolver.find(in: dir.path)) { XCTAssertTrue("\($0)".contains("no *.workspace.yaml (or *.space.yaml)")) }
+        try write("a.workspace.yaml", Self.head + "title: new\n")
+        try write("a.workspace.override.yaml", "title: from its override\n")
+        XCTAssertEqual(try SpaceResolver.find(in: dir.path), dir.appendingPathComponent("a.workspace.yaml").path, "an override is never the file")
+        XCTAssertEqual(SpaceResolver.overridePath("/x/a.workspace.yaml"), "/x/a.workspace.override.yaml")
+        var r = resolve("a.workspace.yaml")
+        XCTAssertEqual(SpaceDoc.string(SpaceDoc.member(r.merged, "title")), "from its override", "the override of its own name")
+        XCTAssertFalse(r.problems.contains { $0.message.contains("ignored") }, "alone: nothing to say")
+
+        // The older name beside it, for the same NAME: still one space file — the new one — and the warning, once.
+        try write("a.space.yaml", Self.head + "title: old\n")
+        try write("a.space.override.yaml", "title: the old one's override\n")
+        XCTAssertEqual(try SpaceResolver.find(in: dir.path), dir.appendingPathComponent("a.workspace.yaml").path)
+        r = resolve("a.workspace.yaml")
+        XCTAssertEqual(SpaceDoc.string(SpaceDoc.member(r.merged, "title")), "from its override", "the older file and its override are not read")
+        let warned = r.check().problems.filter { $0.message.contains("ignored") }
+        XCTAssertEqual(warned.count, 1)
+        XCTAssertEqual(warned.first?.severity, "warning")
+        XCTAssertEqual(warned.first?.message, "a.space.yaml beside it is ignored: a.workspace.yaml is read")
+        XCTAssertEqual(warned.first?.file, "a.workspace.yaml")
+        // The plan's problems carry it once (the daemon never sees a file's name), however often it is added.
+        XCTAssertEqual(withIgnoredWarning(withIgnoredWarning([], r), r).filter { $0.message.contains("ignored") }.count, 1)
+        // Named with -f, the older file is read as it is (it is the one asked for), with nothing to say.
+        let old = resolve("a.space.yaml")
+        XCTAssertEqual(SpaceDoc.string(SpaceDoc.member(old.merged, "title")), "the old one's override")
+        XCTAssertFalse(old.problems.contains { $0.message.contains("ignored") })
+
+        // Only the older name: read, as before.
+        try FileManager.default.removeItem(at: dir.appendingPathComponent("a.workspace.yaml"))
+        XCTAssertEqual(try SpaceResolver.find(in: dir.path), dir.appendingPathComponent("a.space.yaml").path)
+        // Two names, one in each spelling: two space files, refused, naming both.
+        try write("b.workspace.yaml", Self.head)
+        XCTAssertThrowsError(try SpaceResolver.find(in: dir.path)) { XCTAssertTrue("\($0)".contains("a.space.yaml, b.workspace.yaml"), "\($0)") }
+
+        for (f, name) in [("x.workspace.yaml", "x"), ("x.space.yaml", "x"), ("/p/x.y.workspace.yaml", "x.y")] {
+            XCTAssertEqual(SpaceResolver.spaceFileName(f), name, f)
+        }
+        for f in ["x.workspace.override.yaml", "x.space.override.yaml", "x.yaml", ".workspace.yaml", "workspace.yaml", "x.myspace.yaml"] {
+            XCTAssertNil(SpaceResolver.spaceFileName(f), f)
+        }
     }
 
     // MARK: the reference's recorded outputs

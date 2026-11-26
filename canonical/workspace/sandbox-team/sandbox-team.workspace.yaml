@@ -1,0 +1,59 @@
+# The sandboxed team as a doz space/3.1 file (SPEC-v3 §18). Compare: spaces/sandbox-team.space.yaml (space/3).
+doz: space/3.1
+extends: ./my_doz_workspace_defaults.yaml
+space: sandbox-team
+about: { title: A sandboxed team with a fenced reviewer, category: Development }
+network: { preset: standard, allow: [registry.npmjs.org] }   # the VM's too: its agents share it
+brief: BRIEF.md
+owner: ada
+
+folders:
+  repo:    { external: ~/work/throwaway/sandbox-team, main: true }
+  scratch: {}                                              # owned: inside the run folder; archived as a tarball, then removed
+
+persist:                                                   # merged by name with the defaults' entries
+  memory: null                                             # remove the defaults' "every agent's memory": these start fresh
+  build-disk: { sandbox: build-vm }                        # down shuts it down and keeps its disk
+
+sandboxes:
+  build-vm:                                                # owned; persisted (see persist:)
+    image: claude-code
+    folder: repo
+    cpus: 2
+    memory: 4G
+
+agents:
+  admin: { external: { bot: manager }, role: manager }
+  old-reviewer: { external: { sandbox: old-review }, role: reviewer }   # an existing sandbox's agent, adopted
+  builder:
+    kind: claude-code
+    role: worker
+    where: sandbox:build-vm                                # the VM is the boundary
+    chat: { delivery: poll }
+    prompt: Build the project in /workspace and post the result in the room.
+  tester:
+    kind: claude-code
+    role: worker
+    where: sandbox:build-vm
+    chat: { delivery: poll }
+    prompt: Run the tests in /workspace after each build and post failures in the room.
+  reviewer:
+    kind: claude-code
+    role: reviewer
+    where: mac
+    isolation: fenced
+    permissions: auto
+    folder: repo
+    access: ro
+    network: { preset: locked, allow: [github.com] }      # its own: fenced on the Mac, so it can have one
+    chat: { delivery: poll }
+    profiles: [review]                                     # only with: doz space up --profile review
+    requests:
+      grants: ["network: github.com"]
+      reason: Read the upstream issues the builder links to.
+    prompt: Review each change the builder reports, read-only, and post your findings.
+
+chat:
+  rooms:
+    sandbox-team: { main: true, members: [owner, admin, builder, tester, reviewer] }   # persisted by the defaults
+    general:      { external: doz://host-a/_/room/general } # its messages during the run are archived; never changed

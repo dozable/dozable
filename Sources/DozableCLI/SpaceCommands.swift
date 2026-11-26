@@ -3,11 +3,11 @@ import DozableChat
 import DozableHost
 import Foundation
 
-// Space files (`NAME.space.yaml`): a workspace described in one file kept beside the work. The CLI reads the file and the
+// Space files (`NAME.workspace.yaml`; `NAME.space.yaml` is read too): a workspace described in one file kept beside the work. The CLI reads the file and the
 // files it names (`SpaceResolver`); looking — `config`, `plan`, `up --dry-run` — never starts the daemon and writes
 // nothing. `doz space …` is the same commands under a shorter name. docs/manual/39-space-files.md.
 
-/// The space file a command is about: `-f FILE`, else the one `*.space.yaml` in this folder.
+/// The space file a command is about: `-f FILE`, else the one `*.workspace.yaml` (or `*.space.yaml`) in this folder.
 func spaceFile(_ f: String?, _ g: GlobalOptions) throws -> String {
     if let f { return workspaceAbsolute(f) }
     do { return try SpaceResolver.find(in: FileManager.default.currentDirectoryPath) } catch { throw fail(HostError.from(error), g) }
@@ -154,13 +154,13 @@ enum SpaceYAML {
 struct SpaceConfig: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "config", abstract: "Print a space file merged: its defaults files, the file, its override and ${VAR}, each value with its source.",
         discussion: """
-        Reads FILE (or the one *.space.yaml in this folder), every defaults file it extends, NAME.space.override.yaml beside \
+        Reads FILE (or the one *.workspace.yaml in this folder), every defaults file it extends, NAME.workspace.override.yaml beside \
         it and ${VAR} from the environment or the .env beside it, and prints the result, each value from another file \
         annotated with that file and line. The header lists the sources with their sha256 and every risky setting with \
         where it comes from. Changes nothing and never starts the daemon. Problems are printed as file:line; an error exits 65.
         """)
     @OptionGroup var g: GlobalOptions
-    @Argument(help: "The space file (default: the one *.space.yaml in this folder).") var file: String?
+    @Argument(help: "The space file (default: the one *.workspace.yaml in this folder).") var file: String?
     @Option(name: .customLong("profile"), help: "Include the resources of this profile (repeatable).") var profiles: [String] = []
 
     func run() async throws {
@@ -202,16 +202,25 @@ struct SpaceConfig: AsyncParsableCommand {
 struct SpaceCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "space",
-        abstract: "Space files (NAME.space.yaml): doz workspace plan, up and config under a shorter name.",
+        abstract: "Space files (NAME.workspace.yaml): doz workspace plan, up and config under a shorter name.",
         discussion: """
         A space file describes a workspace in one YAML file kept beside the work: its agents, rooms, folders and brief, \
         each made by the space or only referenced (external:). doz space plan -f FILE shows what up would do; doz space \
-        config FILE prints it merged with the files it extends. Looking never starts the daemon and changes nothing.
+        config FILE prints it merged with the files it extends. Looking never starts the daemon and changes nothing. \
+        A file called NAME.space.yaml (the older name) is read too; with both beside each other, NAME.workspace.yaml is \
+        read and the other is ignored, said as a warning.
         """,
         subcommands: [SpacePlanCommand.self, SpaceUpCommand.self, SpaceDownCommand.self, SpaceConfig.self])
 }
 
 // MARK: plan, up --dry-run
+
+/// The daemon's problems with the resolver's one note of its own added first: the `NAME.space.yaml` beside a
+/// `NAME.workspace.yaml` that is not read (787). The daemon plans the merged document and never sees the file's name.
+func withIgnoredWarning(_ problems: [SpaceProblem], _ r: SpaceResolver.Resolved) -> [SpaceProblem] {
+    guard let w = SpaceResolver.ignoredWarning(r.file), !problems.contains(w) else { return problems }
+    return [w] + problems
+}
 
 /// The brief beside the file, as a look: its sha256 and size, or why it cannot be used. Never its text, never written.
 func spaceBriefLook(_ brief: String, file: String) -> SpaceBriefLook? {
@@ -240,7 +249,8 @@ func spacePlan(file: String?, profiles: [String], noRun: Bool = false, _ g: Glob
     var q = HostRequest(.workspaceUpPlan)
     q.space = r.request(profiles: profiles, brief: spaceBriefLook(model?.brief ?? "", file: r.file))
     if noRun { q.space?.noRun = true }
-    let plan = try decode(try await query(q, g), SpacePlan.self, g)
+    var plan = try decode(try await query(q, g), SpacePlan.self, g)
+    plan.problems = withIgnoredWarning(plan.problems, r)
     if !g.json { try reportSpaceProblems(plan.problems, g) }
     return plan
 }
@@ -289,7 +299,7 @@ func finishSpacePlan(_ p: SpacePlan, dryRun: Bool, _ g: GlobalOptions) throws {
 struct SpacePlanCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "plan", abstract: "Show what doz workspace up would do with a space file: every step, the summary, what down will do.",
         discussion: """
-        Reads FILE (or the one *.space.yaml in this folder) and the files it extends, checks it — every problem at once, \
+        Reads FILE (or the one *.workspace.yaml in this folder) and the files it extends, checks it — every problem at once, \
         as file:line —, and prints the steps up would run in order: the external things it checks, the workspace it \
         makes, its rooms and folders, the start, each agent. The summary names every risky setting (unfenced, bypass, \
         what persists, archive: off, transcripts discarded) with the file and line that set it. --json adds the places \
@@ -298,7 +308,7 @@ struct SpacePlanCommand: AsyncParsableCommand {
         workspace of that name made without a space file · 7 something this version does not do yet.
         """)
     @OptionGroup var g: GlobalOptions
-    @Option(name: [.customShort("f"), .customLong("file")], help: "The space file (default: the one *.space.yaml in this folder).") var file: String?
+    @Option(name: [.customShort("f"), .customLong("file")], help: "The space file (default: the one *.workspace.yaml in this folder).") var file: String?
     @Option(name: .customLong("profile"), help: "Include the resources of this profile (repeatable).") var profiles: [String] = []
 
     func run() async throws {
@@ -329,7 +339,7 @@ func spacePrompts(_ r: SpaceResolver.Resolved) throws -> [String: String] {
 struct SpaceUpCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "up", abstract: "Set a workspace up from a space file: its rooms, folders, the run and its agents.",
         discussion: """
-        Reads FILE (or the one *.space.yaml in this folder) and the files it extends, shows the plan — every step and the \
+        Reads FILE (or the one *.workspace.yaml in this folder) and the files it extends, shows the plan — every step and the \
         summary naming each risky setting with the file and line that set it — and then sets the workspace up through the \
         daemon: the workspace (made, or changed to match the file), its rooms, the run (started, or reopened when the \
         space is down — a new run each time none is open; --no-run opens none, and doz workspace run W opens one later), \
@@ -343,7 +353,7 @@ struct SpaceUpCommand: AsyncParsableCommand {
         4 a workspace of that name made without a space file · 5 not confirmed · 7 something this version does not do yet.
         """)
     @OptionGroup var g: GlobalOptions
-    @Option(name: [.customShort("f"), .customLong("file")], help: "The space file (default: the one *.space.yaml in this folder).") var file: String?
+    @Option(name: [.customShort("f"), .customLong("file")], help: "The space file (default: the one *.workspace.yaml in this folder).") var file: String?
     @Option(name: .customLong("profile"), help: "Include the resources of this profile (repeatable).") var profiles: [String] = []
     @Flag(name: .customLong("dry-run"), help: "Show the plan and stop: nothing is started or written.") var dryRun = false
     @Flag(name: .long, help: "Answer the unfenced agents' question yes — on a terminal only.") var yes = false
@@ -361,7 +371,8 @@ struct SpaceUpCommand: AsyncParsableCommand {
         if noRun { space.noRun = true }
         q.space = space
         // Acting needs the daemon: the plan is the daemon's (started now), so its sha is the one up checks.
-        let plan = try decode(try call(q, g), SpacePlan.self, g)
+        var plan = try decode(try call(q, g), SpacePlan.self, g)
+        plan.problems = withIgnoredWarning(plan.problems, r)
         if !g.json { try reportSpaceProblems(plan.problems, g); printSpacePlan(plan, dryRun: false, acting: true) }
         if let e = spacePlanError(plan) {
             if g.json { Out.json(WithError(value: plan, error: e)) }
@@ -460,7 +471,7 @@ struct SpaceDownCommand: AsyncParsableCommand {
         confirmed.
         """)
     @OptionGroup var g: GlobalOptions
-    @Argument(help: "The workspace (default: the space in FILE, or in the one *.space.yaml in this folder).") var workspace: String?
+    @Argument(help: "The workspace (default: the space in FILE, or in the one *.workspace.yaml in this folder).") var workspace: String?
     @Option(name: [.customShort("f"), .customLong("file")], help: "The space file whose workspace to take down.") var file: String?
     @Flag(name: .long, help: "Also remove what persists: its rooms, sandboxes and kept memory; release its folders (never deleted).") var purge = false
     @Flag(name: .customLong("no-archive"), help: "A workspace made without a space file: write no evidence archive of the run.") var noArchive = false

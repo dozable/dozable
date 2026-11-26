@@ -1,0 +1,10 @@
+{
+  "id": "solo",
+  "version": 1,
+  "title": "One agent",
+  "summary": "One Claude Code agent works in the folder. You talk to it in the room.",
+  "needs": { "manager": false },
+  "agents": [ { "name": "agent", "role": "worker", "where": "fenced" } ],
+  "room": "you and agent",
+  "network": "Standard"
+}

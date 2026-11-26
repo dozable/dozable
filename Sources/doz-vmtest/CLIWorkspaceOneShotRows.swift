@@ -184,7 +184,7 @@ func cliWorkspaceOneShotRows(_ h: CLIHarness, root: URL, store: DozableStore, st
     r = h.run(["workspace", "new", "tsolo", "--template", "solo", "--json"], timeout: 180)
     let madeW6 = object(r)
     let file = madeW6["file"] as? String ?? ""
-    check(r.code == 0 && ws.exists("tsolo") && file.hasSuffix("/tsolo/tsolo.space.yaml") && FileManager.default.fileExists(atPath: file),
+    check(r.code == 0 && ws.exists("tsolo") && file.hasSuffix("/tsolo/tsolo.workspace.yaml") && FileManager.default.fileExists(atPath: file),
           "N6 new tsolo --template solo: made from its file, set up (\(r.code) \(r.out.prefix(300)) \(r.err.prefix(300)))")
     r = h.run(["workspace", "new", "tbr", "--template", "build-review", "--json"], timeout: 60)
     check(r.code != 0 && !ws.exists("tbr") && r.out.contains("needs a manager"), "N6 …a template that needs a manager, given none: refused, nothing made (\(r.code))")
@@ -230,7 +230,7 @@ func cliWorkspaceOneShotRows(_ h: CLIHarness, root: URL, store: DozableStore, st
     h.env["DOZ_TEST_HOME"] = home7
     r = h.run(["workspace", "new", "tsolo2", "--template", "solo", "--json"], timeout: 180)
     let file7 = object(r)["file"] as? String ?? ""
-    let expected7 = WorkspaceStore.resolved(home.appendingPathComponent("doz-workspaces/tsolo2/tsolo2.space.yaml").path)
+    let expected7 = WorkspaceStore.resolved(home.appendingPathComponent("doz-workspaces/tsolo2/tsolo2.workspace.yaml").path)
     let file7Resolved = WorkspaceStore.resolved(file7)
     // The agents' folder as the record says it (the suite's projects_dir, outside that home).
     let shown7 = object(h.run(["workspace", "show", "tsolo2", "--json"], timeout: 60))
@@ -239,7 +239,7 @@ func cliWorkspaceOneShotRows(_ h: CLIHarness, root: URL, store: DozableStore, st
         .map { ($0["text"] as? String ?? "") + " " + (($0["notes"] as? [String])?.joined(separator: "; ") ?? "") }
     if !failed7.isEmpty { print("        N7 a step failed: \(failed7.joined(separator: " | ").prefix(400))") }
     check(r.code == 0 && ws.exists("tsolo2") && file7Resolved == expected7 && fm.fileExists(atPath: expected7) && projectsDir.hasSuffix("/tsolo2")
-          && !projectsDir.hasPrefix(home.path) && !projectsDir.hasPrefix(home7) && fm.fileExists(atPath: projectsDir) && !fm.fileExists(atPath: projectsDir + "/tsolo2.space.yaml"),
+          && !projectsDir.hasPrefix(home.path) && !projectsDir.hasPrefix(home7) && fm.fileExists(atPath: projectsDir) && !fm.fileExists(atPath: projectsDir + "/tsolo2.workspace.yaml"),
           "N7 projects_dir outside your home: made; its files in ~/doz-workspaces/tsolo2, its agents' folder <projects_dir>/tsolo2 (\(r.code) \(file7) \(r.out.prefix(200)) \(r.err.prefix(300)))")
     h.run(["daemon", "stop"], timeout: 60)
     _ = h.waitFor(20) { !h.hostRunning }

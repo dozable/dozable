@@ -1,6 +1,6 @@
 # The canonical demo workspace: one file that shows Dozable's major features, for screenshots, posts, the manual and
 # demos. Every key here is
-# real space/3.1 + Dozable's x-dozable keys as of 0.52.58; `doz workspace plan -f app.space.yaml` checks it.
+# real space/3.1 + Dozable's x-dozable keys as of 0.52.58; `doz workspace plan -f app.workspace.yaml` checks it.
 #
 #   the brief and its references · the owner · a main project folder and a folder fresh each run
 #   places: a micro VM shared by two workers, and a fenced place on the Mac (a fence per session, its own view,

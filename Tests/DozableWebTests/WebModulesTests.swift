@@ -936,7 +936,7 @@ final class WebModulesTests: XCTestCase {
             .map { (data as NSString).substring(with: $0.range(at: 1)) }
         XCTAssertEqual(calls, ["workspace-state"], "no other read, no action")
         for banned in ["actOrThrow", "/api/v1/actions", "localStorage", "fetch("] { XCTAssertFalse(data.contains(banned), "core/space-export.js: \(banned)") }
-        XCTAssertTrue(data.contains("w + (kind === 'yaml' ? '.space.yaml' : '.' + kind)"), "named after the workspace")
+        XCTAssertTrue(data.contains("w + (kind === 'yaml' ? '.workspace.yaml' : '.' + kind)"), "named after the workspace, NAME.workspace.yaml")
         let menu = try read("app/components/space-export.js")
         XCTAssertTrue(menu.contains("URL.createObjectURL(blob)") && menu.contains("download: name"))
         XCTAssertFalse(menu.contains("isRemote") || menu.contains("canSave"), "offered to whoever may read the file")

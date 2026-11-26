@@ -72,7 +72,7 @@ DOCC_OUT         ?= .docc-build
 DOCC_BASE_PATH   ?= /DozableKit/
 DOCC_PREVIEW_PORT ?= 8000
 
-.PHONY: help build test publish-docs test-chat-conformance chat-markdown-check app app-dev test-cli-app test-cli-alwayson test-cli-chat test-cli-workspace test-cli-workspace-vm test-cli-timeline test-cli-timeline-vm test-cli-bots test-cli-macs test-cli-skill test-cli-daemontest-cli-helper test-cli-startup test-cli-exectimeout test-cli-sessionsend test-cli-host test-cli-fence test-cli-keychainlocked deckhold-mac deckhold-mac-check dozchat-mac dozchat-linux-x86_64 dozchat-check dozchat dozchat-verify css-lint css-perf dashboard-walk recipes test-safety test-updates test-recipe-catalogue test-community-recipes publish-recipes doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency recipe-audit test-recipe-audit test-cli-access test-cli-tools test-cli-dotfiles tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-grid-check deckhold-verify doznet doznet-verify dozview dozview-verify tmux tmux-verify sound-kernel test-cli-tmux38 test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status test-cli-grids cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
+.PHONY: help build test publish-docs test-chat-conformance chat-markdown-check app app-dev test-cli-app test-cli-alwayson test-cli-chat test-cli-workspace test-cli-workspace-vm test-cli-timeline test-cli-timeline-vm test-cli-bots test-cli-macs test-cli-skill test-cli-daemontest-cli-helper test-cli-startup test-cli-exectimeout test-cli-sessionsend test-cli-host test-cli-fence test-cli-keychainlocked deckhold-mac deckhold-mac-check dozchat-mac dozchat-linux-x86_64 dozchat-check dozchat dozchat-verify css-lint css-perf dashboard-walk recipes test-safety test-updates test-recipe-catalogue test-community-recipes publish-recipes doz-update-keys publish promote audit audit-resolved web-assets web-assets-check templates templates-check canonical-expected test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency recipe-audit test-recipe-audit test-cli-access test-cli-tools test-cli-dotfiles tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-grid-check deckhold-verify doznet doznet-verify dozview dozview-verify tmux tmux-verify sound-kernel test-cli-tmux38 test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status test-cli-grids cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | sed 's/:.*## /\t/' | expand -t 22
@@ -128,7 +128,7 @@ test-safety:
 	grep -qE '^path = "/' "$$f" 2>/dev/null && grep -qE '^projects_dir = "/' "$$f" 2>/dev/null || \
 	  printf '[store]\npath = "%s"\n\n[defaults]\nprojects_dir = "%s"\n' "$(TEST_SCRATCH)-store" "$(TEST_SCRATCH)-projects" > "$$f"
 
-test: test-safety web-assets-check css-lint ## Unit tests — no VM, no entitlement (never --parallel); first, the web assets' drift check and the CSS check (FILTER=Suite runs the matching tests only)
+test: test-safety web-assets-check templates-check css-lint ## Unit tests — no VM, no entitlement (never --parallel); first, the web assets' and the templates' drift checks and the CSS check (FILTER=Suite runs the matching tests only)
 	swift test $(SWIFT_BUILD_SYSTEM) -j $(JOBS) $(if $(FILTER),--filter '$(FILTER)',)
 
 # The chat server's outside-in gate (docs/engineering/chat.md): the reference's conformance runner — private, pinned by
@@ -175,6 +175,17 @@ web-assets: ## Regenerate Sources/DozableWeb/Resources/Web from WebSource/ (comm
 
 web-assets-check: ## Fail when the committed web assets are not exactly what WebSource/ builds
 	swift Scripts/build-web-assets.swift --check
+
+# canonical/ is the one source of the workspace models (canonical/README.md): the templates doz carries are GENERATED from
+# it into Sources/DozableKit/Resources/templates (committed, like Resources/Web); CanonicalWorkspaceTests is the drift test.
+templates: ## Regenerate Sources/DozableKit/Resources/templates from canonical/ (commit the result)
+	Scripts/canonical-templates.sh
+
+templates-check: ## Fail when the shipped workspace templates are not exactly what canonical/ makes
+	Scripts/canonical-templates.sh --check
+
+canonical-expected: ## Regenerate canonical/workspace/*/expected/ (the drawing doz ui hands the renderer) — commit the result
+	DOZ_CANONICAL_WRITE=1 $(MAKE) test FILTER=CanonicalWorkspaceTests
 
 audit: ## Neutrality audit: import allowlist, one remote dependency, no host brand
 	@Scripts/audit.sh

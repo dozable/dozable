@@ -1,9 +1,14 @@
 # Space files
 
-A **space file** describes a workspace in one YAML file, `NAME.space.yaml`, kept in git beside the work: its agents,
+A **space file** describes a workspace in one YAML file, `NAME.workspace.yaml`, kept in git beside the work: its agents,
 its rooms, the brief, any folders and sandboxes. Each thing in it is either **owned** — the space makes it — or
 **external**: it exists already and is only referenced (`external:`). The file asks; Dozable decides: it holds the
 workspace's record (see [Workspaces](37-workspaces.md)), and every rule the daemon keeps holds for a file too.
+
+Dozable writes space files as `NAME.workspace.yaml`. A file called `NAME.space.yaml` — the name Dozable used before —
+is read just the same, and always will be; you never need to rename one. When both are in one folder for the same NAME,
+`NAME.workspace.yaml` is read and `NAME.space.yaml` is ignored, and Dozable says so with a warning. The line inside,
+`doz: space/3.1`, is the same either way.
 
 Dozable reads, checks and plans a space file, sets the workspace up from it and takes it down again. Exactly what
 applies one in this version:
@@ -51,13 +56,13 @@ persist:
 ## Looking at one
 
 ```bash
-doz space config launch-video.space.yaml     # the file merged with what it extends, each value with its file and line
-doz space plan -f launch-video.space.yaml    # what up would do: every step, the summary, what down will do
-doz space up -f launch-video.space.yaml --dry-run   # the same plan, as up shows it
+doz space config launch-video.workspace.yaml     # the file merged with what it extends, each value with its file and line
+doz space plan -f launch-video.workspace.yaml    # what up would do: every step, the summary, what down will do
+doz space up -f launch-video.workspace.yaml --dry-run   # the same plan, as up shows it
 ```
 
 `doz space` is `doz workspace` under a shorter name: `doz workspace plan -f FILE` and `doz workspace config FILE` are the
-same commands. Without `-f`, the one `*.space.yaml` in the current folder is used; with two or more there, name one.
+same commands. Without `-f`, the one `*.workspace.yaml` (or `*.space.yaml`) in the current folder is used; with two or more there, name one.
 `--profile NAME` (repeatable) includes the things the file marks `profiles: [NAME]`.
 
 Looking never starts the daemon and changes nothing. With no daemon running, what only a running daemon knows — whether a
@@ -69,7 +74,8 @@ session or a bot runs now, the chat server's rooms — is marked "not known", an
   a loop is an error naming the chain). A defaults file (`doz: space-defaults/3`, or `space-defaults/3.1`, which holds the same) holds only `persist`, `archive`,
   `approvals` and `agent_defaults`: never agents, rooms, sandboxes, services, folders, secrets or the owner, so
   inheriting never starts anything the space file did not write.
-- **`NAME.space.override.yaml`** beside the file, when there is one: good for paths that differ from Mac to Mac.
+- **`NAME.workspace.override.yaml`** beside the file, when there is one: good for paths that differ from Mac to Mac. (A
+  `NAME.space.yaml` has its override as `NAME.space.override.yaml`: an override goes with the file of its own name.)
 - **`${VAR}`** in values, from the environment or the `.env` beside the file (`${VAR:-default}`; `$$` is a `$`). Never in
   keys and never under `secrets:`.
 - Maps merge by key; lists replace; `null` removes an inherited value (`persist: { memory: null }`).
@@ -209,10 +215,10 @@ Remote Control, chat delivery, `resume: summary` and folder trust (noted, not ap
 ## Up and down
 
 ```sh
-doz space up -f launch-video.space.yaml            # the plan, then it is set up
+doz space up -f launch-video.workspace.yaml            # the plan, then it is set up
 doz space down launch-video                        # end the run; archive it; remove what the run made
 doz space down launch-video --purge                # and what persists
-doz workspace show launch-video --space            # "Defined by launch-video.space.yaml": up or down
+doz workspace show launch-video --space            # "Defined by launch-video.workspace.yaml": up or down
 ```
 
 - **`up`** shows the plan and makes what is missing: the folders it keeps, the workspace (or the changes the plan

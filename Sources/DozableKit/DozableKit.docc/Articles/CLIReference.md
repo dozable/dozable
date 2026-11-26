@@ -1046,12 +1046,13 @@ lifetime always said under `x-dozable` (not a key of the format yet), like any o
 YAML by temp-and-rename, no link in its path; exit 4 (`already-exists`) when FILE exists and `--force` is not given, 65
 (`invalid-value`) for a place it may not write; 2 for no such workspace.
 
-Space files (`NAME.space.yaml`, the format `space/3` or `space/3.1` — space/3 with `brief: {text}` / `{file}`, `about`
+Space files (`NAME.workspace.yaml`, the format `space/3` or `space/3.1` — space/3 with `brief: {text}` / `{file}`, `about`
 (`about.title` in place of the top-level `title:`, which still reads with a note), `layout`, `network`, a folder's `main`
 and an agent's `restart`, `network` and `external: {sandbox}` first-class; the lifetime stays under `x-dozable` in either
 version, never required, and a top-level `lifetime:` in a 3.1 file is 65; a 3.1 key under `doz: space/3` is 65 naming the
-fix, the version line; their `x-dozable` form is read for one release, each use a note): without `-f`/FILE, the one `*.space.yaml` in this folder (two or more:
-exit 64, naming them). The CLI reads the file, every `extends:` defaults file, `NAME.space.override.yaml` and `${VAR}` (the
+fix, the version line; their `x-dozable` form is read for one release, each use a note): without `-f`/FILE, the one `*.workspace.yaml` in this folder — a `*.space.yaml`, the older name, is read
+too, forever; for one NAME with both, `NAME.workspace.yaml` is read and the other ignored, a warning saying so (in `--json`, a
+problem of severity `warning`) — (two or more names: exit 64, naming them). The CLI reads the file, every `extends:` defaults file, `NAME.workspace.override.yaml` and `${VAR}` (the
 environment, then the `.env` beside it); the daemon receives one merged document with each place's origin and the sources'
 sha256 (`workspace-up-plan`, at most 256 KiB) and never opens a file. Every problem is printed at once as `file:line`, the
 message and a hint; an error exits 2 and nothing is done. `plan` and `up --dry-run` answer in-process with no daemon
