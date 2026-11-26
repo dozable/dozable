@@ -6,7 +6,7 @@ import Foundation
 // 782 — workspace templates (`WorkspaceTemplates`, the files doz carries): `doz workspace templates [ID]` lists them or shows
 // one, and `doz workspace new [NAME] --template ID` makes a workspace from one. The making is shared with the dashboard's
 // `workspace-from-template` (doz ui holds this module, the space resolver with it): `WorkspaceTemplateMaker`. The files go in
-// `~/doz-workspaces/NAME/` (defaults.projects_dir) — NAME.space.yaml and DESCRIPTION.md — never into a folder of your own;
+// `~/doz-workspaces/NAME/` (defaults.projects_dir) — NAME.workspace.yaml and DESCRIPTION.md — never into a folder of your own;
 // then the space is planned and set up through the daemon (`workspace-up-plan`, then `workspace-up` on that plan).
 
 /// What a template made: the workspace, the template and its version, the space file, and what `up` did.
@@ -151,12 +151,14 @@ public enum WorkspaceTemplateMaker {
         // anything is written; when neither may hold them, refused with what to change.
         let home = SpaceRecordFile.home()
         let fallback = WorkspaceStore.resolved(URL(fileURLWithPath: home).appendingPathComponent("doz-workspaces").appendingPathComponent(n).path)
-        let mayHold = { (d: String) in SpaceRecordFile.placeRefusal(d + "/\(n).space.yaml", home: home, store: store.root.path) == nil }
+        let mayHold = { (d: String) in SpaceRecordFile.placeRefusal(d + "/\(n)\(SpaceResolver.fileSuffix)", home: home, store: store.root.path) == nil }
         guard let dir = [projectFolder, fallback].first(where: mayHold) else {
             throw HostError(.invalid, "a workspace template's files are kept in a folder under your home, and \(DisplayPath.tilde(projectFolder)) is not one — set defaults.projects_dir to a folder under your home (doz config set defaults.projects_dir ~/doz-workspaces)")
         }
-        let file = dir + "/\(n).space.yaml", desc = dir + "/DESCRIPTION.md"
-        guard !fm.fileExists(atPath: file), !fm.fileExists(atPath: desc) else {
+        // 787: written as NAME.workspace.yaml; a NAME.space.yaml already there (the older name) is a space file too.
+        let file = dir + "/\(n)\(SpaceResolver.fileSuffix)", desc = dir + "/DESCRIPTION.md"
+        let older = dir + "/\(n)\(SpaceResolver.olderFileSuffix)"
+        guard !fm.fileExists(atPath: file), !fm.fileExists(atPath: older), !fm.fileExists(atPath: desc) else {
             throw HostError(.exists, "\(DisplayPath.tilde(dir)) already holds a space file — choose another name")
         }
         _ = try folderState(dir)
@@ -212,7 +214,7 @@ struct WorkspaceTemplatesCommand: ParsableCommand {
         }
         s += "  room: #NAME · \(t.room)\n  network: \(t.network)\n"
         if files, let dir = WorkspaceTemplates.directory() {
-            for f in ["space.yaml", "DESCRIPTION.md"] {
+            for f in ["workspace.yaml", "DESCRIPTION.md"] {
                 s += "\n── \(f)\n" + ((try? String(contentsOf: dir.appendingPathComponent(t.id).appendingPathComponent(f), encoding: .utf8)) ?? "")
             }
         }

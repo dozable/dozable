@@ -164,7 +164,7 @@ or adopted since; a file that says no lifetime is read as **runs** — the file'
 ```bash
 doz workspace doc demo                          # the document, as YAML
 doz workspace doc demo --json | jq -r '.document["x-dozable"].lifetime'   # standing
-doz workspace doc demo --write ~/work/demo/demo.space.yaml          # keep it as a space file (nothing is applied)
+doz workspace doc demo --write ~/work/demo/demo.workspace.yaml          # keep it as a space file (nothing is applied)
 ```
 
 The document never holds a secret's value (a secret is a reference: a keychain item or a file), never a grant (a file
@@ -231,7 +231,7 @@ in one line; and **Use this template**. Escape, **✕** or a click outside close
   bot, bossN**, made when you create the workspace.
 - **Create and start.**
 
-The template's files, `NAME.space.yaml` and `DESCRIPTION.md`, are written to `~/doz-workspaces/NAME/` (your
+The template's files, `NAME.workspace.yaml` and `DESCRIPTION.md`, are written to `~/doz-workspaces/NAME/` (your
 `defaults.projects_dir`; when that is not under your home folder, the files go in `~/doz-workspaces/NAME/` and the agents
 still work in `defaults.projects_dir`), and the workspace is set up and started from them. It opens on its room. No built-in template runs an agent unfenced.
 
@@ -657,7 +657,7 @@ doz workspace rename demo launch-video              # its room keeps its own nam
 
 ## From a file
 
-A workspace can be described in one file kept beside the work, `NAME.space.yaml`: `doz space plan -f FILE` shows what
+A workspace can be described in one file kept beside the work, `NAME.workspace.yaml`: `doz space plan -f FILE` shows what
 setting it up would do, and `doz space config FILE` the file merged with what it extends. See
 [Space files](39-space-files.md).
 

@@ -11,7 +11,7 @@ import { spaceHash, spaceWatchHash, workspaceHash } from '../core/routes-0babfc1
 import { canChange, readSpace, spaceSource, spaceStorage } from '../core/space-editor-3673359ccac34b5b.js';
 import { btn } from '../components/button-030d384b64f8d75d.js';
 import { cmdLine } from '../components/cmd-line-0addb11225f36cdd.js';
-import { exportMenu } from '../components/space-export-d1373523d5cd6753.js';
+import { exportMenu } from '../components/space-export-4a79fc39f54bb4d0.js';
 import { toast } from '../components/notices-7a75ec167a650349.js';
 
 let core = null, styled = false;

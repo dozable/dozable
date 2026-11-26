@@ -39,7 +39,7 @@ final class WorkspaceTemplatesTests: XCTestCase {
             if t.needs.manager { XCTAssertTrue(yaml.contains("external: { bot: \"mira\" }"), "\(t.id): your bot, never an owned manager") }
             let sub = dir.appendingPathComponent(t.id)
             try FileManager.default.createDirectory(at: sub, withIntermediateDirectories: true)
-            let file = sub.appendingPathComponent("w-\(t.id).space.yaml")
+            let file = sub.appendingPathComponent("w-\(t.id).workspace.yaml")
             try yaml.write(to: file, atomically: true, encoding: .utf8)
             try desc.write(to: sub.appendingPathComponent("DESCRIPTION.md"), atomically: true, encoding: .utf8)
             let (problems, model) = SpaceResolver().resolve(file.path).check()
@@ -77,7 +77,7 @@ final class WorkspaceTemplatesTests: XCTestCase {
         let script = try String(contentsOf: repo.appendingPathComponent("Scripts/release.sh"), encoding: .utf8)
         XCTAssertTrue(script.contains("DozableKit_DozableKit.bundle/templates/ORDER"))
         for t in WorkspaceTemplates.list() {
-            XCTAssertTrue(script.contains("DozableKit_DozableKit.bundle/templates/\(t.id)/space.yaml"), "release.sh's layout check names \(t.id)")
+            XCTAssertTrue(script.contains("DozableKit_DozableKit.bundle/templates/\(t.id)/workspace.yaml"), "release.sh's layout check names \(t.id)")
         }
         let manifest = try String(contentsOf: repo.appendingPathComponent("Package.swift"), encoding: .utf8)
         XCTAssertTrue(manifest.contains(".copy(\"Resources/templates\")"), "the bundle copies templates/ whole")

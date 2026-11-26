@@ -812,7 +812,7 @@ surface is the ONE chat client: a workspace's page shows the same subtree, moved
   the pure `core/ws-new.js` (`WSN_STEPS`, `nameProblem`, `nextFree`, `requestFrom`, `templateRequestFrom`, `pictureText`,
   `templateAgentWords` — imports nothing; JavaScriptCore in `WebModulesTests.testTheNewWorkspaceWizard`).
 - **The gallery**: the five templates of `GET /api/v1/templates` (`WebTemplates.list`: each `template.json` doz carries, with
-  `picture` — its `space.yaml` rendered with sample names and put in the renderer's words by doz ui's picture reader; kind
+  `picture` — its `workspace.yaml` rendered with sample names and put in the renderer's words by doz ui's picture reader; kind
   `read`, no HostOp) and **Custom**. Each card is drawn by the dashboard's own renderer (`loadRenderer` — the one lazy import;
   `detail: 'thumb'`, no words), so a card looks like the workspace it makes. ⤢ (shown on hover or focus, always with
   `hover: none`) opens the **full-page view** (`fullView`): the drawing labelled (`detail: 'hero'`), the agents with where
@@ -1530,7 +1530,7 @@ Reopen it to post". The Finish dialog shows the rooms' rows, the archive section
 ## A space workspace's page
 
 `workspace-show` carries `space` (`SpaceShown` → `WebWorkspaceSpace`: the file, up or down, its run): the page draws "Defined
-by NAME.space.yaml" with an up pill ("up · run R since HH:MM") or "down". Its brief route carries `file` and `savesTo`: the
+by NAME.workspace.yaml" with an up pill ("up · run R since HH:MM") or "down". Its brief route carries `file` and `savesTo`: the
 card reads "BRIEF.md — from the space file" and its editor says where Save writes — the `workspace-brief` action is
 unchanged (exactly `workspace-edit`), and the daemon writes the file (`SpaceRecordFile`, kind `brief`), never the store's
 copy. Another computer sees the same line and the brief's path as it sees a folder's, and the brief only under its
@@ -1720,7 +1720,7 @@ with ⌘-click, a bookmark, a reload all open it); `#/w/NAME/space/watch` is the
 - **Export** (783; `components/space-export.js`, its data `core/space-export.js`): a menu on the bar for EVERY viewer of the
   page — this Mac's own browser and another computer with `serve.chat` read or write alike (without it the file's read is
   403 `space-remote`, so there is no page and nothing to export) — with **The file (YAML)**, **The drawing (SVG)** and **The
-  drawing (PNG)**, each downloaded as a file named after the workspace (`NAME.space.yaml`, `NAME.svg`, `NAME.png`; a `blob:`
+  drawing (PNG)**, each downloaded as a file named after the workspace (`NAME.workspace.yaml`, `NAME.svg`, `NAME.png`; a `blob:`
   link clicked — the CSP governs no download). Made in this browser from what this viewer already read, by the vendored
   renderer (`space-render.js`'s `render()`, `detail: 'hero'`, 1600 × 1000, one theme — what the peer's `exportSvg` wraps —,
   through the pictures' loader `loadRenderer`; a file that doesn't read is said in words, never drawn as a fault) and, for

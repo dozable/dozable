@@ -118,7 +118,7 @@ let package = Package(
                 // The skills doz carries for an agent that drives it (Resources/skills/NAME/SKILL.md — `doz skill show NAME`,
                 // ShippedSkills.swift). Text, copied as it is.
                 .copy("Resources/skills"),
-                // 782: the workspace templates doz carries (Resources/templates/ID/: template.json, space.yaml, DESCRIPTION.md —
+                // 782: the workspace templates doz carries (Resources/templates/ID/: template.json, workspace.yaml, DESCRIPTION.md —
                 // the New workspace wizard's gallery, `doz workspace templates`; WorkspaceTemplates.swift). Text, copied as it is.
                 .copy("Resources/templates"),
                 // 617: the agent recipes and the key providers, compiled in (`PackageResources.<basename>_json`,

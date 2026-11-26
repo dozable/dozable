@@ -4,8 +4,9 @@ import DozableHost
 import Foundation
 import Yams
 
-/// Reading a space file (`NAME.space.yaml`, space/3) the way the CLI must: the `extends:` chain of defaults files (each
-/// after the files it extends; a loop is an error naming the chain), the file, `NAME.space.override.yaml` beside it,
+/// Reading a space file (`NAME.workspace.yaml`, or `NAME.space.yaml` as files were called before 787; space/3) the way the
+/// CLI must: the `extends:` chain of defaults files (each
+/// after the files it extends; a loop is an error naming the chain), the file, `NAME.workspace.override.yaml` beside it,
 /// `${VAR}` from the environment and the `.env` beside it (values only, never keys, never under `secrets:`), merged —
 /// maps merge, lists replace, `null` removes. Every place keeps where it was set (`SpaceOrigin`), so a message and a risky
 /// setting can name its file and line. Yams stays here (the audit holds it); the daemon receives the merged document,
@@ -65,20 +66,56 @@ struct SpaceResolver {
 
     // MARK: finding the file
 
-    /// Without `-f`: the one `*.space.yaml` in `dir` (none, or two or more, is refused, listing them).
+    /// 787: what a space file is called. doz writes `NAME.workspace.yaml`; `NAME.space.yaml` (every file written before) is
+    /// read forever. When both exist for one NAME, `NAME.workspace.yaml` is read and the other is ignored — said once, as a
+    /// warning (`ignoredBeside`). The format line inside (`doz: space/3.x`) is the same in both.
+    static let fileSuffix = ".workspace.yaml"
+    static let olderFileSuffix = ".space.yaml"
+
+    /// A space file's NAME when `file` (a name or a path) is called like one — `NAME.workspace.yaml` or `NAME.space.yaml`,
+    /// never an override (`NAME.workspace.override.yaml`, `NAME.space.override.yaml`) — else nil.
+    static func spaceFileName(_ file: String) -> String? {
+        let base = (file as NSString).lastPathComponent
+        for suffix in [fileSuffix, olderFileSuffix] where base.hasSuffix(suffix) {
+            let name = String(base.dropLast(suffix.count))
+            return name.isEmpty || name.hasSuffix(".override") ? nil : name
+        }
+        return nil
+    }
+
+    /// The `NAME.space.yaml` that reading `file` (a `NAME.workspace.yaml`) leaves aside, when there is one beside it.
+    static func ignoredBeside(_ file: String) -> String? {
+        guard file.hasSuffix(fileSuffix), let name = spaceFileName(file) else { return nil }
+        let older = ((file as NSString).deletingLastPathComponent as NSString).appendingPathComponent(name + olderFileSuffix)
+        return FileManager.default.fileExists(atPath: older) ? older : nil
+    }
+
+    /// Without `-f`: the one space file in `dir` — `*.workspace.yaml` or `*.space.yaml`; for one NAME with both, the
+    /// `.workspace.yaml` (none, or two or more names, is refused, listing them).
     static func find(in dir: String) throws -> String {
-        let names = ((try? FileManager.default.contentsOfDirectory(atPath: dir)) ?? [])
-            .filter { $0.hasSuffix(".space.yaml") && !$0.hasSuffix(".space.override.yaml") }.sorted()
-        guard !names.isEmpty else { throw HostError(.notFound, "no *.space.yaml in \(DisplayPath.tilde(dir)) — name one with -f FILE") }
+        let all = ((try? FileManager.default.contentsOfDirectory(atPath: dir)) ?? []).filter { spaceFileName($0) != nil }
+        let names = all.filter { f in
+            !(f.hasSuffix(olderFileSuffix) && all.contains(spaceFileName(f)! + fileSuffix))
+        }.sorted()
+        guard !names.isEmpty else { throw HostError(.notFound, "no *.workspace.yaml (or *.space.yaml) in \(DisplayPath.tilde(dir)) — name one with -f FILE") }
         guard names.count == 1 else {
             throw HostError(.unclearRequest, "\(names.count) space files in \(DisplayPath.tilde(dir)): \(names.joined(separator: ", ")) — name one with -f FILE")
         }
         return (dir as NSString).appendingPathComponent(names[0])
     }
 
-    /// `NAME.space.yaml` → `NAME.space.override.yaml` beside it.
+    /// `NAME.workspace.yaml` → `NAME.workspace.override.yaml` beside it (`NAME.space.yaml` → `NAME.space.override.yaml`):
+    /// an override goes with the file of its own name.
     static func overridePath(_ file: String) -> String {
         file.hasSuffix(".yaml") ? String(file.dropLast(5)) + ".override.yaml" : file + ".override.yaml"
+    }
+
+    /// The warning that `file` is read and the `NAME.space.yaml` beside it is not (nil when there is none).
+    static func ignoredWarning(_ file: String) -> SpaceProblem? {
+        guard let older = ignoredBeside(file) else { return nil }
+        let name = (file as NSString).lastPathComponent, old = (older as NSString).lastPathComponent
+        return SpaceProblem(severity: "warning", pointer: "", message: "\(old) beside it is ignored: \(name) is read",
+                            hint: "remove \(old) (or rename one of them) — when both exist, the .workspace.yaml is read", file: name, line: 1)
     }
 
     static func sha256(_ s: String) -> String { SpaceDoc.sha256(s) }
@@ -133,6 +170,7 @@ struct SpaceResolver {
         }
         visit(file, text, [file])
         if r.problems.contains(where: \.isError) { r.broken = true; return r }
+        if let w = Self.ignoredWarning(file) { r.problems.append(w) }
 
         // The layers, lowest first: the defaults, the file, the override; the .env.
         var files: [(path: String, text: String, kind: String)] = defaults.map { ($0.path, $0.text, "defaults") }

@@ -22,7 +22,7 @@ makes and starts a workspace (the New workspace wizard), adds and ends its worke
 | `Sources/DozableHost/WorkspaceState.swift` | `WorkspaceState` and `WorkspaceState.derive`, one pure function; how a sandbox and a session on this Mac look to it |
 | `Sources/DozableHost/WorkspacePlan.swift` | `workspace-plan`'s answer `WorkspacePlan`; `WorkspacePresets.builtIn` (`--preset`, ONE table: blank, remotion-video); `WorkspaceNetworks`; `WorkspaceNewCommand` (the ONE command source: `argv`, `text` — the brief as a heredoc, its delimiter absent from the text — `startText`); `WorkspaceProjectFill` (doz_project.yaml used to fill in choices, the CLI's and the dashboard's, never written); the plan's lines |
 | `Sources/DozableHost/WorkspaceWizard.swift` | the New workspace wizard's answers on the plan: `WorkspaceSuggestion` (the next free name), `WorkspaceManagerFit`, `WorkspaceFinding`, the wizard's words (`WorkspaceWizard`) and their `HostCore` builders |
-| `Sources/DozableKit/WorkspaceTemplates.swift`, `Sources/DozableKit/Resources/templates/` | the workspace templates doz carries (`template.json`, `space.yaml`, `DESCRIPTION.md`), listed, read and rendered; `Sources/DozableCLI/WorkspaceTemplateCommands.swift`: `WorkspaceTemplateMaker` (shared with `doz ui`) and `doz workspace templates`; the dashboard's `Sources/DozableWeb/WebTemplates.swift` |
+| `Sources/DozableKit/WorkspaceTemplates.swift`, `Sources/DozableKit/Resources/templates/` | the workspace templates doz carries (`template.json`, `workspace.yaml`, `DESCRIPTION.md`), listed, read and rendered; `Sources/DozableCLI/WorkspaceTemplateCommands.swift`: `WorkspaceTemplateMaker` (shared with `doz ui`) and `doz workspace templates`; the dashboard's `Sources/DozableWeb/WebTemplates.swift` |
 | `Sources/DozableHost/WorkspaceSetupCheck.swift` | the set-up check: pure `gaps(_:)` (each `Gap {item, why, fix}`), the one-live-workspace rule (`liveElsewhere`, its refusal) |
 | `Sources/DozableHost/ManagerLaunch.swift` | pure: `ManagerIsolation.resolve`, the session name, the program, `plan(...)` (argv, environment, START's path, ports, the bot-held secret) |
 | `Sources/DozableHost/ManagerKickoff.swift` | pure: START's text and the brief's post |
@@ -52,7 +52,7 @@ makes and starts a workspace (the New workspace wizard), adds and ends its worke
 | `Tests/DozableCLITests/WorkerPlanTests.swift` | the worker plan and the add agree over a table of requests (each refusal's sentence, code and field), the plan writes nothing, never unfenced from a default, no daemon; `WorkerAddCommandTests` (the argv parses back, the text is the argv to `/bin/sh`, a long task from a file) |
 | `Sources/doz-vmtest/CLIWorkspaceSuite.swift`, `CLIWorkspaceManagerRows.swift`, `CLIWorkspaceWorkerRows.swift`, `CLIWorkspaceBriefRows.swift`, `CLIWorkspacePlanRows.swift`, `CLIWorkerPlanRows.swift`, `CLIWorkspaceVMSuite.swift` | `make test-cli-workspace`: the real doz, its daemon and chat server, a FAKE claude, no VM; `make test-cli-workspace-vm`: scratch lab VMs |
 | `Sources/DozableHost/StubAgent.swift`, `HostCore+StubAgent.swift`; `Sources/DozableCLI/StubAgentRunner.swift`, `DebugCommands.swift`; `Tests/DozableCLITests/StubAgentTests.swift`; `Sources/doz-vmtest/CLIWorkspaceStubRows.swift` | 749's test hooks ("Test hooks", below): the stub agent under `DOZ_TEST_STUB_AGENT=1` (its words and decisions; the daemon's swap, the VM refusal, the joined and crashed lines; the runner); `doz debug crash`; `make test-cli-workspace` rows T1–T8 |
-| `Sources/DozableHost/SpaceFormat.swift`, `SpaceDocument.swift`, `SpaceValidator.swift` | Space files (`NAME.space.yaml`, space/3): the format's key tables, full names and words; the ordered merged document, `SpaceOrigin`/`SpaceSource`/`SpaceProblem`, `SpaceRequest` (strict, 256 KiB); the ONE pure validator (`checkSource`, `checkMerged` + the backstop, `report`), `SpaceModel`, `SpaceRisk` ("Space files", below) |
+| `Sources/DozableHost/SpaceFormat.swift`, `SpaceDocument.swift`, `SpaceValidator.swift` | Space files (`NAME.workspace.yaml`, space/3): the format's key tables, full names and words; the ordered merged document, `SpaceOrigin`/`SpaceSource`/`SpaceProblem`, `SpaceRequest` (strict, 256 KiB); the ONE pure validator (`checkSource`, `checkMerged` + the backstop, `report`), `SpaceModel`, `SpaceRisk` ("Space files", below) |
 | `Sources/DozableHost/SpaceIntent.swift`, `SpaceUp.swift`, `HostCore+Space.swift` | pure: `SpaceIntent.compile` (what the file asks, in Dozable's terms), `SpaceUp.plan` (the steps, what down will do, the summary, the confirm set, the sha), `SpaceRecordRef`, `SpaceFacts`, `SpacePlan`; `workspace-up-plan` and its facts |
 | `Sources/DozableCLI/SpaceResolver.swift`, `SpaceCommands.swift` | the CLI's reading of the files (Yams: extends, override, `${VAR}`, the merge, each place's origin); `doz workspace plan -f | up -f --dry-run | config` and the `doz space` group |
 | `Sources/DozableHost/SpaceRecordFile.swift`, `HostCore+SpaceFile.swift`; `Sources/DozableCLI/SpaceDashboardPlan.swift` | the files a space workspace's record names (`SpaceRecordFile`: kinds `brief` and `space`, one rule set; `SpaceBriefFile` its brief); `workspace-space` and `workspace-space-save`; the dashboard's plan of the open text ("Space files", below) |
@@ -188,10 +188,10 @@ The plan also answers what the New workspace wizard draws (web.md, "The New work
 
 doz carries five workspace templates — `solo` (One agent), `solo-sandbox` (One agent in a Sandbox), `build-review` (Build &
 review), `fix-it` (Fix-it team, the canonical demo made generic), `video` (Remotion video) — in its resource bundle,
-`templates/ID/{template.json, space.yaml, DESCRIPTION.md}` beside `skills/` (`Sources/DozableKit/WorkspaceTemplates.swift`,
+`templates/ID/{template.json, workspace.yaml, DESCRIPTION.md}` beside `skills/` (`Sources/DozableKit/WorkspaceTemplates.swift`,
 found as the skills are; `ORDER` gives the gallery's order; read-only, replaced by the next install; the release's layout
 check names each). `template.json` is what the gallery reads (`id, version, title, summary, needs.manager, agents [{name,
-role, where, readOnly?}], room, network`); `space.yaml` is space/3.1 with four placeholders — `{{space}}`, `{{owner}}` (you
+role, where, readOnly?}], room, network`); `workspace.yaml` is space/3.1 with four placeholders — `{{space}}`, `{{owner}}` (you
 as chat knows you: up checks it), `{{manager}}`, `{{folder}}` — rendered each as a JSON string — and `{{who}}`, the
 prefix of the template's own agents' names (chat names are global: two workspaces from one template must not share
 `builder`; `WorkspaceTemplates.who` — the workspace's name, a letter first, room left for `-reviewer` under 40) (`${…}` is a space file's own
@@ -1278,17 +1278,26 @@ prints the same rows; the bot page's Roles & ceiling reads `bot-show`'s additive
 
 ## Space files
 
-A space file (`NAME.space.yaml`, the format `space/3` of the doz space reference) describes a workspace in one file kept in
+A space file (`NAME.workspace.yaml`, the format `space/3` of the doz space reference) describes a workspace in one file kept in
 git: its agents, rooms, folders, sandboxes and brief, each **owned** (the space makes it) or **external** (only referenced),
 what persists between runs and the archive. The file is the record's declarative front end, never a second writer: the
 daemon's record stays the truth, and `up` and `down` drive the daemon's own operations, so every rule of theirs holds.
 The manual's page is `docs/manual/39-space-files.md`.
 
+- **The file's name** (787): doz writes `NAME.workspace.yaml` (`workspace new --template`, the dashboard's Export — the
+  editor saves the record's own file in place, whatever it is called); every reader takes `NAME.space.yaml` too, forever
+  (`SpaceResolver.fileSuffix` / `olderFileSuffix`, `spaceFileName`). `find` (no `-f`) counts NAMEs: for one NAME with both,
+  the `.workspace.yaml`; the resolver then adds ONE warning problem (`ignoredWarning`: "NAME.space.yaml beside it is
+  ignored: NAME.workspace.yaml is read") — in `config`'s problems, the CLI's plan and up (`withIgnoredWarning`: the daemon
+  never sees a file's name) and the dashboard's plan. A file named with `-f` is read as named. An override goes with its
+  file's name (`NAME.workspace.override.yaml`, `NAME.space.override.yaml`), never across. The format line inside
+  (`doz: space/3.x`) and every other word are unchanged. `SpaceResolverTests.testBothNamesAreReadAndTheNewOneWinsBesideTheOld`.
+
 - **space/3.1** (758) and **`x-dozable`** (755): the model-neutral 3.1 keys first-class in a `doz: space/3.1` file (never the lifetime), the held ones (the lifetime among them) and the deprecated form under `x-dozable` — checked strictly
   (`SpaceDozable.swift`), every other `x-` key ignored as before; the spelling and rules are workspace-model.md's ("The
   space/3.1 keys"). `~` in a space file is `TestSafety.spaceHome` — the real home; a guarded run's `DOZ_TEST_HOME`.
 - **The CLI reads; the daemon decides.** `SpaceResolver` (DozableCLI, the one place Yams reads it) reads the file, the
-  `extends:` chain (each defaults file after the files it extends, once; a loop named), `NAME.space.override.yaml`,
+  `extends:` chain (each defaults file after the files it extends, once; a loop named), `NAME.workspace.override.yaml`,
   `${VAR}` (the environment over `.env`; values only, never keys, never under `secrets:`; one `${VAR}` alone takes its
   value's type), merges (maps merge — a key keeps its place —, lists replace, `null` removes) and records each place's
   origin `{source, line, keyLine}`. Scalars follow YAML 1.2's core schema (`off` is text); anchors and aliases are
@@ -1566,7 +1575,7 @@ add; both `asleep` after sleep; the worker `crashed` (its exit the reason) after
 - `make test FILTER=SpaceValidationTableTests|SpaceSchemaDriftTests|SpaceResolverTests|SpaceUpPlanTests` — space files
   ("Space files", above); `make test-cli-workspace` rows S1 (plan and up --dry-run with the daemon stopped start none and
   change nothing in the store or the settings; up without --dry-run exit 7) and S12 (`doz space` is the same commands; the
-  one `*.space.yaml` in the folder; two refused).
+  one `*.space.yaml` in the folder — the older name, still read; two refused).
 - `make test FILTER=WorkspaceRecordStateTests` (751: the record's document in every situation through the schema, each
   condition, `ready`, the `--json` contract around the same document) and `SpaceRecordFileTests` (a workspace with no space
   file answers, with no daemon and with one; a missing one is not found; conditions only when asked).

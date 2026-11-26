@@ -6,7 +6,7 @@ import { h } from '../dom/h-f853cc7eb6672c45.js';
 import { btn } from './button-030d384b64f8d75d.js';
 import { menuButton } from './menus-2bfb74f31fa5969c.js';
 import { toast } from './notices-7a75ec167a650349.js';
-import { makeExport } from '../core/space-export-ee3045f1874bf19e.js';
+import { makeExport } from '../core/space-export-df29c5f8ad12bbbf.js';
 
 const LIVE_KEY = 'doz.space.export.live';
 const kept = () => { try { return localStorage.getItem(LIVE_KEY) === '1'; } catch (_) { return false; } };

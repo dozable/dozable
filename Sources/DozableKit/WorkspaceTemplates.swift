@@ -4,7 +4,7 @@ import Foundation
 /// new --template ID`): each a folder `templates/ID/` in the package's resource bundle beside `skills/`, found the way the
 /// skills are (`ShippedSkills`), read-only — the next install replaces them. A template is three files:
 /// - `template.json` — what the gallery reads (`WorkspaceTemplate`: the page never parses YAML);
-/// - `space.yaml` — a space/3.1 file with four placeholders, `{{space}}`, `{{owner}}` (your name in chat), `{{manager}}` and
+/// - `workspace.yaml` — a space/3.1 file (written out as `NAME.workspace.yaml`) with four placeholders, `{{space}}`, `{{owner}}` (your name in chat), `{{manager}}` and
 ///   `{{folder}}` (not `${…}`: that is a space file's own environment substitution), rendered by
 ///   `render` (each value JSON-quoted, so a path never changes the YAML around it);
 /// - `DESCRIPTION.md` — what is posted in the room when it starts.
@@ -35,7 +35,7 @@ public struct WorkspaceTemplate: Codable, Equatable, Sendable {
     /// The room in words ("you and all 3 agents"); the network in one line ("Standard + npm").
     public var room: String
     public var network: String
-    /// The drawing, in the dashboard's renderer's words — filled by `doz ui` from `space.yaml` (never in the file).
+    /// The drawing, in the dashboard's renderer's words — filled by `doz ui` from `workspace.yaml` (never in the file).
     public var picture: String?
 }
 
@@ -103,7 +103,7 @@ public enum WorkspaceTemplates {
         let t = try read(id, in: dir)
         if t.needs.manager, manager == nil { throw TemplateError.invalid("\(t.title) needs a manager: one of your bots") }
         let base = dir!.appendingPathComponent(id)
-        guard let yaml = try? String(contentsOf: base.appendingPathComponent("space.yaml"), encoding: .utf8),
+        guard let yaml = try? String(contentsOf: base.appendingPathComponent("workspace.yaml"), encoding: .utf8),
               let desc = try? String(contentsOf: base.appendingPathComponent("DESCRIPTION.md"), encoding: .utf8) else {
             throw TemplateError.invalid("\(id) is missing a file")
         }
@@ -118,7 +118,7 @@ public enum WorkspaceTemplates {
         out = out.replacingOccurrences(of: "{{owner}}", with: q(owner))
         out = out.replacingOccurrences(of: "{{manager}}", with: q(manager ?? ""))
         out = out.replacingOccurrences(of: "{{folder}}", with: q(folder))
-        guard !out.contains("{{") else { throw TemplateError.invalid("\(id)/space.yaml has a placeholder doz does not fill") }
+        guard !out.contains("{{") else { throw TemplateError.invalid("\(id)/workspace.yaml has a placeholder doz does not fill") }
         return (out, desc)
     }
 

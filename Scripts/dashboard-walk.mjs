@@ -1153,7 +1153,7 @@ async function walkTemplateCreate() {
   const made = await waitFor(`state.view === 'workspace' && state.param === ${JSON.stringify(name)} && !state.modal`, 180000);
   check(made, `template 1 Create and start → #/w/${name}/room` + (made ? '' : ' ' + JSON.stringify(await evaluate(`({ err: document.querySelector('[data-wsn-error]')?.textContent, ops: [...state.ops.values()].slice(-3).map((o) => [o.action, o.state, o.text]) })`))));
   const d = dozJSON(['workspace', 'show', name]) || {};
-  const file = PROJECTS + '/' + name + '/' + name + '.space.yaml';
+  const file = PROJECTS + '/' + name + '/' + name + '.workspace.yaml';
   check(existsSync(file) && existsSync(PROJECTS + '/' + name + '/DESCRIPTION.md') && (d.agents || []).some((a) => a.name === name + '-agent'),
     `template 1 ${name}: its space file and description in its own folder, its agent "${name}-agent"`);
   if (SHOTS) await shot('wizard-light-03-done');
@@ -3291,8 +3291,8 @@ async function walkSpace() {
   await evaluate(`document.querySelector('[data-sp-export-menu]').click()`);
   check(await waitFor(`!!document.querySelector('.menu-wrap.is-open [data-sp-export="yaml"]')`, 5000), 'space 20 the bar\'s Export opens its menu: the file, the drawing as SVG and as PNG');
   await shot('space-export-menu');
-  const yaml = await exported(DL, 'spc3.space.yaml', 'yaml');
-  check(yaml !== null && yaml.toString('utf8') === disk20, `space 20 …the file (YAML) downloads as spc3.space.yaml, the file as it stands (${yaml ? yaml.length : 0} bytes)`);
+  const yaml = await exported(DL, 'spc3.workspace.yaml', 'yaml');
+  check(yaml !== null && yaml.toString('utf8') === disk20, `space 20 …the file (YAML) downloads as spc3.workspace.yaml, the file as it stands (${yaml ? yaml.length : 0} bytes)`);
   const svg = await exported(DL, 'spc3.svg', 'svg');
   const svgOk = svg !== null && await evaluate(`(() => { const d = new DOMParser().parseFromString(${JSON.stringify(svg ? svg.toString('utf8') : '')}, 'image/svg+xml');
     return d.documentElement.localName === 'svg' && !d.querySelector('parsererror'); })()`);
@@ -3332,7 +3332,7 @@ async function walkSpace() {
   await shot('space-another-computer');
   // 783: another computer that may read the file exports it too (the file it read, byte for byte), and a drag there moves nothing.
   const rdisk = readFileSync(SPACE + '/spc3.space.yaml', 'utf8');
-  const ryaml = await exported(DL, 'spc3.space.yaml', 'yaml');
+  const ryaml = await exported(DL, 'spc3.workspace.yaml', 'yaml');
   check(ryaml !== null && ryaml.toString('utf8') === rdisk, 'space 12 …another computer exports too: the file it read (YAML), byte for byte');
   const rpng = await exported(DL, 'spc3.png', 'png');
   check(rpng !== null && rpng.subarray(0, 4).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47])), 'space 12 …and the drawing (PNG)');

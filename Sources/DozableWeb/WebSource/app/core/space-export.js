@@ -9,8 +9,8 @@ import { loadRenderer } from './space-pictures.js';
 /// A picture's size (px); a PNG has 2 pixels for each.
 const SIZE = { width: 1600, height: 1000, padding: 24 }, SCALE = 2;
 
-/// The file name, after the workspace: NAME.space.yaml, NAME.svg, NAME.png.
-export const exportName = (w, kind) => w + (kind === 'yaml' ? '.space.yaml' : '.' + kind);
+/// The file name, after the workspace: NAME.workspace.yaml, NAME.svg, NAME.png.
+export const exportName = (w, kind) => w + (kind === 'yaml' ? '.workspace.yaml' : '.' + kind);
 
 /// The drawing's SVG markup, in one theme (a picture has one, whoever looks at it); a file that doesn't read is said in
 /// words, never drawn as a fault.
