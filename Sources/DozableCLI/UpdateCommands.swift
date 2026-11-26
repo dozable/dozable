@@ -325,7 +325,52 @@ enum UsageJSON {
             .trimmingCharacters(in: .whitespaces)
         if first.hasPrefix("Error: ") { first.removeFirst("Error: ".count) }
         if let hint = RenamedNames.optionHint(first) { first += " (\(hint).)" }
+        first = OptionSuggestion.corrected(first, args: SessionsSend.normalized(UsageHook.parserArguments(args)))
         return HostError(.usage, first.isEmpty ? "usage: see doz help" : first)
+    }
+}
+
+/// An unknown option's "Did you mean …?" when the parser's own nearest name is the wrong one: ArgumentParser suggests by
+/// spelling, so `doz workspace new --path` was told `--site`. An option a person reaches for by meaning (`--path` for a
+/// folder) is suggested as the option that means it, when the command takes it. The message is otherwise unchanged.
+enum OptionSuggestion {
+    /// The option typed → the one that means it.
+    static let meanings: [String: String] = ["--path": "--folder"]
+
+    /// `message` with the suggestion corrected. `takes(typed, meant)`: whether the command on the line takes `meant`.
+    static func corrected(_ message: String, takes: (_ typed: String, _ meant: String) -> Bool) -> String {
+        for (typed, meant) in meanings.sorted(by: { $0.key < $1.key }) {
+            let unknown = "Unknown option '\(typed)'"
+            guard message.contains(unknown), takes(typed, meant) else { continue }
+            var lines = message.components(separatedBy: "\n")
+            guard let i = lines.firstIndex(where: { $0.contains(unknown) }) else { continue }
+            if let r = lines[i].range(of: ". Did you mean '") {
+                lines[i] = String(lines[i][..<r.lowerBound])
+            }
+            lines[i] += ". Did you mean '\(meant)'?"
+            return lines.joined(separator: "\n")
+        }
+        return message
+    }
+
+    /// Whether the command on `args` takes `option`: the line parsed again with the unknown option's name replaced — any
+    /// failure but "Unknown option '<option>'" means it does.
+    static func commandTakes(_ option: String, args: [String], typed: String, parse: ([String]) throws -> Void) -> Bool {
+        let swapped = args.map { a -> String in
+            if a == typed { return option }
+            if a.hasPrefix(typed + "=") { return option + a.dropFirst(typed.count) }
+            return a
+        }
+        do { try parse(swapped); return true } catch {
+            return !DozableCommand.fullMessage(for: error).contains("Unknown option '\(option)'")
+        }
+    }
+
+    /// The correction for doz's own command line (`args` as the parser read them).
+    static func corrected(_ message: String, args: [String]) -> String {
+        corrected(message) { typed, meant in
+            commandTakes(meant, args: args, typed: typed) { _ = try DozableCommand.parseAsRoot($0) }
+        }
     }
 }
 
@@ -414,6 +459,12 @@ public enum DozableEntry {
             let message = DozableCommand.fullMessage(for: error)
             if RenamedNames.optionHint(message) != nil {
                 Out.stderr(RenamedNames.withOptionHint(message) + "\n")
+                exit(DozableCommand.exitCode(for: error).rawValue)
+            }
+            // An unknown option whose nearest spelling is not what was meant (`--path` → `--folder`, not `--site`).
+            let corrected = OptionSuggestion.corrected(message, args: SessionsSend.normalized(UsageHook.parserArguments(args)))
+            if corrected != message {
+                Out.stderr(corrected + "\n")
                 exit(DozableCommand.exitCode(for: error).rawValue)
             }
             DozableCommand.exit(withError: error)
