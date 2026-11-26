@@ -23,6 +23,8 @@ import DozableHost
 //  S11. a clean room (archive: off): down --dry-run names what goes with no copy
 //  S13. a session whose name only starts like an agent's survives down
 //  S14. --json: up and down answer SpaceActed
+//  S15. a fenced template agent reads its START and the skill files (the FAKE claude refuses an unlisted Read — the control
+//      first) and says it is up; its allow-list holds exactly those Read rules; finish says finish
 func cliSpaceActRows(_ h: CLIHarness, root: URL, store: DozableStore) {
     print("cli: space files — up, down, --purge")
     let fm = FileManager.default
@@ -63,6 +65,7 @@ func cliSpaceActRows(_ h: CLIHarness, root: URL, store: DozableStore) {
       mkdir -p "$m"; echo "a start" >> "$m/notes.md"
     fi
     [ -n "$start" ] || exec sleep 600
+    \(fakeClaudeReadCheck)
     first=$(head -n 1 "$start")
     room=$(sed -n 's/^Your room in chat: //p' "$start")
     bot=$(printf '%s' "$first" | sed -n 's/^You are \\([^,]*\\),.*/\\1/p')
@@ -241,4 +244,36 @@ func cliSpaceActRows(_ h: CLIHarness, root: URL, store: DozableStore) {
     r = h.run(["workspace", "down", "sc", "--yes"], timeout: 120)
     check(r.code == 0 && (try? ChatRoomIndex.load(ChatPaths(store: store)))?.tombstone("sc")?.archive == "", "S11 …down removes it with no copy, said (\(r.code))")
     check(acted(h.run(["workspace", "down", "sc", "--dry-run", "--json"])) == nil, "S14 down --dry-run --json is the plan (not an answer)")
+
+    // S15 (a first-run report: a template's fenced agent was launched under dontAsk with only Bash(dozchat:*) allowed —
+    // its START and the chat skills START names are outside its folder, every read was refused, "2 actions not run ·
+    // permission denied", and it sat idle). The FAKE claude here refuses an unlisted Read as Claude Code does
+    // (`fakeClaudeReadCheck`). First the control: launched as before the fix, it is refused and says nothing.
+    let s15 = dir.appendingPathComponent("s15")
+    try? fm.createDirectory(at: s15, withIntermediateDirectories: true)
+    let ctlStart = s15.appendingPathComponent("start.md").path
+    try? "You are ctl, a worker.\nYour room in chat: none\n".write(toFile: ctlStart, atomically: true, encoding: .utf8)
+    r = h.run(["run", "@mac", "-d", "--fenced", "--session", "s15-control", "--folder", s15.path, "--", "claude",
+               "Read \(ctlStart) and do what it says.", "--permission-mode", "dontAsk", "--allowedTools", "Bash(dozchat:*)"], timeout: 90)
+    extra.append("s15-control")
+    check(r.code == 0 && h.waitFor(30) { h.run(["sessions", "screen", "@mac", "s15-control"]).out.contains("permission denied") },
+          "S15 the control: the FAKE claude, launched with no Read rule, is refused its START (permission denied), as Claude Code is")
+    // Then the solo template, fenced: its agent reads START and the skill files and says it is up — no one types to it.
+    let soloDir = s15.appendingPathComponent("work")
+    try? fm.createDirectory(at: soloDir, withIntermediateDirectories: true)
+    r = h.run(["workspace", "new", "sfix", "--template", "solo", "--folder", WorkspaceStore.resolved(soloDir.path), "--json"], timeout: 180)
+    extra.append("sfix-agent")
+    func upInRoom() -> Bool {
+        let m = ((try? JSONSerialization.jsonObject(with: h.run(["chat", "read", "sfix", "--last", "50", "--json"]).outData)) as? [[String: Any]]) ?? []
+        return m.contains { $0["from"] as? String == "sfix-agent" && ($0["content"] as? String)?.hasPrefix("sfix-agent is up: You are sfix-agent") == true }
+    }
+    check(r.code == 0 && h.waitFor(60) { upInRoom() },
+          "S15 a fenced template agent (solo) is launched able to read its own START, and posts in its room that it is up, with no one typing into its session (\(r.code) \(h.run(["sessions", "screen", "@mac", "sfix-agent"]).out.suffix(200)))")
+    let argv = records()["sfix-agent"]?.argv ?? []
+    let list = argv.firstIndex(of: "--allowedTools").map { Array(argv[($0 + 1)...]) } ?? []
+    check(list.first == "Bash(dozchat:*)" && list.dropFirst().allSatisfy { $0.hasPrefix("Read(//") && $0.hasSuffix(".md)") }
+          && list.contains { $0.hasSuffix("/etc/worker/start.md)") } && list.contains { $0.hasSuffix("/SKILL.md)") } && !list.contains("Read"),
+          "S15 …its allow-list: dozchat, then exactly its START's and its skill files' Read rules — nothing wider (\(list))")
+    r = h.run(["workspace", "finish", "sfix", "--yes"], timeout: 180)
+    check(r.code == 0 && !r.out.contains("space down"), "S15 workspace finish speaks of finish, never \"space down\" (\(r.code) \(r.out.prefix(160)))")
 }

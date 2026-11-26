@@ -413,13 +413,14 @@ extension HostCore {
             let secret = try botLaunchSecret(bot, port: pagePort)
             fingerprint = secret.fingerprint
             plan = try ManagerLaunch.plan(isolation: iso, agent: b.agent, model: b.model, bot: bot, startFile: startFile, pagePort: pagePort,
-                                          fingerprint: fingerprint)
+                                          fingerprint: fingerprint, readFiles: AgentSkillFiles.readFiles(AgentSkillFiles.manager, isolation: iso))
         case .unfenced:
             let prepared = try await prepareUnfencedManager(rec.name, bot: b, place: place, start: start)
             fingerprint = prepared.fingerprint
             notes += prepared.notes
             plan = try ManagerLaunch.plan(isolation: iso, agent: b.agent, model: b.model, bot: bot, startFile: prepared.startFile,
-                                          pagePort: pagePort, fingerprint: fingerprint, tokenFile: prepared.tokenFile, session: place)
+                                          pagePort: pagePort, fingerprint: fingerprint, tokenFile: prepared.tokenFile, session: place,
+                                          readFiles: AgentSkillFiles.readFiles(AgentSkillFiles.manager, isolation: iso))
         }
         let order = ManagerLaunchOrder(workspace: rec.name, bot: bot, isolation: iso, place: place, workdir: workdir, plan: plan, start: start,
                                        restart: restart, agent: b.agent, account: b.account, model: b.model,

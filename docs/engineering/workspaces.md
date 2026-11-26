@@ -474,7 +474,12 @@ the dozchat commands kept. Nothing is written into `~/.claude` or any agent's co
 - **Fenced** (`macOpen` with `botSecrets:` and `managerStart:` → `macOpenFenced`): permissions the workspace's network
   default else `locked`; the chat page port as a host port; `CHAT_URL=http://host.dozable.internal:PORT`; the account the
   bot's else `mac.account`; START at `<session>/etc/manager/start.md` (host-owned, read-only to the program); argv
-  `claude [--model M] "<prompt>" --permission-mode dontAsk --allowedTools "Bash(dozchat:*)"` (the allow-list last).
+  `claude [--model M] "<prompt>" --permission-mode dontAsk --allowedTools "Bash(dozchat:*)" "Read(//START)" "Read(//SKILL)"…`
+  (the allow-list last). START and the skill files are outside its folder, so each gets one exact `Read` rule
+  (`AgentLaunch.readRules`; `//` starts an absolute path in a rule — `Read(/ABS)` is relative to the project and was
+  refused, probed on Claude Code 2.1.332): without them every read was refused under dontAsk and the agent sat idle, its
+  instructions unread (a first-run report). Nothing wider — no bare `Read`, no folder; an unfenced one gets the same rules
+  (it would otherwise stop to ask). The CLI rows' FAKE claudes refuse an unlisted read the same way (`fakeClaudeReadCheck`).
 - **VM** (`launchManagerInVM`): the sandbox made once with what `doz create S --agent A --approvals skip --permissions P
   --host-port PORT --folder MAIN [--account] [--model]` sends, the bot-held secret put in its record, started, START copied
   to `~/.doz-workspace/start.md` by one exec, then the session `manager` with `CHAT_URL`. Guarded seams for the VM suite:
@@ -555,8 +560,9 @@ line>` / `Your room in chat: ROOM` (the manager's shape, which the tests' FAKE c
 manager while one runs, else the person), `dozchat` with `CHAT_TOKEN_FILE`, the skills `chat-worker` and
 `chat-room-member` by their files' paths (as a manager's, above) and a bot's own, a bot's instructions, what it can do where it runs, to say it is up with its task in
 a few words, and the task in full. Fenced: START at `etc/worker/start.md`; argv `claude "<prompt>" --permission-mode
-dontAsk --allowedTools "Bash(dozchat:*)" [--allow-tool …]` — `WorkerLaunch.defaultAllowedTools` is the ONE constant of
-the default list (the allow-list last). Unfenced: no dontAsk. VM: START at `~/.doz-workspace/NAME/start.md`, approvals
+dontAsk --allowedTools "Bash(dozchat:*)" [--allow-tool …] "Read(//START)" "Read(//SKILL)"…` —
+`WorkerLaunch.defaultAllowedTools` is the ONE constant of the default list (the allow-list last; the Read rules as a
+manager's). A worker's own place is `W-NAME`, or NAME when it already starts with `W-` (a template's agent `W-agent`). Unfenced: no dontAsk. VM: START at `~/.doz-workspace/NAME/start.md`, approvals
 skipped, no list. The paths are the manager's, made role-aware: `launchAgentOnMac` (`AgentMacLaunch`) and
 `launchAgentInVM` (`AgentVMLaunch`); the manager's own launch is unchanged.
 

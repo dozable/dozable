@@ -50,6 +50,7 @@ func cliWorkspaceWorkerRows(_ h: CLIHarness, root: URL, store: DozableStore, sta
       case "$a" in "Read "*" and do what it says.") start="${a#Read }"; start="${start% and do what it says.}" ;; esac
     done
     [ -n "$start" ] || exec sleep 600
+    \(fakeClaudeReadCheck)
     first=$(head -n 1 "$start")
     room=$(sed -n 's/^Your room in chat: //p' "$start")
     bot=$(printf '%s' "$first" | sed -n 's/^You are \\([^,]*\\),.*/\\1/p')

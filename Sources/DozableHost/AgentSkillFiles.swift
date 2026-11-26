@@ -39,6 +39,12 @@ public enum AgentSkillFiles {
         return out
     }
 
+    /// The files on this Mac an agent in `isolation` is told to read (START names them): each gets its own Read rule in a
+    /// Claude Code's allow-list (`AgentLaunch.readRules`). None in a VM (its copies are its own, its approvals skipped).
+    public static func readFiles(_ names: [String], isolation: ManagerIsolation, in dir: URL? = ShippedSkills.directory()) -> [String] {
+        isolation == .vm ? [] : names.compactMap { macPath($0, in: dir) }
+    }
+
     /// The files to copy into a VM, by name (those this install carries).
     public static func vmCopies(_ names: [String], in dir: URL? = ShippedSkills.directory()) -> [String: Data] {
         var out: [String: Data] = [:]

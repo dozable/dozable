@@ -18,8 +18,8 @@ final class ManagerLaunchTests: XCTestCase {
     func testFencedClaude() throws {
         let p = try plan(.fenced, model: "opus", port: 41000)
         XCTAssertEqual(p.argv, ["claude", "--model", "opus", "Read \(start) and do what it says.", "--permission-mode", "dontAsk",
-                                "--allowedTools", "Bash(dozchat:*)"])
-        XCTAssertEqual(p.argv.suffix(2), ["--allowedTools", "Bash(dozchat:*)"], "the allow-list is last")
+                                "--allowedTools", "Bash(dozchat:*)", "Read(/\(start))"])
+        XCTAssertEqual(p.argv.suffix(3), ["--allowedTools", "Bash(dozchat:*)", "Read(/\(start))"], "the allow-list is last")
         XCTAssertEqual(p.environment, ["CHAT_URL": "http://host.dozable.internal:41000"])
         XCTAssertEqual(p.hostPorts, [41000])
         let s = try XCTUnwrap(p.secret)
@@ -41,7 +41,7 @@ final class ManagerLaunchTests: XCTestCase {
     func testUnfenced() throws {
         var p = try plan(.unfenced)
         XCTAssertFalse(p.argv.contains("dontAsk"), "no dontAsk: anything beyond dozchat asks")
-        XCTAssertEqual(p.argv.suffix(2), ["--allowedTools", "Bash(dozchat:*)"])
+        XCTAssertEqual(p.argv.suffix(3), ["--allowedTools", "Bash(dozchat:*)", "Read(/\(start))"])
         XCTAssertEqual(p.environment, ["CHAT_TOKEN_FILE": "/t/doz-1/manager-demo/chat-token", "CHAT_URL": "http://127.0.0.1:8790"],
                        "771: CHAT_URL on the default port too — never left to dozchat's guess")
         XCTAssertNil(p.secret)
@@ -90,7 +90,7 @@ final class ManagerLaunchTests: XCTestCase {
         let u = try ManagerLaunch.plan(isolation: .unfenced, agent: "claude-code", model: "opus", bot: "dozboss1", startFile: start, pagePort: 8790,
                                        fingerprint: BotTokens.fingerprint(token), tokenFile: "/t/doz-1/manager-ws/chat-token", session: "ws")
         XCTAssertEqual(Array(u.argv.prefix(5)), ["claude", "--name", "ws", "--model", "opus"])
-        XCTAssertEqual(u.argv.suffix(2), ["--allowedTools", "Bash(dozchat:*)"], "the allow-list stays last")
+        XCTAssertEqual(u.argv.suffix(3), ["--allowedTools", "Bash(dozchat:*)", "Read(/\(start))"], "the allow-list stays last")
         // Fenced and VM are not named (their records are not the person's, and never an inbox's).
         for i in [ManagerIsolation.fenced, .vm] {
             let p = try ManagerLaunch.plan(isolation: i, agent: "claude-code", model: nil, bot: "m", startFile: start, pagePort: 8790,
