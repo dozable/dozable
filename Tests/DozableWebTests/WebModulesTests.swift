@@ -474,6 +474,17 @@ final class WebModulesTests: XCTestCase {
         XCTAssertGreaterThan(rule.lowerBound, sticky.lowerBound, "in the later layer (views), after the page's sticky heads")
     }
 
+    /// A recipe's tags read as words ("Dozable unpublished"), never run together.
+    func testARecipesTagsReadAsWords() throws {
+        let settings = try String(contentsOf: Self.root.appendingPathComponent("Sources/DozableWeb/WebSource/app/views/settings.js"), encoding: .utf8)
+        let ctx = try XCTUnwrap(JSContext())
+        let fn = try XCTUnwrap(settings.components(separatedBy: "\n").first { $0.hasPrefix("function spacedTags(") })
+        ctx.evaluateScript(fn)
+        XCTAssertEqual(ctx.evaluateScript("JSON.stringify(spacedTags(['Dozable', null, 'unpublished']).join(''))")?.toString(), "\"Dozable unpublished\"")
+        XCTAssertTrue(settings.contains("' ', spacedTags(tags))"), "a recipe row's tags")
+        XCTAssertTrue(settings.contains("h('div', { class: 'recipe-facts' }, spacedTags(["), "a recipe page's tags")
+    }
+
     /// Leaving a modal for an address: the page under it is kept as it was ONLY when the history entry is that page's own
     /// (the browser's Back, the modal's close) — every routed page stamps its entry (`history.state.dozPage`) and in-page
     /// address changes keep the stamp; an address that replaced the modal's entry routes the page again, even when it equals

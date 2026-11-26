@@ -98,7 +98,7 @@ import { paintHome } from './app/views/sandbox-home-3bd960c4cd21504f.js';
 import { refreshSandbox, showSandbox } from './app/views/sandbox-1906c11a41407557.js';
 import { gridEnter, gridLeave, gridRefresh, gridSchedule } from './app/views/sessions-a2d0989cd04c810e.js';
 import { macEnter, macLeave, macRefresh } from './app/views/mac-8a4fdf43a4fd437c.js';
-import { viewBrowse, viewRecipes, viewSettings } from './app/views/settings-425c5110b0a728dc.js';
+import { viewBrowse, viewRecipes, viewSettings } from './app/views/settings-259bd561faefeb21.js';
 import { viewThisMac } from './app/views/this-mac-cee7b860c1c2e7b3.js';
 import './app/views/shortcuts-b1dfd82b58f88b9d.js';
 import { spaceEnter, spaceLeave, spaceNow } from './app/views/space-page-9c469f867f65c273.js';
