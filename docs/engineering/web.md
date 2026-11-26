@@ -1424,12 +1424,12 @@ browser only and `heldOnly`.
   `terminal.html` → `/terminal-frame`), each with its one script and style (607: the page's script is a module graph — app.js and app/**);
   the page-code rules apply to all of them.
 - **Vendoring by peer commit** (742, 744): code that comes from no registry — the space editor's build — is vendored by the
-  commit it was built at. `vendor/space-editor/` holds that build's files byte for byte — its core (`space-core.js`), the
+  commit it was built at (783: the editor 0.20.0, the engine @johnoscott/isometric-engine 0.20.0). `vendor/space-editor/` holds that build's files byte for byte — its core (`space-core.js`), the
   eight features (`space-{canvas,text,edit,plan,live,motion,sim,timeline}.js`), every `space-chunk-*.js`, the renderer
   (`space-render.js`), `space-editor.css`, Monaco (`monaco/{monaco.js,monaco.css,editor.worker.js,codicon.ttf}`), the
   references (`*.d.ts`, `types/*.d.ts`, the two schemas — kept, never shipped) and `LICENSES/*` — and its `PIN` (`sha256  path`
   per line, for the whole build — it may name files not vendored: the demo, the window client, `space-history.js` and the
-  everything entry `space-editor.js` are left out); `VENDOR.json` says `"provenance": "peer-commit"`, the full 40-character
+  everything entry `space-editor.js` are left out, and since 783 the export entry `space-export.js` — see "The space editor's page"); `VENDOR.json` says `"provenance": "peer-commit"`, the full 40-character
   `commit`, `source`, `pinFile` and `pinSha256`, `publish`, `licenceIndex`, `components` (each `{name, version, licence,
   licenceFile, notices?}`) and `files` (`{file, sha256, serve, publicName?, lazyReference?}`). The compiler (`PeerVendor`;
   registry packages unchanged) checks the commit's form, the PIN's sha, every listed file's sha against VENDOR.json AND its
@@ -1705,8 +1705,35 @@ with ⌘-click, a bookmark, a reload all open it); `#/w/NAME/space/watch` is the
   stylesheet, its worker under `worker-src 'self'`, its icon font under `font-src 'self'`); this viewer's choice is kept
   (`doz.space.text`), so a later visit mounts with it.
 - **The bar** (`.sp-bar`): back to the workspace's Home, "Drawn from FILE", Saved · Unsaved · Read-only here, Reload after a
-  conflict, Text, Watch, Open in a new window (its own window, `doz-space-NAME`, 1280 × 860, through `core/windows.js` —
+  conflict, Text, Watch, Export (below), Open in a new window (its own window, `doz-space-NAME`, 1280 × 860, through `core/windows.js` —
   a second click brings the same window forward with only a fragment change, so a dirty file there is never reloaded).
+- **Layout tweaks** (783, the editor at 0.20.0): with `edit` — this Mac's own browser only — a drag on the canvas pins what
+  moved under `x-editor.layout`: a resource by its name, and what is drawn with no name of its own by the format's `@` keys
+  (`"@space"`, `"@chat"`, `"@archive"`, `"@owner"`, `"@fence/AGENT"` — an agent's fence, renamed with it). What is drawn as
+  part of another thing (the dashboard, a proxy, a mount, a disk, the Mac) can't be dragged, and the editor says what to drag
+  instead. A move is an edit: it makes the file dirty and is saved only by Save, through the one save path below — no other
+  write path exists. Dozable's validator reads the `@` keys (`SpaceValidator`: an unknown part, or a fence of no agent, is
+  a warning, as a pin of no resource is — `WorkspaceDocumentTests.testTheLayoutPinsOfPartsWithNoNameOfTheirOwn`).
+  **space/3.2** (the peer's draft, execution realms) is read by the vendored editor, but Dozable does not accept it yet:
+  0.20.0 offers its forms (`realms:`, `realm:`) only in a file whose line is `doz: space/3.2`, so editing a space/3 or 3.1
+  file never writes one, and a 3.2 text is never saved (`SpaceRecordFile.formatRefusal`, `SpaceRecordFileTests`).
+- **Export** (783; `components/space-export.js`, its data `core/space-export.js`): a menu on the bar for EVERY viewer of the
+  page — this Mac's own browser and another computer with `serve.chat` read or write alike (without it the file's read is
+  403 `space-remote`, so there is no page and nothing to export) — with **The file (YAML)**, **The drawing (SVG)** and **The
+  drawing (PNG)**, each downloaded as a file named after the workspace (`NAME.space.yaml`, `NAME.svg`, `NAME.png`; a `blob:`
+  link clicked — the CSP governs no download). Made in this browser from what this viewer already read, by the vendored
+  renderer (`space-render.js`'s `render()`, `detail: 'hero'`, 1600 × 1000, one theme — what the peer's `exportSvg` wraps —,
+  through the pictures' loader `loadRenderer`; a file that doesn't read is said in words, never drawn as a fault) and, for
+  the PNG, that SVG drawn on a canvas at 2× (`img-src data:`). The peer's export entry `space-export.js` is NOT vendored: its
+  text holds a word of the neutral check's list (the drawing format's key, in `exportDrawing`), and the vendored tree is
+  never edited. The YAML is the file's text as read (`workspace-space`, byte for byte — it holds the prompts, members and folders'
+  paths, and the menu says so); a drawing is of the file in the renderer's words (`picture`, else the text — as "The workspace
+  drawn" draws it), in the dashboard's theme. What is true now is in a drawing only when **Drawings show what is happening
+  now** is ticked (this browser's choice, `doz.space.export.live`): then the state is read once through `workspace-state`, the
+  viewer's own projection (this Mac's agents hidden from another computer while `serve.mac_sessions` is off). Exports are of
+  the file as last read or saved, never an unsaved change. No route, action or operation of their own: an export reaches the
+  daemon only as those reads. `exportDrawing` (the drawing format's text) is not offered. `WebModulesTests.testTheSpaceExportsAreMadeInTheBrowserFromWhatTheViewerRead`,
+  `ServeHTTPTests.testAnExportCarriesOnlyWhatAnotherComputerMayRead`, the walk's space 12 and 17–23.
 - **Saving** (`onSave`): exactly the action `workspace-space-save {workspace, text, ifMatch}` (no new route or action), the
   base the sha256 the page read; a body over 16 KiB is not sent — "Too long to save here: `doz workspace edit W --space-file
   F --if-match SHA`". A save ended with "the space file changed since you opened it" is the editor's conflict ("Changed

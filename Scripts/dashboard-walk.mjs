@@ -92,10 +92,16 @@
 //     then and only then; 5 typing → Unsaved, the leave guard (Stay), ⌘S saves (the file's sha is show --space's), "Not
 //     applied"; 6 a stale save → "Changed elsewhere", nothing written, Reload; 7 a typo listed, a defaults file's problem
 //     named; 9 a bot's Ask drawn and answered from it (chat-decide done); 11 watch; 13 390 px canvas only; 14 ? opens the
-//     editor's keys, Escape stays, three visits leave no editor and no listener more; 12 another computer (its read rewritten
-//     to canSave false): read-only, the command, no edit fetched; 10 after down the runs strip reads a run's frames; 15 no CSP
+//     editor's keys, Escape stays, three visits leave no editor and no listener more; 17 a part with no name of its own dragged
+//     on the canvas writes its @ pin into x-editor.layout, Save writes it to the file, Dozable's plan says nothing of it; 18 a
+//     drag saved over a file changed since: "Changed elsewhere", nothing written; 19 what can't move says why (the
+//     dashboard: "drag the owner"); 20–22 the bar's Export: the file (YAML) is the file byte for byte, the SVG parses, the PNG
+//     has its signature, each named after the workspace, the dark theme a dark drawing; 23 no export route, the renderer
+//     the pictures load draws them; 12 another computer (its read rewritten
+//     to canSave false): read-only, the command, no edit fetched, its exports (YAML byte for byte, PNG), a drag writes no pin;
+//     10 after down the runs strip reads a run's frames; 15 no CSP
 //     violation; 16 the leak sweep. Pictures: space-editor-light, -dark, -text, -conflict, space-watch, space-390,
-//     space-another-computer.
+//     space-another-computer, space-pin-moved, space-cant-move, space-export-menu, space-export-menu-dark.
 //   · the chat window (a second DevTools socket on the browser's endpoint attaches every new window from its first byte):
 //     1 the Chat page's pop-out opens /chat#/askw named doz-chat-askw — the room alone, live, the focus on the composer, no two
 //     head controls overlapping (the bell included); 2 what it fetched: chat's code only, no other view, no overview, no
@@ -2915,6 +2921,65 @@ async function clickAt(expr) {
   for (const type of ['mousePressed', 'mouseReleased']) await send('Input.dispatchMouseEvent', { type, x: p[0], y: p[1], button: 'left', clickCount: 1 });
   return true;
 }
+/// 783: a real mouse drag on the editor's canvas, from the middle of the drawn thing `id` by (dx, dy), in steps.
+async function dragOn(id, dx, dy, during) {
+  // (a point the pointer would hit it at: the first on a grid over its parts whose topmost element is its own)
+  const p = await evaluate(`(() => { const es = [...document.querySelectorAll('#space .space-editor .canvas-stage svg [data-id="${id}"]')]; if (!es.length) return null;
+    for (const e of es) { const r = e.getBoundingClientRect(); if (!(r.width > 0)) continue;
+      for (const fy of [0.5, 0.35, 0.65, 0.2, 0.8]) for (const fx of [0.5, 0.35, 0.65, 0.2, 0.8]) {
+        const x = r.left + r.width * fx, y = r.top + r.height * fy, hit = document.elementFromPoint(x, y)?.closest('[data-id]');
+        if (hit && hit.getAttribute('data-id') === '${id}') return [x, y]; } }
+    return null; })()`);
+  if (!p) return false;
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p[0], y: p[1], button: 'none' });
+  await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: p[0], y: p[1], button: 'left', buttons: 1, clickCount: 1 });
+  for (let i = 1; i <= 12; i++) {
+    await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p[0] + dx * i / 12, y: p[1] + dy * i / 12, button: 'left', buttons: 1 });
+    await sleep(30);
+    if (during) await during();
+  }
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: p[0] + dx, y: p[1] + dy, button: 'left', buttons: 0, clickCount: 1 });
+  await sleep(600);
+  return true;
+}
+/// 783: drags each of `ids` (pinned as `keys`) a few ways until one lands → its pin's key (`moved`: a pin there already moves).
+async function dragUntilPinned(ids, keys, moved = false) {
+  for (let i = 0; i < ids.length; i++) {
+    for (const [dx, dy] of [[0, 160], [160, 0], [-160, 0], [0, -160], [220, 160], [-220, 160]]) {
+      const t0 = await evaluate(`spaceNow().text`);
+      if (!await dragOn(ids[i], dx, dy)) break;
+      const t1 = await evaluate(`spaceNow().text`);
+      if (t1 !== t0 && t1.includes(keys[i]) && (moved || !t0.includes(keys[i]))) return keys[i];
+      if (t1 !== t0) { await keyMod('z', 'KeyZ', 4); await sleep(300); }
+    }
+  }
+  return null;
+}
+/// 783: what the editor says while a thing it can't move is dragged.
+async function dragNoMove(id) {
+  let said = '';
+  // (the editor says it in its status bar's hint, #se-st-hint, as the drag starts)
+  const look = async () => {
+    const t = await evaluate(`document.querySelector('#space .space-editor [id$="st-hint"]')?.textContent || ''`);
+    if (/can.t be moved|moves with|stands beside|no place of its own|drag the/.test(t)) said = t;
+  };
+  const found = await dragOn(id, 120, 60, look);
+  if (!said) await look();
+  return found ? said : '(not found on the canvas)';
+}
+/// 783: one item of the space page's Export menu chosen → the file it downloaded into `dir` as `name` (null: none).
+async function exported(dir, name, kind) {
+  rmSync(dir + '/' + name, { force: true });
+  const item = `document.querySelector('.menu-wrap.is-open [data-sp-export="${kind}"]')`;
+  if (!await evaluate(`!!${item}`)) await evaluate(`document.querySelector('[data-sp-export-menu]').click()`);
+  if (!await waitFor(`!!${item}`, 5000)) return null;
+  await evaluate(`${item}.click()`);
+  for (let i = 0; i < 80; i++) {
+    await sleep(250);
+    if (existsSync(dir + '/' + name)) { await sleep(300); return readFileSync(dir + '/' + name); }
+  }
+  return null;
+}
 const strayTabs = async () => (await (await fetch(`http://127.0.0.1:${devPort}/json/list`)).json()).filter((t) => t.type === 'page' && !t.url.startsWith('http://127.0.0.1')).map((t) => t.url);
 // space/3.1 in the vendored editor: a doz: space/3.1 file (a brief written in it, the main folder, about; its lifetime under
 // x-dozable — not a 3.1 key) up'd,
@@ -3189,6 +3254,63 @@ async function walkSpace() {
   const after = await listenerCount();
   check(await evaluate(`document.querySelectorAll('.space-editor').length === 0 && document.getElementById('space').childElementCount === 0`) && after <= before,
     `space 14 entered and left three times: no editor left, listeners ${before} → ${after}`);
+  // 17–19 (783). Layout tweaks: a part with no name of its own dragged → its @ pin in x-editor.layout, saved over the version
+  // read; a stale save of a drag writes nothing; what can't move says why.
+  await goHash('#/w/spc3/space');
+  await waitFor(`!!${SE('.canvas-stage svg [data-id]')} && !state.spaceDirty`, 30000);
+  await sleep(1500);
+  const pinned = await dragUntilPinned(['archive', 'chat', 'ownerpad'], ['@archive', '@chat', '@owner']);
+  check(!!pinned && await waitFor(`state.spaceDirty === true`, 5000), `space 17 a drag of a part with no name of its own writes its pin (${pinned || 'none'}) into x-editor.layout: Unsaved`);
+  await shot('space-pin-moved');
+  await clickAt(SE('#se-save'));
+  const savedPin = await waitFor(`!state.spaceDirty && document.querySelector('[data-sp-word]').textContent === 'Saved'`, 30000);
+  const onDisk = readFileSync(SPACE + '/spc3.space.yaml', 'utf8');
+  check(savedPin && !!pinned && onDisk.includes('x-editor') && onDisk.includes(pinned), `space 17 …Save writes it to the file (workspace-space-save over the version read): ${pinned} under x-editor.layout`);
+  // (the editor's problems are Dozable's plan of the text: workspace-space-plan)
+  await sleep(2500);
+  const pinWarn = await evaluate(`[...document.querySelectorAll('#space #se-problems-list .prob')].map((p) => p.textContent).filter((t) => /to pin/.test(t)).join(' | ')`);
+  check(!pinWarn, 'space 17 …Dozable\'s own plan reads the @ pin without a word' + (pinWarn ? ': ' + pinWarn : ''));
+  const before18 = onDisk + '# moved elsewhere\n';
+  writeFileSync(SPACE + '/spc3.space.yaml', before18);
+  const pinned2 = await dragUntilPinned(['archive', 'chat', 'ownerpad'], ['@archive', '@chat', '@owner'], true);
+  await clickAt(SE('#se-save'));
+  check(!!pinned2 && await waitFor(`/Changed elsewhere/.test(${SE('#se-filebar')}?.textContent || '') && !document.querySelector('[data-sp-reload]').hidden`, 30000)
+    && readFileSync(SPACE + '/spc3.space.yaml', 'utf8') === before18, 'space 18 a drag saved over a file changed since (ifMatch): "Changed elsewhere", nothing written');
+  await evaluate(`document.querySelector('[data-sp-reload]').click()`);
+  await waitFor(`!state.spaceDirty`, 15000);
+  const why = await dragNoMove('dash');
+  check(/drag the owner/.test(why), `space 19 what can't move says why (the dashboard: "${why.slice(0, 90)}")`);
+  await shot('space-cant-move');
+  // 20–23 (783). Export: the file (YAML, byte for byte), the drawing as SVG and as PNG, each a file named after the workspace.
+  const DL = S + '/downloads';
+  mkdirSync(DL, { recursive: true });
+  await send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: DL, eventsEnabled: false });
+  const disk20 = readFileSync(SPACE + '/spc3.space.yaml', 'utf8');
+  await evaluate(`document.documentElement.dataset.theme = 'light'`);
+  await sleep(800);
+  await evaluate(`document.querySelector('[data-sp-export-menu]').click()`);
+  check(await waitFor(`!!document.querySelector('.menu-wrap.is-open [data-sp-export="yaml"]')`, 5000), 'space 20 the bar\'s Export opens its menu: the file, the drawing as SVG and as PNG');
+  await shot('space-export-menu');
+  const yaml = await exported(DL, 'spc3.space.yaml', 'yaml');
+  check(yaml !== null && yaml.toString('utf8') === disk20, `space 20 …the file (YAML) downloads as spc3.space.yaml, the file as it stands (${yaml ? yaml.length : 0} bytes)`);
+  const svg = await exported(DL, 'spc3.svg', 'svg');
+  const svgOk = svg !== null && await evaluate(`(() => { const d = new DOMParser().parseFromString(${JSON.stringify(svg ? svg.toString('utf8') : '')}, 'image/svg+xml');
+    return d.documentElement.localName === 'svg' && !d.querySelector('parsererror'); })()`);
+  check(svgOk, `space 21 …the drawing (SVG) downloads as spc3.svg and parses (${svg ? svg.length : 0} bytes)`);
+  const png = await exported(DL, 'spc3.png', 'png');
+  check(png !== null && png.length > 1000 && png.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
+    `space 22 …the drawing (PNG) downloads as spc3.png with the PNG signature (${png ? png.length : 0} bytes)`);
+  await evaluate(`document.documentElement.dataset.theme = 'dark'`);
+  await sleep(800);
+  await evaluate(`document.querySelector('[data-sp-export-menu]').click()`);
+  await waitFor(`!!document.querySelector('.menu-wrap.is-open [data-sp-export="yaml"]')`, 5000);
+  await shot('space-export-menu-dark');
+  await evaluate(`document.querySelector('[data-sp-export-menu]').click()`);
+  const svgDark = await exported(DL, 'spc3.svg', 'svg');
+  check(svgDark !== null && svg !== null && !svgDark.equals(svg), `space 21 …in the dark theme, a dark drawing (${svgDark ? svgDark.length : 'none'} vs ${svg ? svg.length : 'none'} bytes)`);
+  await evaluate(`document.documentElement.dataset.theme = 'light'`);
+  check(!requested.some((u) => /\/api\/v1\/[^?]*export|vendor-space-editor-[0-9a-f]+\/space-export/.test(u)),
+    'space 23 no export route and no export entry fetched: the exports are made in this browser, by the renderer the pictures load');
   // 12. Another computer (its file read as canSave false): no edit fetched, no Save, the text read-only, no answer.
   await send('Fetch.enable', { patterns: [{ urlPattern: '*/api/v1/workspace-space', requestStage: 'Response' }] });
   pausedHook = async (p) => {
@@ -3208,6 +3330,15 @@ async function walkSpace() {
   check(remote.word === 'Read-only here' && remote.said && remote.cmd && fetchedSince(rm, 'space-edit.js') === 0 && !remote.f.includes('edit'),
     `space 12 …read-only here, "Changed only in this Mac's own browser" and the command; no edit feature fetched (${remote.f})`);
   await shot('space-another-computer');
+  // 783: another computer that may read the file exports it too (the file it read, byte for byte), and a drag there moves nothing.
+  const rdisk = readFileSync(SPACE + '/spc3.space.yaml', 'utf8');
+  const ryaml = await exported(DL, 'spc3.space.yaml', 'yaml');
+  check(ryaml !== null && ryaml.toString('utf8') === rdisk, 'space 12 …another computer exports too: the file it read (YAML), byte for byte');
+  const rpng = await exported(DL, 'spc3.png', 'png');
+  check(rpng !== null && rpng.subarray(0, 4).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47])), 'space 12 …and the drawing (PNG)');
+  await evaluate(`document.querySelector('.menu-wrap.is-open [data-sp-export-menu]')?.click()`);
+  await dragOn('archive', 0, 160);
+  check(await evaluate(`!state.spaceDirty && spaceNow().text === ${JSON.stringify(rdisk)}`), 'space 12 …a drag there writes no pin (no edit feature)');
   await send('Fetch.disable');
   pausedHook = null;
   check(true, 'space 12 …another computer\'s 403 for the save and an answer is ServeHTTPTests\' (testTheSpaceFileIsReadRemotelyWithServeChatButNeverSaved, testAnAskIsAnsweredOnlyInThisMacsBrowserWhateverTheServeSettings)');
