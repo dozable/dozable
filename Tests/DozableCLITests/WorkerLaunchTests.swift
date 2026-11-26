@@ -182,8 +182,8 @@ final class WorkerLaunchTests: XCTestCase {
                                       fingerprint: "f", name: "bot1", shared: false, readFiles: skills)
         XCTAssertFalse(c.argv.contains { $0.hasPrefix("Read(") }, "Codex takes no Claude Code rules")
         // The rule's form; spaces kept (the fence's folder is under Application Support); once each; nothing it could not name.
-        XCTAssertEqual(AgentLaunch.readRules(["/Users/a/Library/Application Support/Dozable/fence/x/s/etc/worker/start.md"]),
-                       ["Read(//Users/a/Library/Application Support/Dozable/fence/x/s/etc/worker/start.md)"])
+        XCTAssertEqual(AgentLaunch.readRules(["/h/a/Library/Application Support/Dozable/fence/x/s/etc/worker/start.md"]),
+                       ["Read(//h/a/Library/Application Support/Dozable/fence/x/s/etc/worker/start.md)"])
         XCTAssertEqual(AgentLaunch.readRules(["/a/b", "/a/b"]), ["Read(//a/b)"])
         XCTAssertEqual(AgentLaunch.readRules(["~/x", "rel/x", "//x", "/a/*", "/a/[b]", "/a/(b)", "/a/b\nc", "/a/!b", "/a/#b", "/a/{b}", "/a/b\\c"]), [])
     }

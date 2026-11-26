@@ -177,7 +177,10 @@ final class WorkerPlanTests: BotTestCase {
             XCTAssertEqual(p.director, "you", label)
             if o.isolation == .fenced, o.agent == "claude-code" {
                 XCTAssertEqual(p.allowTools, WorkerLaunch.defaultAllowedTools + (q.allowTools ?? []), label)
-                XCTAssertTrue(o.plan.argv.joined(separator: " ").hasSuffix(p.allowTools.joined(separator: " ")), label)
+                // The launch's allow-list is the plan's, then only the exact Read rules of its START and skill files.
+                let list = Array(o.plan.argv.suffix(from: (o.plan.argv.firstIndex(of: "--allowedTools") ?? 0) + 1))
+                XCTAssertEqual(Array(list.prefix(p.allowTools.count)), p.allowTools, label)
+                XCTAssertTrue(list.dropFirst(p.allowTools.count).allSatisfy { $0.hasPrefix("Read(//") }, "\(label): \(list)")
             } else {
                 XCTAssertEqual(p.allowTools, [], label)
             }
