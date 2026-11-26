@@ -1,0 +1,22 @@
+# The clean room (SPEC-v3 §12) as a space/3.1 file: nothing persisted, nothing archived, transcripts deleted; its
+# brief is its text, and its worker runs in the workspace's own VM. Compare: spaces/clean-room.space.yaml.
+doz: space/3.1
+space: clean-room
+brief: { text: "Do the task, then stop: nothing outlives this run." }
+owner: ada
+
+archive: off
+agent_defaults: { transcripts: discard, where: sandbox }   # each agent in the workspace's own VM
+
+folders:
+  scratch: {}
+
+agents:
+  worker:
+    kind: claude-code
+    folder: scratch
+    prompt: Do the task in the brief, then stop.
+
+chat:
+  rooms:
+    clean-room: { members: [owner, worker] }

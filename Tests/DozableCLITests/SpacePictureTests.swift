@@ -8,10 +8,10 @@ import XCTest
 /// which the vendored renderer's own reader does not know: `SpacePicture` hands it the same document in its words — a vm place
 /// as a sandbox, a fenced place's agents on this Mac fenced, places and feeds left out — and a file without them is drawn from
 /// its own text. The renderer itself is exercised by `make dashboard-walk` (the "pictures" rows, a workspace with places).
-/// The canonical demo file is `Fixtures/space31/canonical/app.space.yaml`.
+/// The canonical demo file is `canonical/workspace/app/app.workspace.yaml` (canonical/README.md).
 final class SpacePictureTests: XCTestCase {
-    static let canonicalDir = Pins.packageRoot.appendingPathComponent("Tests/DozableCLITests/Fixtures/space31/canonical")
-    static func canonical() throws -> String { try String(contentsOf: canonicalDir.appendingPathComponent("app.space.yaml"), encoding: .utf8) }
+    static let canonicalDir = Pins.packageRoot.appendingPathComponent("canonical/workspace/app")
+    static func canonical() throws -> String { try String(contentsOf: canonicalDir.appendingPathComponent("app.workspace.yaml"), encoding: .utf8) }
 
     func doc(_ text: String) throws -> JValue { try XCTUnwrap(SpaceResolver.parse(text, name: "t.space.yaml").0) }
 

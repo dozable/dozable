@@ -1,0 +1,13 @@
+doz: space/3.1
+"space": "app"
+"about": {"title":"A typical workspace","summary":"A manager and four agents fix a flaky test, review each other's work and keep the lessons.","tags":["demo"]}
+"brief": {"file":"BRIEF.md","refs":["README.md"]}
+"owner": "ada"
+"network": {"preset":"standard","allow":["registry.npmjs.org"]}
+"folders": {"repo":{"external":"~/code/app","main":true},"notes":{"x-dozable":{"lifetime":"run"}}}
+"agents": {"manager":{"external":{"bot":"mira"},"role":"manager"},"builder":{"kind":"claude-code","role":"worker","where":"sandbox:build","prompt":"Build the project in /workspace after each change and post the result in the room."},"tester":{"kind":"claude-code","role":"worker","where":"sandbox:build","prompt":"Run the tests after each build; post failures in the room and record each run's outcome in the journal."},"reviewer":{"kind":"claude-code","role":"reviewer","where":"mac","isolation":"fenced","access":"ro","network":{"preset":"locked","allow":["github.com"]},"prompt":"Review each change the builder reports, read-only, and post your findings; propose a lesson when one recurs."},"helper":{"kind":"claude-code","role":"worker","where":"mac","isolation":"fenced","prompt":"Keep notes in the notes folder and help whoever the manager asks you to."}}
+"chat": {"rooms":{"app":{"main":true,"members":["owner","manager","builder","tester","reviewer","helper"]}}}
+"persist": {"team-chat":{"room":"app"}}
+"x-dozable": {"lifetime":"standing","permissions":{"reviewer":["reviewer"],"manager":["description.decide"]}}
+"x-editor": {"layout":{"app":{"at":[0,0]},"notes":{"at":[8,0]},"build":{"at":[0,6.5]}}}
+"sandboxes": {"build":{"image":"claude-code","cpus":4,"memory":"8G"}}

@@ -22,7 +22,7 @@ makes and starts a workspace (the New workspace wizard), adds and ends its worke
 | `Sources/DozableHost/WorkspaceState.swift` | `WorkspaceState` and `WorkspaceState.derive`, one pure function; how a sandbox and a session on this Mac look to it |
 | `Sources/DozableHost/WorkspacePlan.swift` | `workspace-plan`'s answer `WorkspacePlan`; `WorkspacePresets.builtIn` (`--preset`, ONE table: blank, remotion-video); `WorkspaceNetworks`; `WorkspaceNewCommand` (the ONE command source: `argv`, `text` — the brief as a heredoc, its delimiter absent from the text — `startText`); `WorkspaceProjectFill` (doz_project.yaml used to fill in choices, the CLI's and the dashboard's, never written); the plan's lines |
 | `Sources/DozableHost/WorkspaceWizard.swift` | the New workspace wizard's answers on the plan: `WorkspaceSuggestion` (the next free name), `WorkspaceManagerFit`, `WorkspaceFinding`, the wizard's words (`WorkspaceWizard`) and their `HostCore` builders |
-| `Sources/DozableKit/WorkspaceTemplates.swift`, `Sources/DozableKit/Resources/templates/` | the workspace templates doz carries (`template.json`, `workspace.yaml`, `DESCRIPTION.md`), listed, read and rendered; `Sources/DozableCLI/WorkspaceTemplateCommands.swift`: `WorkspaceTemplateMaker` (shared with `doz ui`) and `doz workspace templates`; the dashboard's `Sources/DozableWeb/WebTemplates.swift` |
+| `Sources/DozableKit/WorkspaceTemplates.swift`, `Sources/DozableKit/Resources/templates/` (generated from `canonical/`: `Scripts/canonical-templates.sh`) | the workspace templates doz carries (`template.json`, `workspace.yaml`, `DESCRIPTION.md`), listed, read and rendered; `Sources/DozableCLI/WorkspaceTemplateCommands.swift`: `WorkspaceTemplateMaker` (shared with `doz ui`) and `doz workspace templates`; the dashboard's `Sources/DozableWeb/WebTemplates.swift` |
 | `Sources/DozableHost/WorkspaceSetupCheck.swift` | the set-up check: pure `gaps(_:)` (each `Gap {item, why, fix}`), the one-live-workspace rule (`liveElsewhere`, its refusal) |
 | `Sources/DozableHost/ManagerLaunch.swift` | pure: `ManagerIsolation.resolve`, the session name, the program, `plan(...)` (argv, environment, START's path, ports, the bot-held secret) |
 | `Sources/DozableHost/ManagerKickoff.swift` | pure: START's text and the brief's post |
@@ -197,6 +197,12 @@ prefix of the template's own agents' names (chat names are global: two workspace
 `builder`; `WorkspaceTemplates.who` — the workspace's name, a letter first, room left for `-reviewer` under 40) (`${…}` is a space file's own
 environment substitution, so the placeholders are not). No template runs an agent unfenced; one that needs a manager takes
 your bot (`external: {bot}`: space files refuse an owned manager).
+- **Generated from `canonical/`** (787): the one source is `canonical/workspace/ID/` (`ID.workspace.yaml`, `template.json`,
+  `DESCRIPTION.md`, beside its `INSTRUCTIONS.md` and `README.md`) and `canonical/TEMPLATES` (→ `ORDER`); `make templates`
+  (`Scripts/canonical-templates.sh`) writes the resource folder, which is committed; `make templates-check` (in `make test`)
+  and `CanonicalWorkspaceTests` fail on any drift. Edit a template there, never in `Resources/templates`. `canonical/` also
+  holds the demo `app` and the reference's shared examples, read by `SpacePictureTests` and `CanonicalWorkspaceTests`
+  (`canonical/README.md`).
 - **Making one** (`WorkspaceTemplateMaker.make`, in the CLI's module — the resolver's): the next free name when none is
   given; the files written into `<projects_dir>/NAME/` (made 0700 — with no folder of your own it is also the agents'
   folder; with `--folder DIR` the agents work in DIR and nothing is written there; a folder that is not empty, or holds a
