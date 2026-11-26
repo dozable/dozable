@@ -202,3 +202,37 @@ final class MacFenceDenialsTests: XCTestCase {
         XCTAssertEqual(d.denials("a").count + d.denials("b").count, MacFenceDenials.ringSize, "an unknown tag goes nowhere")
     }
 }
+
+/// A first-run bug: an allowed HTTPS site failed every tool's certificate check inside the fence (curl 60) — the session's
+/// bundle was `/etc/ssl/cert.pem` + its CA, and Apple's cert.pem lacks roots the System Roots keychain has (the site's
+/// chain ended at one); outside the fence the tools fall back to the keychain's trust, which the fence closes. The bundle
+/// is now cert.pem, then every system anchor it lacks, then the session's CA.
+final class MacFenceCABundleTests: XCTestCase {
+    func ders(_ pem: String) -> [Data] {
+        pem.components(separatedBy: "-----BEGIN CERTIFICATE-----").dropFirst().compactMap { b in
+            guard let e = b.range(of: "-----END CERTIFICATE-----") else { return nil }
+            return Data(base64Encoded: String(b[..<e.lowerBound].filter { !$0.isWhitespace }))
+        }
+    }
+
+    func testTheBundleHoldsEverySystemAnchorOnce() throws {
+        let anchors = MacFenceNetwork.systemAnchorsDER()
+        XCTAssertGreaterThan(anchors.count, 50, "this Mac's system anchors are read")
+        let bundle = MacFenceNetwork.systemBundle()
+        let held = ders(bundle)
+        for a in anchors { XCTAssertTrue(held.contains(a), "a system anchor is in the bundle") }
+        XCTAssertEqual(Set(held).count, held.count, "each root once")
+        let file = (try? String(contentsOfFile: "/private/etc/ssl/cert.pem", encoding: .utf8)) ?? ""
+        XCTAssertTrue(bundle.hasPrefix(file), "cert.pem first, unchanged")
+    }
+
+    func testMergeIsPureAndDeduplicates() throws {
+        let a = Data((0..<200).map { UInt8($0) }), b = Data((0..<90).map { UInt8(255 - $0) })
+        let pemA = "-----BEGIN CERTIFICATE-----\n" + a.base64EncodedString(options: [.lineLength64Characters, .endLineWithLineFeed]) + "\n-----END CERTIFICATE-----"
+        let m = MacFenceNetwork.mergedBundle(file: pemA, anchors: [a, b, b])
+        XCTAssertEqual(ders(m), [a, b])
+        XCTAssertTrue(m.hasPrefix(pemA + "\n"))
+        XCTAssertEqual(ders(MacFenceNetwork.mergedBundle(file: "", anchors: [b])), [b])
+        XCTAssertEqual(MacFenceNetwork.mergedBundle(file: "", anchors: []), "")
+    }
+}
