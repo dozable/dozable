@@ -3543,6 +3543,9 @@ a.btn.is-disabled { color: var(--ink-3); cursor: not-allowed; }
 .aw-cmp-wrap { overflow-x: auto; border: var(--bw) solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
 .aw-cmp { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); }
 .aw-cmp th, .aw-cmp td { padding: var(--sp-1) var(--sp-2); border-bottom: var(--bw) solid var(--line); text-align: left; vertical-align: top; }
+/* The table scrolls sideways in its own box, so its heads never stick to the page: the page's sticky offset would push
+   them down over the first rows (as in a setting's matrix). */
+.aw-cmp thead th { position: relative; top: auto; }
 .aw-cmp tbody th { color: var(--ink-2); font-weight: var(--fw-regular); white-space: nowrap; }
 .aw-cmp .is-chosen { background: var(--accent-tint); }
 .aw-cmp .is-later { color: var(--ink-3); }

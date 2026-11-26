@@ -465,6 +465,15 @@ final class WebModulesTests: XCTestCase {
         XCTAssertTrue(modal.contains("closeAsk = dialog("), "the question is kept to be taken")
     }
 
+    /// Add a worker's comparison table scrolls sideways in its own box: its heads never stick there (the page's sticky offset
+    /// pushed them down over the first rows).
+    func testAddAWorkersTableHeadsDoNotStickInTheirBox() throws {
+        let css = try String(contentsOf: Self.root.appendingPathComponent("Sources/DozableWeb/WebSource/app.css"), encoding: .utf8)
+        let rule = try XCTUnwrap(css.range(of: ".aw-cmp thead th { position: relative; top: auto; }"), "the table's heads do not stick")
+        let sticky = try XCTUnwrap(css.range(of: "#view thead th { position: sticky;"))
+        XCTAssertGreaterThan(rule.lowerBound, sticky.lowerBound, "in the later layer (views), after the page's sticky heads")
+    }
+
     /// Leaving a modal for an address: the page under it is kept as it was ONLY when the history entry is that page's own
     /// (the browser's Back, the modal's close) — every routed page stamps its entry (`history.state.dozPage`) and in-page
     /// address changes keep the stamp; an address that replaced the modal's entry routes the page again, even when it equals
