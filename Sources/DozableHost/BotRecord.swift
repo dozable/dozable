@@ -39,8 +39,15 @@ public struct BotIsolation: Codable, Equatable, Sendable {
     /// Dozable holds the token of a bot that runs here (vm, fenced, unfenced); a bot elsewhere holds its own.
     public var held: Bool { self.default != "elsewhere" }
 
-    /// As a person reads it: an unfenced bot acts as you, and says so wherever it shows.
-    public static func words(_ s: String) -> String { s == "unfenced" ? "unfenced (acts as you)" : s }
+    /// As a person reads it: an unfenced bot acts as you, and says so wherever it shows; the stored `vm` reads "sandbox" (the
+    /// word every option takes — `vm` is only the record's).
+    public static func words(_ s: String) -> String {
+        switch s {
+        case "unfenced": return "unfenced (acts as you)"
+        case "vm": return "sandbox"
+        default: return s
+        }
+    }
 }
 
 /// The instructions' hash and size (the text is `bots/<name>/instructions.md`).
