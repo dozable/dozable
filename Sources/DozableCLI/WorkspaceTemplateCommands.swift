@@ -77,7 +77,19 @@ public enum WorkspaceTemplateMaker {
         let file = URL(fileURLWithPath: p.file).standardizedFileURL.path
         r.read = { path in path == file ? p.fileText : nil }
         let look = SpaceBriefLook(path: p.desc, sha256: SpaceDoc.sha256(p.description), bytes: p.description.utf8.count)
-        let plan = try await spaceAndPlan(r, p, dryBrief: look, send: send).plan
+        var plan = try await spaceAndPlan(r, p, dryBrief: look, send: send).plan
+        // With no --folder the agents' folder is <projects_dir>/NAME, which make creates empty before up: its check is
+        // what up will find, not a missing folder.
+        if folder == nil, !FileManager.default.fileExists(atPath: p.work) {
+            let shown = DisplayPath.tilde(p.work)
+            for i in plan.steps.indices where plan.steps[i].action == "refuse" && plan.steps[i].subject.hasPrefix("folder ")
+                && plan.steps[i].text.contains(shown) {
+                plan.steps[i].action = "run"
+                plan.steps[i].why = "made empty by the template first"
+                plan.refusals.removeAll { $0.hasPrefix(plan.steps[i].subject + ": ") }
+            }
+            if plan.refusals.isEmpty { plan.refusalCode = nil }
+        }
         return (p.name, p.file, plan)
     }
 
