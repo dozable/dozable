@@ -124,13 +124,13 @@ export function findingsOf(findings, step) {
   return (findings || []).filter((f) => f.step === step);
 }
 
-/// A template's agents in the full view's words: [name, role words, where words].
 /// The note a made workspace gets, from its row as read just after: one whose agent already stopped in error (it waits on
 /// you) is never said "started" — the room says why. [line, tone].
 export function madeNote(name, line, tone, row) {
   if (tone === 'ok' && row && row.state === 'waiting-on-you') return [name + ' is made but waits on you — its room says why', 'warn'];
   return [line, tone];
 }
+/// A template's agents in the full view's words: [name, role words, where words].
 export function templateAgentWords(a) {
   const role = a.where === 'manager' ? 'manager — your bot, where it runs' : a.readOnly ? a.role + ' — reads only' : a.role;
   return [a.name, role, a.where === 'manager' ? null : WHERE_WORDS[a.where] || a.where];

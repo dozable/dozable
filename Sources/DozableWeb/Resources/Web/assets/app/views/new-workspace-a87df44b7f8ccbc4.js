@@ -12,7 +12,7 @@ import { roomHash } from '../core/routes-0babfc190b1519e4.js';
 import { state } from '../core/state-f551ebce9066b2c8.js';
 import { loadBots, loadWorkspaces } from '../core/workspaces-eb44da5e11322b41.js';
 import { NETWORKS, PROGRAM_WORDS, WHERE_WORDS, WORKSPACE_DEFINITION, WSN_STEPS, findingsOf, madeNote, nextFree, pictureText, requestFrom,
-  templateAgentWords, templateRequestFrom } from '../core/ws-new-10f315ce07ac06df.js';
+  templateAgentWords, templateRequestFrom } from '../core/ws-new-078b8d9bbef0201f.js';
 import { chatRooms } from '../components/bot-invite-cc12bb753cf9238b.js';
 import { btn } from '../components/button-030d384b64f8d75d.js';
 import { callout } from '../components/callout-a906e34ef11cba9d.js';
@@ -22,11 +22,11 @@ import { addNote } from '../components/notes-b982b305c6f4f5bc.js';
 import { pageFailure, toast } from '../components/notices-7a75ec167a650349.js';
 import { stepperNode } from '../components/stepper-9f1fb5c64eac92d6.js';
 import { drawing, expandButton, fullView, viewSection } from '../components/wsn-picture-38319e72a876de2d.js';
-import { actsAsYouNeeded, customStep, nameAndFolder, nameIssue } from './wsn-custom-a67cd7265039856f.js';
+import { actsAsYouNeeded, customStep, nameAndFolder, nameIssue } from './wsn-custom-1c3888d043cf1f83.js';
 import { WSN_REMOTE, askPlan, botOf, bots, forgetNewWorkspace, fresh, loadTemplates, managerWhere, newWorkspaceRefusal, onPlan, onRender,
-  projectPreset, restore, save } from './wsn-state-00cb0f1daadeb3d4.js';
+  projectPreset, restore, save } from './wsn-state-eb50560fcbb3fa96.js';
 
-export { forgetNewWorkspace, newWorkspaceDirty, newWorkspaceRefusal, WSN_REMOTE } from './wsn-state-00cb0f1daadeb3d4.js';
+export { forgetNewWorkspace, newWorkspaceDirty, newWorkspaceRefusal, WSN_REMOTE } from './wsn-state-eb50560fcbb3fa96.js';
 
 const THUMB = { w: 320, h: 160 };
 const HEAD = { w: 264, h: 132 };
