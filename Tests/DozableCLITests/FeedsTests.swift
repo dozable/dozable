@@ -1,5 +1,6 @@
 import DozableChat
 @testable import DozableHost
+import DozableKit
 import Foundation
 import XCTest
 
@@ -105,6 +106,35 @@ final class FeedRoutesTests: XCTestCase {
         XCTAssertTrue(rv?.title?.contains("c2") ?? false)
         XCTAssertNotNil(JournalFeed.notice(entry("review", "half", ["met": .string("partly")]), run: "r1"))
         XCTAssertEqual(JournalFeed.notice(entry("outcome", nil, ["value": .string("accepted")]), run: "r1")?.text, "accepted", "no text: its value")
+    }
+}
+
+/// The network feed counts only what the allow list refused: a request the proxy answered 401 for a login that needs
+/// signing in again is the account's notice — never "the network refused".
+final class FeedNetworkWatchTests: XCTestCase {
+    func testAnExpiredLoginIsNeverANetworkRefusal() throws {
+        var expired = ConnectionRecord(kind: .http, host: "api.anthropic.com", port: 443, verdict: .denied, rule: "claude")
+        expired.credential = "unavailable: this Mac's Claude login expired at 10:04 — open claude on the Mac"
+        expired.credentialUse = .unavailable
+        XCTAssertEqual(FeedNetworkWatch.reason(expired), .signIn)
+        let n = FeedNetworkWatch.signInNotice(agent: "helper", record: expired)
+        XCTAssertEqual(n.kind, "account.expired")
+        XCTAssertEqual(FeedNames.feed(ofKind: n.kind), "accounts")
+        XCTAssertTrue(n.text.contains("needs signing in again"), n.text)
+        XCTAssertTrue(n.text.contains("this Mac's Claude login expired"), "the proxy's own reason: \(n.text)")
+        XCTAssertFalse(n.text.lowercased().contains("refused"), n.text)
+        XCTAssertFalse(n.text.contains("allow list"), n.text)
+        XCTAssertNil(n.refusal(), n.refusal() ?? "")
+        // The allow list's own refusal is still counted.
+        let denied = ConnectionRecord(kind: .connect, host: "example.org", port: 443, verdict: .denied, rule: "default deny")
+        XCTAssertEqual(FeedNetworkWatch.reason(denied), .allowList)
+        // Any other credential refusal is neither; an allowed or open record is never counted.
+        var rejected = denied
+        rejected.credential = "rejected: a credential placeholder sent elsewhere"; rejected.credentialUse = .rejected
+        XCTAssertNil(FeedNetworkWatch.reason(rejected))
+        XCTAssertNil(FeedNetworkWatch.reason(ConnectionRecord(kind: .connect, host: "api.anthropic.com", verdict: .allowed, rule: "claude")))
+        var open = denied; open.open = true
+        XCTAssertNil(FeedNetworkWatch.reason(open))
     }
 }
 

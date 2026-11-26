@@ -10,13 +10,13 @@ import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
 import { setting } from '../core/settings-1dd31ee086a35147.js';
 import { state } from '../core/state-f551ebce9066b2c8.js';
 import { loadBots } from '../core/workspaces-eb44da5e11322b41.js';
-import { BOT_NAME, NETWORKS, PROGRAM_WORDS, WHERE_WORDS, WORKER_PLACES, WSN_STEPS, findingsOf, nameProblem, nextFree } from '../core/ws-new-c6d8d6d4cbd68547.js';
+import { BOT_NAME, NETWORKS, PROGRAM_WORDS, WHERE_WORDS, WORKER_PLACES, WSN_STEPS, findingsOf, nameProblem, nextFree } from '../core/ws-new-078b8d9bbef0201f.js';
 import { btn } from '../components/button-030d384b64f8d75d.js';
 import { chatOnForm } from '../components/chat-on-14a79727e31321e0.js';
 import { choiceCard } from '../components/choice-fdde57632eb1dcb5.js';
 import { pageFailure, toast } from '../components/notices-7a75ec167a650349.js';
 import { BRIEF_MAX_BYTES } from '../components/ws-brief-5efa0e74436e5613.js';
-import { botOf, bots, changed, chatOn, managerWhere, projectPreset, render, save } from './wsn-state-ae837409fa92979b.js';
+import { botOf, bots, changed, chatOn, managerWhere, projectPreset, render, save } from './wsn-state-eb50560fcbb3fa96.js';
 import { chatNavCheck } from './chat-6e67e0ac70ad4582.js';
 
 const DELIVER_WORDS = { poll: 'reached by poll', inbox: 'reached by inbox', webhook: 'reached by webhook' };

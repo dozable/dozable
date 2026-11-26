@@ -48,6 +48,28 @@ final class ColdFixesTests: XCTestCase {
         XCTAssertNil(UsageJSON.error(ExitCode(3), args: ["--json"]))
     }
 
+    /// `doz workspace new --path` is told `--folder` (the parser's nearest spelling was `--site`); a command with no
+    /// `--folder` keeps the parser's own suggestion.
+    func testPathSuggestsFolder() throws {
+        let args = ["workspace", "new", "y", "--path", "/tmp"]
+        let e = try XCTUnwrap(parseError(args))
+        let said = OptionSuggestion.corrected(DozableCommand.fullMessage(for: e), args: args)
+        XCTAssertTrue(said.contains("Unknown option '--path'. Did you mean '--folder'?"), said)
+        XCTAssertFalse(said.contains("'--site'"), said)
+        XCTAssertTrue(said.contains("Usage:"), "the rest of the parser's text is kept")
+        let json = try XCTUnwrap(UsageJSON.error(e, args: args + ["--json"]))
+        XCTAssertTrue(json.message.contains("Did you mean '--folder'?"), json.message)
+        // `--path=DIR` too.
+        let eq = ["workspace", "new", "y", "--path=/tmp"]
+        let e2 = try XCTUnwrap(parseError(eq))
+        XCTAssertTrue(OptionSuggestion.corrected(DozableCommand.fullMessage(for: e2), args: eq).contains("'--folder'"))
+        // A command that takes no --folder: unchanged.
+        let other = ["workspace", "list", "--path", "/tmp"]
+        let e3 = try XCTUnwrap(parseError(other))
+        let plain = DozableCommand.fullMessage(for: e3)
+        XCTAssertEqual(OptionSuggestion.corrected(plain, args: other), plain)
+    }
+
     // MARK: --claude-account none
 
     func core() async -> HostCore {

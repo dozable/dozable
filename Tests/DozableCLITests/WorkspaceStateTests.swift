@@ -111,4 +111,21 @@ final class WorkspaceStateTests: XCTestCase {
         row.gone = true
         XCTAssertEqual(S.agent(macRow: row), .asleep)
     }
+
+    /// A session on this Mac whose program exited non-zero with no end asked is a crash: it waits on you — never "asleep"
+    /// with a Wake (a template's agent that failed at once read asleep). One Dozable stopped, or that exited 0, is asleep.
+    func testACrashedSessionOnThisMacWaitsOnYou() {
+        var row = SessionRow(SessionInfo(name: "s", pid: 1, command: "claude"))
+        row.ended = true
+        row.exitCode = 1
+        XCTAssertEqual(S.agent(macRow: row), .failed)
+        XCTAssertEqual(S.agent(macRow: row, stopped: true), .asleep, "a sleep, stop or finish asked")
+        row.exitCode = 0
+        XCTAssertEqual(S.agent(macRow: row), .asleep)
+        row.exitCode = nil
+        XCTAssertEqual(S.agent(macRow: row), .asleep)
+        row.exitCode = 1
+        let state = S.derive(S.Input(agents: [S.agent(macRow: row)], flags: WorkspaceFlags(startedAt: Date())))
+        XCTAssertEqual(state, .waitingOnYou)
+    }
 }

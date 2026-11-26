@@ -19,12 +19,21 @@ const viewNew = upcall('viewNew'), viewOnboarding = upcall('viewOnboarding'), vi
 // field or a list) closes it — after asking, when the person has made choices; the browser's Back closes it and
 // KEEPS the choices (Forward, or the wizard's entry, resumes them).
 const MODAL_INERT = ['side', 'topbar', 'statusbar', 'view', 'sbx', 'grid'];      // 647: never #notes (the header's notifications)
+// The "Discard …?" question belongs to the wizard it asked about: the wizard closed or replaced any other way (the
+// browser's Back, a new address) takes the question with it — it never floats over the next page or wizard.
+let closeAsk = null;
+function dropCloseAsk() {
+  const d = closeAsk;
+  closeAsk = null;
+  if (d && d.open) d.close();
+}
 export function modalInert(on) {
   if (!on && state.uiOverlay) return;                  // the "doz ui stopped" overlay keeps everything inert
   for (const id of MODAL_INERT) { const el = id === 'side' ? document.querySelector('.side') : $(id); if (el) el.inert = on; }
 }
 export function openWizardModal(v, fromPage) {
   const was = state.modal;
+  if (was !== v) dropCloseAsk();
   state.modal = v;
   if (!was) {
     const a = document.activeElement;
@@ -41,6 +50,7 @@ export function openWizardModal(v, fromPage) {
   if (was !== v || v === 'try' || !$('wm-box').firstChild || (v === 'new-workspace' && (state.wsnBot || state.wsnTemplate))) renderModal(true);
 }
 export function closeWizardModal() {
+  dropCloseAsk();
   if (!state.modal) return;
   stopTryRead();
   if (state.modal === 'onboarding') wizardStopPolling();
@@ -107,7 +117,9 @@ function wizDirty() {
 }
 export function wizardCloseRequest() {
   if (!state.modal) return;
+  const asked = state.modal;
   const leave = () => {
+    if (state.modal !== asked) return;               // the wizard it asked about is gone already: nothing to discard
     if (state.modal === 'try') stopTryRead();
     if (state.modal === 'new') state.nw = null; else if (state.modal === 'onboarding') state.wiz = null; else if (state.modal === 'try') state.tr = null;
     else if (state.modal === 'new-workspace') forgetNewWorkspace();
@@ -115,10 +127,13 @@ export function wizardCloseRequest() {
   };
   if (!wizDirty()) { leave(); return; }
   const made = state.modal === 'new' || state.modal === 'new-workspace';
-  dialog(state.modal === 'new' ? 'Discard this new sandbox?' : state.modal === 'new-workspace' ? 'Discard this new workspace?' : 'Stop setting up?',
+  dropCloseAsk();
+  closeAsk = dialog(state.modal === 'new' ? 'Discard this new sandbox?' : state.modal === 'new-workspace' ? 'Discard this new workspace?' : 'Stop setting up?',
     made ? 'Nothing is written yet: closing forgets the choices made so far.'
       : 'Nothing is written yet: closing forgets the choices made so far (a base already downloading goes on in the daemon). Onboarding can be run again from the sidebar.',
     [], 'Discard', async () => { leave(); }, { danger: true, icon: 'x' });
+  const d = closeAsk;
+  d.addEventListener('close', () => { if (closeAsk === d) closeAsk = null; });
 }
 // Keyboard: Escape closes (asking first when needed) — never from inside a field, a list or a menu; Tab wraps.
 $('wm-box').addEventListener('keydown', (ev) => {

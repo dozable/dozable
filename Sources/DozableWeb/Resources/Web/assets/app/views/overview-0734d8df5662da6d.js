@@ -21,7 +21,7 @@ import { sandboxPill } from '../components/pills-856d054aca5ee019.js';
 import { quickAddButton } from '../components/quick-add-7b3ae17d0e25ac0e.js';
 import { thumbFrame } from '../components/session-thumb-520fd9edfc7ff29b.js';
 import { ISOLATED_NOTE } from '../components/workspace-chooser-e7d3cfb487a920db.js';
-import { newSandboxWizard } from './new-sandbox-be102bb500385ba3.js';
+import { newSandboxWizard } from './new-sandbox-11eac178125450ae.js';
 import { placeHash } from '../core/routes-0babfc190b1519e4.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const refresh = upcall('refresh');
