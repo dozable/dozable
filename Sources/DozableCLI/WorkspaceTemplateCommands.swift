@@ -25,11 +25,96 @@ public enum WorkspaceTemplateMaker {
     /// `<projects_dir>/NAME/` (made now, 0700; with `folder` nil that is also the work folder, else `folder` is and nothing
     /// is written into it), then planned and set up. `confirmed`: the person said yes to an agent acting as them (a manager
     /// bot that runs unfenced) — otherwise such a plan is refused. A failure before `up` takes back what was written.
+    /// `brief`: the workspace's description in place of the template's (its DESCRIPTION.md); nil or empty: the template's.
     public static func make(id: String, name: String?, manager: String?, folder: String?, confirmed: Bool, store: DozableStore,
-                            send: Send) async throws -> WorkspaceFromTemplate {
+                            brief: String? = nil, send: Send) async throws -> WorkspaceFromTemplate {
+        let p = try await prepare(id: id, name: name, manager: manager, folder: folder, store: store, brief: brief, send: send)
+        let fm = FileManager.default
+        // Made now (0700), and taken back when a step before up fails: the agents' folder and the files' folder.
+        var madeNow: [String] = []
+        for d in Set(folder == nil ? [p.work, p.dir] : [p.dir]).sorted() where !fm.fileExists(atPath: d) {
+            TestSafety.checkMadeFolder(d)
+            do { try MacFenceHostFS.ensureDirectory(d, mode: 0o700) } catch { throw HostError(.failed, "cannot make \(DisplayPath.tilde(d)): \(error)") }
+            madeNow.append(d)
+        }
+        func takeBack() {
+            try? fm.removeItem(atPath: p.file)
+            try? fm.removeItem(atPath: p.desc)
+            for d in madeNow.reversed() { try? fm.removeItem(atPath: d) }
+        }
+        guard fm.createFile(atPath: p.desc, contents: Data(p.description.utf8), attributes: [.posixPermissions: 0o600]),
+              fm.createFile(atPath: p.file, contents: Data(p.fileText.utf8), attributes: [.posixPermissions: 0o600]) else {
+            takeBack()
+            throw HostError(.failed, "cannot write the template's files in \(DisplayPath.tilde(p.dir))")
+        }
+        var upSent = false
+        do {
+            var (space, plan) = try await spaceAndPlan(SpaceResolver(), p, send: send)
+            if let e = spacePlanError(plan) { throw e }
+            if !plan.confirm.isEmpty, !confirmed {
+                throw HostError(.needsConfirmation, "\(plan.confirm.joined(separator: ", ")) would run unfenced and act as you — confirm it (--yes)")
+            }
+            var up = HostRequest(.workspaceUp)
+            space.ifPlan = plan.sha
+            space.confirmed = plan.confirm.isEmpty ? [] : plan.confirm
+            up.space = space
+            upSent = true
+            let acted = try (try await send(up)).decode(SpaceActed.self)
+            return WorkspaceFromTemplate(workspace: p.name, template: p.template.id, version: p.template.version, file: p.file, acted: acted)
+        } catch {
+            // Refused before up: nothing was made, and the files go too. Once up was sent, the workspace may name them.
+            if !upSent { takeBack() }
+            throw error
+        }
+    }
+
+    /// What `make` would do, as `doz workspace up --dry-run` shows a space file: the same checks and the plan, from the
+    /// files rendered in memory — nothing is written and (through `send` = the CLI's look) no daemon is started.
+    public static func plan(id: String, name: String?, manager: String?, folder: String?, store: DozableStore,
+                            brief: String? = nil, send: Send) async throws -> (workspace: String, file: String, plan: SpacePlan) {
+        let p = try await prepare(id: id, name: name, manager: manager, folder: folder, store: store, brief: brief, send: send)
+        var r = SpaceResolver()
+        let file = URL(fileURLWithPath: p.file).standardizedFileURL.path
+        r.read = { path in path == file ? p.fileText : nil }
+        let look = SpaceBriefLook(path: p.desc, sha256: SpaceDoc.sha256(p.description), bytes: p.description.utf8.count)
+        let plan = try await spaceAndPlan(r, p, dryBrief: look, send: send).plan
+        return (p.name, p.file, plan)
+    }
+
+    /// The space document `up` is sent and its plan (`workspace-up-plan`). `dryBrief`: a dry run's look at the brief it did
+    /// not write (and no prompt file is read: none is on disk; the templates write their prompts inline); nil: read beside
+    /// the file.
+    static func spaceAndPlan(_ resolver: SpaceResolver, _ p: Prepared, dryBrief: SpaceBriefLook? = nil,
+                             send: Send) async throws -> (space: SpaceRequest, plan: SpacePlan) {
+        let r = resolver.resolve(p.file)
+        let (problems, model) = r.check()
+        if let e = problems.first(where: \.isError) ?? (model == nil ? problems.first : nil) {
+            throw HostError(.invalid, "the template \(p.template.id) does not read: \(e.message)")
+        }
+        let ref = model?.brief ?? ""
+        var space = r.request(profiles: [], brief: ref.isEmpty ? nil : dryBrief ?? spaceBriefLook(ref, file: r.file))
+        if dryBrief == nil { space.prompts = try spacePrompts(r) }
+        var q = HostRequest(.workspaceUpPlan)
+        q.space = space
+        return (space, try (try await send(q)).decode(SpacePlan.self))
+    }
+
+    /// What `make` and `plan` share: the template read, the name chosen, every place decided and both files rendered.
+    struct Prepared {
+        var template: WorkspaceTemplate
+        var name, work, dir, file, desc, yaml, description: String
+        var fileText: String { "# Made from the workspace template \"\(template.title)\" (\(template.id), version \(template.version)).\n" + yaml }
+    }
+
+    /// Everything decided before a file is written — nothing is written here.
+    static func prepare(id: String, name: String?, manager: String?, folder: String?, store: DozableStore, brief: String?,
+                        send: Send) async throws -> Prepared {
         let t: WorkspaceTemplate
         do { t = try WorkspaceTemplates.read(id) } catch { throw HostError(.notFound, "\(error)") }
         if t.needs.manager, manager == nil { throw HostError(.invalid, "\(t.title) needs a manager: --manager BOT (doz bot ls)") }
+        if let b = brief, b.utf8.count > WorkspaceStore.maximumBriefBytes {
+            throw HostError(.invalid, "the brief is \(b.utf8.count) bytes — at most \(WorkspaceStore.maximumBriefBytes >> 10) KiB")
+        }
         var n = name ?? ""
         if n.isEmpty {
             let p = try (try await send(WebWorkspaceNewPlan.request(WorkspaceRequest()))).decode(WorkspacePlan.self)
@@ -63,57 +148,14 @@ public enum WorkspaceTemplateMaker {
             throw HostError(.exists, "\(DisplayPath.tilde(dir)) already holds a space file — choose another name")
         }
         _ = try folderState(dir)
-        let (yaml, description) = try {
+        let (yaml, templateDescription) = try {
             // The owner is you as chat knows you (up checks it): the chat server's human, else the name chat on would give.
             let owner = (try? ChatDirectory.load(ChatPaths(store: store)))?.human ?? ChatNames.defaultHuman()
             do { return try WorkspaceTemplates.render(id, space: n, owner: owner, manager: manager, folder: work) } catch { throw HostError(.invalid, "\(error)") }
         }()
-        // Made now (0700), and taken back when a step before up fails: the agents' folder and the files' folder.
-        var madeNow: [String] = []
-        for d in Set(folder == nil ? [work, dir] : [dir]).sorted() where !fm.fileExists(atPath: d) {
-            TestSafety.checkMadeFolder(d)
-            do { try MacFenceHostFS.ensureDirectory(d, mode: 0o700) } catch { throw HostError(.failed, "cannot make \(DisplayPath.tilde(d)): \(error)") }
-            madeNow.append(d)
-        }
-        func takeBack() {
-            try? fm.removeItem(atPath: file)
-            try? fm.removeItem(atPath: desc)
-            for d in madeNow.reversed() { try? fm.removeItem(atPath: d) }
-        }
-        guard fm.createFile(atPath: desc, contents: Data(description.utf8), attributes: [.posixPermissions: 0o600]),
-              fm.createFile(atPath: file, contents: Data(("# Made from the workspace template \"\(t.title)\" (\(t.id), version \(t.version)).\n" + yaml).utf8),
-                            attributes: [.posixPermissions: 0o600]) else {
-            takeBack()
-            throw HostError(.failed, "cannot write the template's files in \(DisplayPath.tilde(dir))")
-        }
-        var upSent = false
-        do {
-            let r = SpaceResolver().resolve(file)
-            let (problems, model) = r.check()
-            if let e = problems.first(where: \.isError) ?? (model == nil ? problems.first : nil) {
-                throw HostError(.invalid, "the template \(id) does not read: \(e.message)")
-            }
-            var space = r.request(profiles: [], brief: spaceBriefLook(model?.brief ?? "", file: r.file))
-            space.prompts = try spacePrompts(r)
-            var q = HostRequest(.workspaceUpPlan)
-            q.space = space
-            let plan = try (try await send(q)).decode(SpacePlan.self)
-            if let e = spacePlanError(plan) { throw e }
-            if !plan.confirm.isEmpty, !confirmed {
-                throw HostError(.needsConfirmation, "\(plan.confirm.joined(separator: ", ")) would run unfenced and act as you — confirm it (--yes)")
-            }
-            var up = HostRequest(.workspaceUp)
-            space.ifPlan = plan.sha
-            space.confirmed = plan.confirm.isEmpty ? [] : plan.confirm
-            up.space = space
-            upSent = true
-            let acted = try (try await send(up)).decode(SpaceActed.self)
-            return WorkspaceFromTemplate(workspace: n, template: t.id, version: t.version, file: file, acted: acted)
-        } catch {
-            // Refused before up: nothing was made, and the files go too. Once up was sent, the workspace may name them.
-            if !upSent { takeBack() }
-            throw error
-        }
+        var description = templateDescription
+        if let b = brief, !b.isEmpty { description = b.hasSuffix("\n") ? b : b + "\n" }
+        return Prepared(template: t, name: n, work: work, dir: dir, file: file, desc: desc, yaml: yaml, description: description)
     }
 }
 

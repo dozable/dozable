@@ -429,10 +429,10 @@ struct SessionsList: AsyncParsableCommand {
             (saved when it pauses, sleeps or hibernates, and every daemon.screen_capture_minutes while it runs) — \
             nothing is woken. A shut-down sandbox has no sessions (Start boots it fresh). --screen SESSION \
             prints that session's last saved screen as text; add --vt to write the terminal bytes instead (to \
-            a file or a pipe — never to a terminal).
+            a file or a pipe — never to a terminal). With no NAME, every sandbox's sessions and this Mac's (@mac).
             """)
     @OptionGroup var g: GlobalOptions
-    @Argument var name: String
+    @Argument(help: "A sandbox, or @mac for this Mac's sessions (none: every sandbox's and this Mac's).") var name: String?
     @Option(name: .long, help: "Print this session's last saved screen (text).") var screen: String?
     @Flag(name: .long, help: "With --screen: write the saved VT bytes (redraw with `cat` in a terminal) — only to a file or a pipe.") var vt = false
     @Option(name: .long, help: "@mac: what was taken out of this fenced session's git configs (why it stopped).") var quarantine: String?
@@ -446,7 +446,46 @@ struct SessionsList: AsyncParsableCommand {
     @Flag(name: .customLong("dry-run"), help: "With --forget-ended or --forget: say what would be forgotten and kept; change nothing (no daemon needed).") var dryRun = false
     @Flag(name: [.short, .long], help: "With --forget-ended or --forget: do not ask.") var yes = false
 
+    /// One place's sessions, in `doz sessions --json` with no NAME.
+    struct PlaceSessions: Codable {
+        var place: String
+        var sessions: [SessionRow]
+    }
+
     func run() async throws {
+        guard let name else {
+            if screen != nil || quarantine != nil || capabilities != nil || transcripts != nil || export != nil || forget != nil || forgetEnded
+                || vt || discardTranscripts || dryRun || yes {
+                throw fail(HostError(.usage, "name the sandbox, or @mac, for that: doz sessions NAME …"), g)
+            }
+            try await listEverywhere()
+            return
+        }
+        try await run(name)
+    }
+
+    /// Every sandbox's sessions, then this Mac's — nothing woken, nothing started.
+    func listEverywhere() async throws {
+        var ls = HostRequest(.ls)
+        ls.withSessions = false
+        let boxes = try decode(try await query(ls, g), [SandboxInfo].self, g).map(\.name).sorted()
+        var all: [PlaceSessions] = []
+        for b in boxes + [MacPlace.name] {
+            guard let rows = try? decode(try await query(HostRequest(.sessions, name: b), g), [SessionRow].self, g) else { continue }
+            all.append(PlaceSessions(place: b, sessions: rows))
+        }
+        if g.json { Out.json(all); return }
+        var t = [["PLACE", "SESSION", "STATE", "AGENT", "COMMAND"]]
+        for p in all {
+            for s in p.sessions {
+                let state = s.saved == true ? "screen saved" : s.ended ? "ended (exit \(s.exitCode.map(String.init) ?? "?"))" : "running"
+                t.append([p.place, s.name, state, s.status?.label ?? "—", s.command])
+            }
+        }
+        Out.stdout(t.count == 1 ? "no sessions — doz run NAME -- CMD, or doz run @mac -d --session NAME --folder DIR -- CMD\n" : Out.table(t))
+    }
+
+    func run(_ name: String) async throws {
         if let screen { try await printScreen(screen); return }
         if forget != nil || forgetEnded {
             guard MacPlace.isPlace(name) else { throw fail(HostError(.usage, "--forget and --forget-ended are for doz sessions @mac"), g) }

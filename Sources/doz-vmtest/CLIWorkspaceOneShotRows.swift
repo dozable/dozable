@@ -15,6 +15,10 @@ import DozableHost
 //  O5. doz workspace create … behaves as new (0, then show 0); its help names the alias
 //  O6. doz create --help → 0, "doz workspace new" within its first 15 lines
 //  O7. the dry run's command carries the --worker flags; --brief with --prompt-file refused (65), nothing made
+//  N1–N7. no name, the isolation words, retired presets, the templates, a workspace from a template
+//  N8–N10. --template with --dry-run (the plan, nothing written), --brief (its description) and --json; its agent's session
+//      named once (NAME-agent); what a template decides still refused
+//  N11. doz sessions with no name: every place's sessions
 func cliWorkspaceOneShotRows(_ h: CLIHarness, root: URL, store: DozableStore, started: inout Set<String>) {
     print("cli: one-shot workspace new — --preset, --brief, --worker; workspace create")
     let fm = FileManager.default
@@ -184,6 +188,36 @@ func cliWorkspaceOneShotRows(_ h: CLIHarness, root: URL, store: DozableStore, st
           "N6 new tsolo --template solo: made from its file, set up (\(r.code) \(r.out.prefix(300)) \(r.err.prefix(300)))")
     r = h.run(["workspace", "new", "tbr", "--template", "build-review", "--json"], timeout: 60)
     check(r.code != 0 && !ws.exists("tbr") && r.out.contains("needs a manager"), "N6 …a template that needs a manager, given none: refused, nothing made (\(r.code))")
+    // N8–N10 (a first-run report: --template refused --brief, --dry-run and --json, which the manual and skill say work).
+    // N8: --dry-run plans and writes nothing — no workspace, no folder, no file — and --json answers the plan.
+    let projects = ((file as NSString).deletingLastPathComponent as NSString).deletingLastPathComponent
+    r = h.run(["workspace", "new", "tdry", "--template", "solo", "--folder", repo.path, "--dry-run", "--json"], timeout: 120)
+    let dryPlan = object(r)
+    check(r.code == 0 && !ws.exists("tdry") && (dryPlan["steps"] as? [Any])?.isEmpty == false && dryPlan["space"] as? String == "tdry"
+          && !fm.fileExists(atPath: projects + "/tdry"),
+          "N8 new tdry --template solo --folder DIR --dry-run --json: the plan (0), nothing made or written (\(r.code) \(r.out.prefix(200)) \(r.err.prefix(200)))")
+    r = h.run(["workspace", "new", "tdry", "--template", "solo", "--dry-run"], timeout: 120)
+    check(r.code == 0 && r.out.contains("dry run") && !ws.exists("tdry") && !fm.fileExists(atPath: projects + "/tdry"),
+          "N8 …as text: the plan, \"dry run\", nothing written (\(r.code))")
+    // N9: --brief is the workspace's description (its DESCRIPTION.md); its agent's session is named once: tbrief-agent.
+    r = h.run(["workspace", "new", "tbrief", "--template", "solo", "--folder", folder("tbrief").path, "--brief", "Write NOTES.md", "--json"], timeout: 180)
+    sessions.append("tbrief-agent")
+    let shownBrief = h.run(["workspace", "show", "tbrief", "--json", "--brief"], timeout: 60)
+    check(r.code == 0 && object(r)["workspace"] as? String == "tbrief" && shownBrief.out.contains("Write NOTES.md"),
+          "N9 new tbrief --template solo --brief \"Write NOTES.md\" --json → 0; show --json --brief holds it (\(r.code) \(r.err.prefix(200)))")
+    let macNames = (h.sessions("@mac")).map(\.name)
+    check(macNames.contains("tbrief-agent") && !macNames.contains("tbrief-tbrief-agent"),
+          "N9 …its agent's session is tbrief-agent, never tbrief-tbrief-agent (\(macNames.filter { $0.hasPrefix("tbrief") }))")
+    // N10: what a template decides is still refused with it, and nothing is made.
+    r = h.run(["workspace", "new", "tnope", "--template", "solo", "--worker", "x", "--json"], timeout: 60)
+    check(r.code != 0 && !ws.exists("tnope") && r.out.contains("--template takes only"), "N10 --template with --worker: refused, nothing made (\(r.code))")
+    // N11: doz sessions --json with no name lists every place's sessions (this Mac's included) — never "Missing expected argument".
+    r = h.run(["sessions", "ls", "--json"], timeout: 60)
+    let places = ((try? JSONSerialization.jsonObject(with: Data(r.out.utf8))) as? [[String: Any]]) ?? []
+    check(r.code == 0 && places.contains { $0["place"] as? String == "@mac" && (($0["sessions"] as? [[String: Any]]) ?? []).contains { $0["name"] as? String == "tbrief-agent" } },
+          "N11 doz sessions ls --json, no name: every place's sessions, @mac's with tbrief-agent (\(r.code) \(r.err.prefix(160)))")
+    r = h.run(["sessions"], timeout: 60)
+    check(r.code == 0 && r.out.contains("PLACE") && r.out.contains("tbrief-agent"), "N11 …and doz sessions as text (\(r.code))")
     // N7: defaults.projects_dir NOT under your home (a space file must be): the agents' folder is still <projects_dir>/NAME,
     // made empty; the template's two files go in ~/doz-workspaces/NAME instead — decided before anything is written. The
     // daemon is started again with that home (the CLI and the daemon must agree on it), and stopped after.

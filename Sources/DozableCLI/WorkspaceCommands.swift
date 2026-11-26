@@ -136,7 +136,8 @@ struct WorkspaceNew: AsyncParsableCommand {
         (standard input, its last line break dropped) or --prompt-file FILE; with none, the start posts nothing and the \
         manager asks in the room what to work on. --template ID makes it from a workspace template (doz workspace \
         templates): its agents, where each runs, the room and the network, set up at once — the files go in \
-        ~/doz-workspaces/NAME (with --folder DIR the agents work in DIR and nothing is written there). --preset NAME starts \
+        ~/doz-workspaces/NAME (with --folder DIR the agents work in DIR and nothing is written there); --brief or \
+        --prompt-file gives it your description instead of the template's, and --dry-run shows its plan. --preset NAME starts \
         from a preset (blank, remotion-video); a flag you give wins over it. Each --worker TASK declares a worker: recorded \
         now, started by doz workspace start with the workspace's default isolation (fenced on this Mac unless \
         --worker-isolation sandbox). The first --folder is the main one (--new-folder makes ~/doz-workspaces/NAME and puts it \
@@ -277,18 +278,33 @@ struct WorkspaceNew: AsyncParsableCommand {
     }
 
     /// `--template ID`: the template's files in ~/doz-workspaces/NAME, then up (WorkspaceTemplateMaker). Only the flags a
-    /// template takes: a name, --manager, --folder (one, the agents' folder), --yes.
+    /// template takes: a name, --manager, --folder (one, the agents' folder), the description (--brief or --prompt-file:
+    /// its DESCRIPTION.md instead of the template's), --dry-run (the plan, nothing written, no daemon started), --yes.
     func fromTemplate(_ id: String) async throws {
-        let others = brief != nil || promptFile != nil || preset != nil || !workers.isEmpty || !refs.isEmpty || newFolder || room != nil || noRoom
+        let others = preset != nil || !workers.isEmpty || !refs.isEmpty || newFolder || room != nil || noRoom
             || roomName != nil || !invite.isEmpty || fromProject || !adopt.isEmpty || managerIsolation != nil || workerIsolation != nil || network != nil
-            || !sites.isEmpty || dryRun || folders.count > 1
-        if others { throw fail(HostError(.usage, "--template takes only NAME, --manager BOT, --folder DIR and --yes: the template decides the rest"), g) }
+            || !sites.isEmpty || folders.count > 1
+        if others {
+            throw fail(HostError(.usage, "--template takes only NAME, --manager BOT, --folder DIR, --brief TEXT (or --prompt-file FILE), --dry-run and --yes: the template decides the rest"), g)
+        }
+        let text = try briefText()
         let folder = try folders.first.map { try workspaceFolder($0, g).path }
         nonisolated(unsafe) let opts = g
+        let ws = (name ?? "").isEmpty ? nil : name
+        if dryRun {
+            let planned: (workspace: String, file: String, plan: SpacePlan)
+            do {
+                planned = try await WorkspaceTemplateMaker.plan(id: id, name: ws, manager: manager, folder: folder, store: g.dozableStore,
+                                                                brief: text, send: { r in try await query(r, opts) })
+            } catch let e as ExitCode { throw e } catch { throw fail(HostError.from(error), g) }
+            if !g.json { Out.stdout("\(planned.workspace) from the template \(id) — its file would be \(DisplayPath.tilde(planned.file))\n") }
+            try finishSpacePlan(planned.plan, dryRun: true, g)
+            return
+        }
         let made: WorkspaceFromTemplate
         do {
-            made = try await WorkspaceTemplateMaker.make(id: id, name: (name ?? "").isEmpty ? nil : name, manager: manager, folder: folder,
-                                                         confirmed: yes, store: g.dozableStore, send: { r in try call(r, opts) })
+            made = try await WorkspaceTemplateMaker.make(id: id, name: ws, manager: manager, folder: folder,
+                                                         confirmed: yes, store: g.dozableStore, brief: text, send: { r in try call(r, opts) })
         } catch let e as ExitCode { throw e } catch { throw fail(HostError.from(error), g) }
         if g.json { Out.json(made) } else {
             Out.stdout("made \(made.workspace) from the template \(made.template) — its file: \(DisplayPath.tilde(made.file))\n")
