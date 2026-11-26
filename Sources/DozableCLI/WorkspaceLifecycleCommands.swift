@@ -301,7 +301,7 @@ func runWorkspaceFinish(name n: String, purge: Bool, noArchive: Bool, yes: Bool,
     if noArchive, plan.refusalCode == nil {
         throw fail(HostError(.invalid, "--no-archive: \(n)'s space file says whether its run is archived (archive: off)"), g)
     }
-    if g.json && dryRun { Out.json(plan) } else if !g.json { Out.stdout(spaceDownText(plan, dryRun: dryRun)) }
+    if g.json && dryRun { Out.json(plan) } else if !g.json { Out.stdout(spaceDownText(plan, dryRun: dryRun, word: word)) }
     if let c = plan.refusalCode {
         let e = HostError(HostError.Code(rawValue: c) ?? .failed, plan.refusals.first ?? "refused")
         if g.json && !dryRun { Out.json(WithError(value: plan, error: e)) }
@@ -324,7 +324,7 @@ func runWorkspaceFinish(name n: String, purge: Bool, noArchive: Bool, yes: Bool,
     var a = HostRequest(.workspaceDown)
     a.spaceDown = SpaceDownRequest(workspace: n, purge: purge ? true : nil, ifPlan: ifPlan ?? plan.sha)
     let done = try decode(try call(a, g), SpaceActed.self, g)
-    try finishSpaceActed(done, retry: ["doz", "workspace", word, n] + (purge ? ["--purge"] : []), g)
+    try finishSpaceActed(done, retry: ["doz", "workspace", word, n] + (purge ? ["--purge"] : []), word: word, g)
 }
 
 /// `doz workspace reopen W` — the old name of `doz workspace run W` (765): the same command, a one-line note on a terminal
