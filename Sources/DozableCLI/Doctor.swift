@@ -19,7 +19,8 @@ struct Doctor: AsyncParsableCommand {
     @OptionGroup var g: GlobalOptions
 
     func run() async throws {
-        let checks = Self.checks(store: g.dozableStore)
+        var checks = Self.checks(store: g.dozableStore)
+        if let n = SharedSettingsNote.line(storeOption: g.store) { checks.append(DoctorCheck(check: "settings", status: .warn, detail: n)) }
         if g.json { Out.json(checks) } else {
             for c in checks {
                 let mark = switch c.status { case .ok: "ok  "; case .warn: "warn"; case .fail: "FAIL" }

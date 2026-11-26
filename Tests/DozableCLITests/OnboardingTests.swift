@@ -231,6 +231,21 @@ final class OnboardingTests: XCTestCase {
         XCTAssertEqual(checks.first { $0.check == "disk" }?.status, "ok")
     }
 
+    /// A first-run report: `onboard --no-base` on an empty store said "the Node.js base is ready". With no base wanted the
+    /// disk line says none is prepared now; a base really prepared is still said ready; one wanted and missing, its need.
+    func testNoBaseNeverSaysTheBaseIsReady() throws {
+        let node = try XCTUnwrap(BaseCatalogue.base("node"))
+        func disk(prepared: Bool, wanted: Bool) -> String {
+            Onboarding.checks(doctor: [], store: DozableStore(root: root), base: node, prepared: prepared, wanted: wanted)
+                .first { $0.check == "disk" }?.detail ?? ""
+        }
+        XCTAssertFalse(disk(prepared: false, wanted: false).contains("ready"))
+        XCTAssertTrue(disk(prepared: false, wanted: false).contains("no base is prepared now"))
+        XCTAssertTrue(disk(prepared: true, wanted: false).contains("base is ready"))
+        XCTAssertTrue(disk(prepared: false, wanted: true).contains("needs about"))
+        XCTAssertTrue(disk(prepared: true, wanted: true).contains("base is ready"))
+    }
+
     /// 594: a sandbox's own key — `doz key set NAME --anthropic`'s request, which the web UI builds too:
     /// held in the host's vault (memory), a placeholder for the guest, never on disk.
     func testASandboxKeyGoesTheKeySetWay() async throws {

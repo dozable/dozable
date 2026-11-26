@@ -45,19 +45,22 @@ public enum Onboarding {
         prepared ? 0 : commonBytes + base.downloadBytes * 3 + headroomBytes
     }
 
-    /// 634: the checks with the base's disk line ("the base needs about …").
+    /// 634: the checks with the base's disk line ("the base needs about …"). `wanted` false (`--no-base`): no base is
+    /// prepared now, and the line says so — never that one is ready (a first-run report: an empty store was told "the
+    /// Node.js base is ready").
     public static func checks(doctor: [(check: String, status: String, detail: String)], store: DozableStore,
-                              base: CatalogueBase, prepared: Bool) -> [OnboardingCheck] {
+                              base: CatalogueBase, prepared: Bool, wanted: Bool = true) -> [OnboardingCheck] {
         var out: [OnboardingCheck] = doctor.filter { $0.check != "store" }
             .map { OnboardingCheck(check: $0.check, status: $0.status, detail: $0.detail, hard: hardChecks.contains($0.check)) }
         if let v = volume(of: store) {
             out.append(OnboardingCheck(check: "store", status: v.apfs ? "ok" : "fail",
                                        detail: "\(store.root.path) — \(v.format)" + (v.apfs ? "" : " — the store must be on APFS (disks are APFS clones); pick another with --store"),
                                        hard: true))
-            let need = baseNeed(base, prepared: prepared)
+            let need = wanted ? baseNeed(base, prepared: prepared) : 0
             out.append(OnboardingCheck(check: "disk", status: v.free >= need ? "ok" : "fail",
                                        detail: "\(DozableImages.formatBytes(v.free)) free"
-                                       + (need == 0 ? " (the \(base.title) base is ready)" : " — the \(base.title) base needs about \(DozableImages.formatBytes(need)) (with room for a first sandbox)")
+                                       + (!wanted ? (prepared ? " (the \(base.title) base is ready)" : " (no base is prepared now: each tool's first start prepares its own)")
+                                          : need == 0 ? " (the \(base.title) base is ready)" : " — the \(base.title) base needs about \(DozableImages.formatBytes(need)) (with room for a first sandbox)")
                                        + (v.free >= need ? "" : " — free some space"),
                                        hard: true))
         }

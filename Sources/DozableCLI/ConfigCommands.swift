@@ -271,6 +271,7 @@ struct ConfigSet: AsyncParsableCommand {
         if key == SettingKey.loginItem { LoginItemNotice.markShown() }
         if g.json { syncLoginItemAfterSettingChange(key, now, g); Out.json(now.report(flags: configFlags(g)).settings.first { $0.key == key }!); return }
         Out.stdout("\(key) = \(TOML.render(v)) in \(now.url?.path ?? "?") (this Mac) — \(d.applies.note)\n")
+        if !g.quiet, let n = SharedSettingsNote.line(storeOption: g.store, settingsPath: now.url?.path) { Out.stderr("note: \(n)\n") }
         if r.source == .env || r.source == .flag, !g.quiet {
             Out.stderr("note: \(r.source == .env ? "$\(d.environment ?? "")" : d.flag ?? "a flag") overrides it here: the effective value is \(r.value.plain)\n")
         }
