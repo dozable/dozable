@@ -101,10 +101,16 @@ public enum WorkspaceState: String, Codable, Equatable, Sendable, CaseIterable {
     /// The agents working now, by name (`WorkspaceRow.working`): those whose activity is `working`.
     public static func working(_ rows: [WorkspaceAgentRow]) -> [String] { rows.filter { $0.activity == "working" }.map(\.name) }
 
-    /// A session on this Mac as an agent (nil row: its record is gone).
-    public static func agent(macRow row: SessionRow?) -> Agent {
+    /// A session on this Mac as an agent (nil row: its record is gone). An ended one is asleep — unless its program reported
+    /// an error, or exited non-zero when Dozable did not stop it (`stopped`: the record's `stoppedAt` — a sleep, stop or
+    /// finish asked): a crash waits on you, never "asleep" with a Wake.
+    public static func agent(macRow row: SessionRow?, stopped: Bool = false) -> Agent {
         guard let row, row.gone != true else { return .asleep }
-        if row.ended { return row.status?.state == .error ? .failed : .asleep }
+        if row.ended {
+            if row.status?.state == .error { return .failed }
+            if !stopped, let code = row.exitCode, code != 0 { return .failed }
+            return .asleep
+        }
         return .running(sessions: [row.status?.state.rawValue ?? "idle"])
     }
 }

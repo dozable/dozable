@@ -331,7 +331,8 @@ through `ChatOwnerRooms`; the unit tests give a fake.
 `WorkspaceState.derive` (pure, `WorkspaceStateTests`): archived → finished → starting (`Input.starting`: a
 `doz workspace start` under way, `startingWorkspaces`) → **setting up** (`flags.startedAt == nil && flags.firstAgentAt ==
 nil`: never started and no running agent adopted — a recorded manager is `Agent.notStarted`) → starting (a sandbox
-booting) → waiting on you (a session `blocked` or in `error`, a sandbox `failed`, an open Ask for you — none until Asks
+booting) → waiting on you (a session `blocked` or in `error`, a sandbox `failed`, a session on this Mac whose program
+exited non-zero with no sleep, stop or finish asked — `agent(macRow:stopped:)`, never "asleep" —, an open Ask for you — none until Asks
 exist) → working → idle → asleep (a manager stopped or its sandbox off, every agent asleep, or started with none) — or
 **stopped** (762, F3) when what last put it down was a `doz workspace stop` (`Input.stopped`: the newest of the log's
 workspace-wide changes is `stopped` / `agent-stopped`, read backwards one page and only when nothing runs —

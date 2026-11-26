@@ -262,7 +262,7 @@ extension HostCore {
                     state = "not started"; seen = .notStarted
                 } else {
                     state = row == nil || row?.gone == true ? "gone" : row!.ended ? "ended" : "running"
-                    seen = WorkspaceState.agent(macRow: row)
+                    seen = WorkspaceState.agent(macRow: row, stopped: a.stoppedAt != nil)
                 }
             } else {
                 state = "elsewhere"

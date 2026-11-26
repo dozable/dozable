@@ -438,6 +438,23 @@ final class WebModulesTests: XCTestCase {
         XCTAssertTrue(try read("app/components/bot-form.js").contains("field('Bot name'"), "the owner's label")
     }
 
+    /// A made workspace whose agent already waits on you (it exited in error) is never said "started".
+    func testAMadeWorkspaceThatWaitsOnYouIsNotSaidStarted() throws {
+        let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource")
+        let read = { (f: String) in try String(contentsOf: src.appendingPathComponent(f), encoding: .utf8) }
+        let ctx = try XCTUnwrap(JSContext())
+        var thrown: String?
+        ctx.exceptionHandler = { _, e in thrown = e?.toString() }
+        ctx.evaluateScript(try read("app/core/ws-new.js").replacingOccurrences(of: "export ", with: ""))
+        XCTAssertNil(thrown, thrown ?? "")
+        func js(_ expr: String) -> String { ctx.evaluateScript("JSON.stringify(" + expr + ")")?.toString() ?? "?" }
+        XCTAssertEqual(js("madeNote('w2', 'w2 is made and started', 'ok', {state: 'waiting-on-you'})"),
+                       #"["w2 is made but waits on you — its room says why","warn"]"#)
+        XCTAssertEqual(js("madeNote('w2', 'w2 is made and started', 'ok', {state: 'idle'})"), #"["w2 is made and started","ok"]"#)
+        XCTAssertEqual(js("madeNote('w2', 'w2 is made and started', 'ok', undefined)"), #"["w2 is made and started","ok"]"#)
+        XCTAssertTrue(try read("app/views/new-workspace.js").contains("[line, tone] = madeNote(name, line, tone,"), "every made workspace's note")
+    }
+
     /// Leaving a modal for an address: the page under it is kept as it was ONLY when the history entry is that page's own
     /// (the browser's Back, the modal's close) — every routed page stamps its entry (`history.state.dozPage`) and in-page
     /// address changes keep the stamp; an address that replaced the modal's entry routes the page again, even when it equals

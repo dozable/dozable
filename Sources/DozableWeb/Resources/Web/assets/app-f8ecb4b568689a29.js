@@ -17,7 +17,7 @@
 //     resolve, a newer build offers a reload); a sign-in again happens INSIDE the page, over what it shows.
 
 import { chatEnter, chatLeave, chatNavCheck, chatRefresh } from './app/views/chat-6e67e0ac70ad4582.js';
-import { PERMISSIONS_TAB, wsEnter, wsRefresh } from './app/views/workspace-3b584b5b0fe5876a.js';
+import { PERMISSIONS_TAB, wsEnter, wsRefresh } from './app/views/workspace-99bfd23defbb4527.js';
 import { viewWsAgent } from './app/views/ws-agents-b48a9aae1312d182.js';
 import { viewIsolationGuide } from './app/views/isolation-guide-207f58d448b50644.js';
 import { viewAddWorker } from './app/views/add-worker-5c0a63b0a7981b81.js';
@@ -78,12 +78,12 @@ import { viewDoctor } from './app/views/doctor-aee6fe8c5d85883b.js';
 import { viewImages } from './app/views/images-942a8b1abb47dd23.js';
 import { viewMetrics } from './app/views/metrics-048884d196b95338.js';
 import { newSandboxWizard, viewNew } from './app/views/new-sandbox-be102bb500385ba3.js';
-import { forgetNewWorkspace, newWorkspaceDirty, newWorkspaceRefusal, openNewWorkspace, viewNewWorkspace } from './app/views/new-workspace-7e3534021fa9e04c.js';
+import { forgetNewWorkspace, newWorkspaceDirty, newWorkspaceRefusal, openNewWorkspace, viewNewWorkspace } from './app/views/new-workspace-2be3141b5da9dcf4.js';
 import { renderWizard, viewOnboarding, wizardStopPolling, wizGo } from './app/views/onboarding-74bd411c7afe97ab.js';
 import { acknowledgeOps, renderOperations, renderOps, viewOperations } from './app/views/operations-9cd7c67866ed7d59.js';
-import { viewBots } from './app/views/bots-930b0f2f193364b6.js';
-import { viewBot } from './app/views/bot-f75fe80bbbadd2ee.js';
-import { viewHome } from './app/views/home-77ae1a67e203c5a2.js';
+import { viewBots } from './app/views/bots-e57e1ce6a1271edb.js';
+import { viewBot } from './app/views/bot-911768ced062ab70.js';
+import { viewHome } from './app/views/home-0014f1e6a8b2a341.js';
 import { viewWorkspaces } from './app/views/workspaces-064b2ea5d5ee8892.js';
 import { viewLoose } from './app/views/loose-9925966d836573a2.js';
 import { viewMacs } from './app/views/macs-52bc1bd94e42e04d.js';

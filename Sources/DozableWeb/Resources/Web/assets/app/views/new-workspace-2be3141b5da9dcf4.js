@@ -11,8 +11,8 @@ import { actOrThrow, waitForOp } from '../core/operations-283a20408c4a56b6.js';
 import { roomHash } from '../core/routes-0babfc190b1519e4.js';
 import { state } from '../core/state-f551ebce9066b2c8.js';
 import { loadBots, loadWorkspaces } from '../core/workspaces-eb44da5e11322b41.js';
-import { NETWORKS, PROGRAM_WORDS, WHERE_WORDS, WORKSPACE_DEFINITION, WSN_STEPS, findingsOf, nextFree, pictureText, requestFrom, templateAgentWords,
-  templateRequestFrom } from '../core/ws-new-c6d8d6d4cbd68547.js';
+import { NETWORKS, PROGRAM_WORDS, WHERE_WORDS, WORKSPACE_DEFINITION, WSN_STEPS, findingsOf, madeNote, nextFree, pictureText, requestFrom,
+  templateAgentWords, templateRequestFrom } from '../core/ws-new-10f315ce07ac06df.js';
 import { chatRooms } from '../components/bot-invite-cc12bb753cf9238b.js';
 import { btn } from '../components/button-030d384b64f8d75d.js';
 import { callout } from '../components/callout-a906e34ef11cba9d.js';
@@ -22,11 +22,11 @@ import { addNote } from '../components/notes-b982b305c6f4f5bc.js';
 import { pageFailure, toast } from '../components/notices-7a75ec167a650349.js';
 import { stepperNode } from '../components/stepper-9f1fb5c64eac92d6.js';
 import { drawing, expandButton, fullView, viewSection } from '../components/wsn-picture-38319e72a876de2d.js';
-import { actsAsYouNeeded, customStep, nameAndFolder, nameIssue } from './wsn-custom-ffb4edeb4186498f.js';
+import { actsAsYouNeeded, customStep, nameAndFolder, nameIssue } from './wsn-custom-a67cd7265039856f.js';
 import { WSN_REMOTE, askPlan, botOf, bots, forgetNewWorkspace, fresh, loadTemplates, managerWhere, newWorkspaceRefusal, onPlan, onRender,
-  projectPreset, restore, save } from './wsn-state-ae837409fa92979b.js';
+  projectPreset, restore, save } from './wsn-state-00cb0f1daadeb3d4.js';
 
-export { forgetNewWorkspace, newWorkspaceDirty, newWorkspaceRefusal, WSN_REMOTE } from './wsn-state-ae837409fa92979b.js';
+export { forgetNewWorkspace, newWorkspaceDirty, newWorkspaceRefusal, WSN_REMOTE } from './wsn-state-00cb0f1daadeb3d4.js';
 
 const THUMB = { w: 320, h: 160 };
 const HEAD = { w: 264, h: 132 };
@@ -324,10 +324,12 @@ async function createFromTemplate(w, t) {
     if (state.wsn === w) { w.busy = false; w.error = e.message || String(e); draw(false); }
   }
 }
-/// Made: the wizard closes, the workspace's page opens with its room in front, a note says so.
+/// Made: the wizard closes, the workspace's page opens with its room in front, a note says so — "started" only while
+/// nothing of it already waits on you (an agent that exited in error).
 async function done(name, line, tone) {
   forgetNewWorkspace();
   try { await loadWorkspaces(0); } catch (_) { /* the next hello */ }
+  [line, tone] = madeNote(name, line, tone, state.workspaces && state.workspaces.workspaces.find((x) => x.name === name));
   addNote({ id: 'wsn:' + name, tone, icon: tone === 'ok' ? 'circle-check' : 'triangle-alert', sticky: tone !== 'ok', role: 'status', cls: 'toast',
     attrs: { 'data-wsn-made': name }, body: [line, ' · ', h('a', { href: roomHash(name) }, 'Open its room')] });
   location.hash = roomHash(name);

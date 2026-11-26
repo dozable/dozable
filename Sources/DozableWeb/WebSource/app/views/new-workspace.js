@@ -11,8 +11,8 @@ import { actOrThrow, waitForOp } from '../core/operations.js';
 import { roomHash } from '../core/routes.js';
 import { state } from '../core/state.js';
 import { loadBots, loadWorkspaces } from '../core/workspaces.js';
-import { NETWORKS, PROGRAM_WORDS, WHERE_WORDS, WORKSPACE_DEFINITION, WSN_STEPS, findingsOf, nextFree, pictureText, requestFrom, templateAgentWords,
-  templateRequestFrom } from '../core/ws-new.js';
+import { NETWORKS, PROGRAM_WORDS, WHERE_WORDS, WORKSPACE_DEFINITION, WSN_STEPS, findingsOf, madeNote, nextFree, pictureText, requestFrom,
+  templateAgentWords, templateRequestFrom } from '../core/ws-new.js';
 import { chatRooms } from '../components/bot-invite.js';
 import { btn } from '../components/button.js';
 import { callout } from '../components/callout.js';
@@ -324,10 +324,12 @@ async function createFromTemplate(w, t) {
     if (state.wsn === w) { w.busy = false; w.error = e.message || String(e); draw(false); }
   }
 }
-/// Made: the wizard closes, the workspace's page opens with its room in front, a note says so.
+/// Made: the wizard closes, the workspace's page opens with its room in front, a note says so — "started" only while
+/// nothing of it already waits on you (an agent that exited in error).
 async function done(name, line, tone) {
   forgetNewWorkspace();
   try { await loadWorkspaces(0); } catch (_) { /* the next hello */ }
+  [line, tone] = madeNote(name, line, tone, state.workspaces && state.workspaces.workspaces.find((x) => x.name === name));
   addNote({ id: 'wsn:' + name, tone, icon: tone === 'ok' ? 'circle-check' : 'triangle-alert', sticky: tone !== 'ok', role: 'status', cls: 'toast',
     attrs: { 'data-wsn-made': name }, body: [line, ' · ', h('a', { href: roomHash(name) }, 'Open its room')] });
   location.hash = roomHash(name);

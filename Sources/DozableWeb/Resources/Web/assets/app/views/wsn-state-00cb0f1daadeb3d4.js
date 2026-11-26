@@ -6,7 +6,7 @@
 import { api } from '../core/api-496fd9f39af2a514.js';
 import { isRemote } from '../core/session-ac3b294ded6521bf.js';
 import { state } from '../core/state-f551ebce9066b2c8.js';
-import { requestFrom } from '../core/ws-new-c6d8d6d4cbd68547.js';
+import { requestFrom } from '../core/ws-new-10f315ce07ac06df.js';
 
 const KEY = 'doz.wsnew';
 const PLAN_WAIT_MS = 300;
