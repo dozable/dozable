@@ -281,15 +281,27 @@ is off, a workspace made without a space file is drawn without its agents on thi
 
 A workspace's picture (or **Edit the space** beside it) opens its space file in the space editor, the whole window, at
 its own address — `#/w/NAME/space`, which you can bookmark, reload or open in a new tab. The bar above it leads back to
-the workspace, names the file, says **Saved**, **Unsaved** or **Read-only here**, and has **Text**, **Watch** and **Open in
-a new window**.
+the workspace, names the file, says **Saved**, **Unsaved** or **Read-only here**, and has **Text**, **Watch**, **Export**
+and **Open in a new window**.
 
 - **The canvas** draws the file; you change it there, and its problems are listed and marked as you go — a problem in a
   defaults file it extends is named with that file. **Live** draws what is running now over it (the agents, their rooms,
   what waits for you — a permission prompt, an open Ask, which you can answer there), following what happens; it is never
   read on a timer. The runs strip under it steps through a past run's states.
+- **Moving things** on the canvas pins them where you put them: the file keeps each position under `x-editor.layout`
+  (a plan never acts on it), by name — and the parts with no name of their own by the keys `"@space"`, `"@chat"`,
+  `"@archive"`, `"@owner"` and `"@fence/AGENT"` (an agent's fence, which follows the agent's name). What is drawn as part
+  of something else can't be dragged on its own, and says what to drag instead: the dashboard moves with the owner, a
+  proxy or a disk with its sandbox or fence, and the Mac has no place of its own to move to. A move is an edit like any
+  other: **Unsaved** until you save it.
 - **Text** adds the YAML beside the canvas; it is loaded only when you ask for it, and your changes, undo and selection
   carry over. The dashboard remembers that you use it.
+- **Export** downloads the space as a file named after the workspace: **The file (YAML)** — the space file as saved,
+  byte for byte (it holds the agents' prompts, the members and the folders' paths) —, **The drawing (SVG)** and **The
+  drawing (PNG)**, in the dashboard's light or dark theme. A drawing shows what is happening now only when you tick
+  **Drawings show what is happening now** (who is working, waiting or stuck). Exports are of the file as saved: save
+  first to include your changes. They are made in your browser from what the page already shows you, so another computer
+  that may read the file exports it too, and nothing else.
 - **Saving** (**⌘S**) writes the file only if it is still the version you opened. If it changed since — in your editor or
   with `doz workspace edit` — nothing is written and the editor says **Changed elsewhere**; **Reload** reads the file as it
   is now (your changes there are lost). A save is never applied: "Saved. Not applied: Up applies it." — `doz workspace up
@@ -298,5 +310,6 @@ a new window**.
   asks too, and a restart of `doz ui` waits to reload the page until the file is saved.
 - **Watch** (`#/w/NAME/space/watch`) shows the drawing with Live on and nothing else, read-only — for a second screen.
 - **Another computer** sees the file only while `serve.chat` lets it read, read-only: "Changed only in this Mac's own
-  browser", with the command that changes it on the Mac. Only this Mac's own browser saves a space file.
+  browser", with the command that changes it on the Mac — nothing moves there, and Export works as here. Only this Mac's
+  own browser saves a space file.
 - **A phone** shows the drawing and Live, read-only ("Edit on a wider screen").

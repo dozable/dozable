@@ -11,6 +11,7 @@ import { spaceHash, spaceWatchHash, workspaceHash } from '../core/routes.js';
 import { canChange, readSpace, spaceSource, spaceStorage } from '../core/space-editor.js';
 import { btn } from '../components/button.js';
 import { cmdLine } from '../components/cmd-line.js';
+import { exportMenu } from '../components/space-export.js';
 import { toast } from '../components/notices.js';
 
 let core = null, styled = false;
@@ -67,6 +68,7 @@ export async function spaceEnter(name, mode) {
       h('span', { class: 'sp-gap' }),
       narrow ? h('span', { class: 'sp-note muted' }, 'Edit on a wider screen') : textBtn,
       btn('Watch', () => { location.hash = spaceWatchHash(name); }, { small: true, icon: 'eye', quiet: true }),
+      exportMenu(name, () => c.src.file),
       // Its own window, one per workspace: a second click brings it forward with only a fragment change (a dirty file there is
       // never reloaded). The page's window.open is terminal.js's refusal — only core/windows.js opens a window.
       btn('Open in a new window', () => openOwnWindow(location.pathname + location.hash, 'doz-space-' + name, { w: 1280, h: 860 }),

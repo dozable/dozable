@@ -90,6 +90,10 @@ final class SpaceRecordFileTests: XCTestCase {
         XCTAssertNil(SpaceRecordFile.formatRefusal("doz: space/3\n"))
         XCTAssertNil(SpaceRecordFile.formatRefusal("\n# x\n---\ndoz: space-defaults/3\n"))
         XCTAssertNotNil(SpaceRecordFile.formatRefusal("doz: space/2\n"))
+        // 783: the vendored editor reads space/3.2 (a draft, execution realms); Dozable does not accept it yet, so no save
+        // writes one.
+        XCTAssertNotNil(SpaceRecordFile.formatRefusal("doz: space/3.2\n"))
+        XCTAssertNotNil(SpaceRecordFile.formatRefusal("doz: space-defaults/3.2\n"))
         XCTAssertNotNil(SpaceRecordFile.formatRefusal("space: x\ndoz: space/3\n"))
         XCTAssertNotNil(SpaceRecordFile.formatRefusal(""))
     }

@@ -871,6 +871,33 @@ final class WebModulesTests: XCTestCase {
         XCTAssertTrue(try read("index.html").contains(#"<section id="space" class="space-root""#))
     }
 
+    /// 783: the exports are made in this browser from what this viewer read — the file (its text, byte for byte, for the YAML;
+    /// the renderer's words for a drawing, as the pictures draw it) and, only when ticked, the state through the viewer's own
+    /// `workspace-state` read —: no route, action, operation or write of their own; offered to whoever may read the file
+    /// (never behind this Mac's own browser); downloaded as files named after the workspace; drawn by the vendored renderer,
+    /// loaded only when a picture or an export needs it (the pictures' loader — no import() of its own).
+    func testTheSpaceExportsAreMadeInTheBrowserFromWhatTheViewerRead() throws {
+        let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource")
+        let read = { (f: String) in try String(contentsOf: src.appendingPathComponent(f), encoding: .utf8) }
+        let data = try read("app/core/space-export.js")
+        XCTAssertTrue(data.contains("import { loadRenderer } from './space-pictures.js';") && !data.contains("import("))
+        XCTAssertTrue(data.contains("throw new Error('The file doesn’t read here"), "a file that doesn't read is said, never drawn as a fault")
+        XCTAssertTrue(data.contains("new Blob([f.text], { type: 'application/yaml' })"), "the YAML is the file's own text")
+        XCTAssertTrue(data.contains("const drawn = f.picture || f.text"), "a drawing is of the file in the renderer's words")
+        XCTAssertTrue(data.contains("live ? await api('workspace-state'"), "the state only when asked, through the viewer's own read")
+        let calls = try NSRegularExpression(pattern: #"api\('([a-z-]+)'"#).matches(in: data, range: NSRange(location: 0, length: (data as NSString).length))
+            .map { (data as NSString).substring(with: $0.range(at: 1)) }
+        XCTAssertEqual(calls, ["workspace-state"], "no other read, no action")
+        for banned in ["actOrThrow", "/api/v1/actions", "localStorage", "fetch("] { XCTAssertFalse(data.contains(banned), "core/space-export.js: \(banned)") }
+        XCTAssertTrue(data.contains("w + (kind === 'yaml' ? '.space.yaml' : '.' + kind)"), "named after the workspace")
+        let menu = try read("app/components/space-export.js")
+        XCTAssertTrue(menu.contains("URL.createObjectURL(blob)") && menu.contains("download: name"))
+        XCTAssertFalse(menu.contains("isRemote") || menu.contains("canSave"), "offered to whoever may read the file")
+        let page = try read("app/views/space-page.js")
+        XCTAssertTrue(page.contains("exportMenu(name, () => c.src.file)"), "in the bar, for this Mac and another computer alike")
+        XCTAssertTrue(try read("app/core/space-editor.js").contains("get file() { return file; }"), "the file as last read")
+    }
+
     /// 781: every workspace is drawn — one made without a space file from its document (`workspace-doc`, read again on each
     /// state mark, its state keyed as the document is), its hero no link (no file to edit) with `doz workspace doc NAME`;
     /// no plain-only tile or compact band left. And the chat view's empty status box is not drawn.
@@ -949,6 +976,10 @@ final class WebModulesTests: XCTestCase {
         }
         XCTAssertEqual(lazy.count, 2, "two modules hold an import(): \(lazy.keys.sorted())")
         XCTAssertTrue(lazy.allSatisfy { $0.value == 1 }, "each exactly once")
+        // 783: the peer's export entry is not vendored (its text holds a word of the neutral check's list); the exports are
+        // the renderer's (core/space-export.js, through the pictures' loader).
+        XCTAssertNil(a.assets[folder + "space-export.js"])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: dir.appendingPathComponent("space-export.js").path))
         let pics = try XCTUnwrap(lazy.keys.first { $0.hasPrefix("/assets/app/core/space-pictures-") })
         XCTAssertTrue(String(decoding: a.assets[pics]!.data, as: UTF8.self).contains("import('\(folder)space-render.js')"))
         let page = try XCTUnwrap(lazy.keys.first { $0.hasPrefix("/assets/app/views/space-page-") })
@@ -956,7 +987,7 @@ final class WebModulesTests: XCTestCase {
         XCTAssertTrue(pageText.contains("import('\(folder)space-core.js')"))
         XCTAssertTrue(pageText.contains("'\(folder)space-editor.css'"))
         // The build's own relative loads are served unrewritten (its bytes are its pin's).
-        XCTAssertTrue(String(decoding: a.assets[folder + "space-chunk-GSRMRVK7.js"]!.data, as: UTF8.self).contains("import(\"./space-text.js\")"))
+        XCTAssertTrue(String(decoding: a.assets[folder + "space-chunk-HTVO4EZR.js"]!.data, as: UTF8.self).contains("import(\"./space-text.js\")"))
         let web = Self.root.appendingPathComponent("Sources/DozableWeb/Resources/Web/licences")
         for l in ["space-editor", "monaco-editor", "monaco-editor__ThirdPartyNotices", "ajv", "fast-deep-equal", "yaml", "lucide-static", "README"] {
             XCTAssertTrue(FileManager.default.fileExists(atPath: web.appendingPathComponent("space-editor-LICENSES-\(l).txt").path), "\(l) ships")
@@ -1000,7 +1031,7 @@ final class WebModulesTests: XCTestCase {
         func flip(_ file: String) -> (URL) throws -> Void {
             { src in let u = src.appendingPathComponent(v + file); var d = try Data(contentsOf: u); d[d.count / 2] ^= 0x01; try d.write(to: u) }
         }
-        try refused("one changed byte in a chunk", "is not the pinned file", flip("space-chunk-GSRMRVK7.js"))
+        try refused("one changed byte in a chunk", "is not the pinned file", flip("space-chunk-HTVO4EZR.js"))
         try refused("one changed byte in monaco.js", "is not the pinned file", flip("monaco/monaco.js"))
         try refused("one changed byte in the PIN", "is not the pinned PIN") { src in
             let u = src.appendingPathComponent(v + "PIN")
