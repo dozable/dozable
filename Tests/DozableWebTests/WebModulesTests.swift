@@ -438,6 +438,53 @@ final class WebModulesTests: XCTestCase {
         XCTAssertTrue(try read("app/components/bot-form.js").contains("field('Bot name'"), "the owner's label")
     }
 
+    /// A made workspace whose agent already waits on you (it exited in error) is never said "started".
+    func testAMadeWorkspaceThatWaitsOnYouIsNotSaidStarted() throws {
+        let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource")
+        let read = { (f: String) in try String(contentsOf: src.appendingPathComponent(f), encoding: .utf8) }
+        let ctx = try XCTUnwrap(JSContext())
+        var thrown: String?
+        ctx.exceptionHandler = { _, e in thrown = e?.toString() }
+        ctx.evaluateScript(try read("app/core/ws-new.js").replacingOccurrences(of: "export ", with: ""))
+        XCTAssertNil(thrown, thrown ?? "")
+        func js(_ expr: String) -> String { ctx.evaluateScript("JSON.stringify(" + expr + ")")?.toString() ?? "?" }
+        XCTAssertEqual(js("madeNote('w2', 'w2 is made and started', 'ok', {state: 'waiting-on-you'})"),
+                       #"["w2 is made but waits on you — its room says why","warn"]"#)
+        XCTAssertEqual(js("madeNote('w2', 'w2 is made and started', 'ok', {state: 'idle'})"), #"["w2 is made and started","ok"]"#)
+        XCTAssertEqual(js("madeNote('w2', 'w2 is made and started', 'ok', undefined)"), #"["w2 is made and started","ok"]"#)
+        XCTAssertTrue(try read("app/views/new-workspace.js").contains("[line, tone] = madeNote(name, line, tone,"), "every made workspace's note")
+    }
+
+    /// The "Discard this new workspace?" question goes with its wizard: closed or replaced any other way (the browser's Back,
+    /// a new address), it never floats over the next page or wizard, and a late Discard acts on no other wizard.
+    func testTheDiscardQuestionGoesWithItsWizard() throws {
+        let modal = try String(contentsOf: Self.root.appendingPathComponent("Sources/DozableWeb/WebSource/app/components/modal.js"), encoding: .utf8)
+        XCTAssertTrue(modal.contains("export function closeWizardModal() {\n  dropCloseAsk();"), "closing the wizard takes its question")
+        XCTAssertTrue(modal.contains("if (was !== v) dropCloseAsk();"), "another wizard takes it too")
+        XCTAssertTrue(modal.contains("if (state.modal !== asked) return;"), "a late Discard acts on no other wizard")
+        XCTAssertTrue(modal.contains("closeAsk = dialog("), "the question is kept to be taken")
+    }
+
+    /// Add a worker's comparison table scrolls sideways in its own box: its heads never stick there (the page's sticky offset
+    /// pushed them down over the first rows).
+    func testAddAWorkersTableHeadsDoNotStickInTheirBox() throws {
+        let css = try String(contentsOf: Self.root.appendingPathComponent("Sources/DozableWeb/WebSource/app.css"), encoding: .utf8)
+        let rule = try XCTUnwrap(css.range(of: ".aw-cmp thead th { position: relative; top: auto; }"), "the table's heads do not stick")
+        let sticky = try XCTUnwrap(css.range(of: "#view thead th { position: sticky;"))
+        XCTAssertGreaterThan(rule.lowerBound, sticky.lowerBound, "in the later layer (views), after the page's sticky heads")
+    }
+
+    /// A recipe's tags read as words ("Dozable unpublished"), never run together.
+    func testARecipesTagsReadAsWords() throws {
+        let settings = try String(contentsOf: Self.root.appendingPathComponent("Sources/DozableWeb/WebSource/app/views/settings.js"), encoding: .utf8)
+        let ctx = try XCTUnwrap(JSContext())
+        let fn = try XCTUnwrap(settings.components(separatedBy: "\n").first { $0.hasPrefix("function spacedTags(") })
+        ctx.evaluateScript(fn)
+        XCTAssertEqual(ctx.evaluateScript("JSON.stringify(spacedTags(['Dozable', null, 'unpublished']).join(''))")?.toString(), "\"Dozable unpublished\"")
+        XCTAssertTrue(settings.contains("' ', spacedTags(tags))"), "a recipe row's tags")
+        XCTAssertTrue(settings.contains("h('div', { class: 'recipe-facts' }, spacedTags(["), "a recipe page's tags")
+    }
+
     /// Leaving a modal for an address: the page under it is kept as it was ONLY when the history entry is that page's own
     /// (the browser's Back, the modal's close) — every routed page stamps its entry (`history.state.dozPage`) and in-page
     /// address changes keep the stamp; an address that replaced the modal's entry routes the page again, even when it equals

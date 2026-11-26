@@ -202,6 +202,8 @@ function settingRow(r, opts = {}) {
 // opens the recipe's page (#/mac/templates/V/P): its settings, its baked images, its sandboxes, Uninstall.
 function recipeHash(r) { return '#/mac/templates/' + r.qualified; }
 function shown(v) { return typeof v === 'string' ? (v === '' ? '""' : v) : String(v); }
+// Tags side by side, a space between each: their text reads as words ("Dozable unpublished"), never run together.
+function spacedTags(tags) { return tags.filter(Boolean).flatMap((t, i) => (i ? [' ', t] : [t])); }
 function recipeRow(r, withState) {
   const set = r.settings.filter((s) => s.source === 'mac');
   const meta = [];
@@ -221,7 +223,7 @@ function recipeRow(r, withState) {
     h('span', { class: 'recipe-main' },
       h('span', { class: 'recipe-name' }, r.title, h('span', { class: 'muted' }, ' · ' + r.subject)),
       h('span', { class: 'recipe-q' }, r.qualified),
-      h('span', { class: 'recipe-meta' }, meta.join(' · '), ' ', tags),
+      h('span', { class: 'recipe-meta' }, meta.join(' · '), ' ', spacedTags(tags)),
       set.length ? h('span', { class: 'recipe-chips' }, set.map((s) => h('span', { class: 'chip-set' }, h('code', null, s.name), ' ' + shown(s.value) + ' ', sourceBadge(s)))) : null),
     h('span', { class: 'recipe-count muted' }, set.length ? set.length + ' set on this Mac' : 'the recipe’s defaults'), icon('chevron-right'));
 }
@@ -282,10 +284,10 @@ async function viewRecipe(qualified) {
     h('a', { href: back[0] }, back[1]), icon('chevron-right'), h('span', null, r ? r.title : qualified));
   if (!r) return h('div', { class: 'settings-page' }, crumbs, callout('warn', { cls: 'notice', title: 'No such recipe', body: qualified + ' is not in this Mac’s catalogue.' }));
   const stateWord = r.state === 'in use' ? 'In use' : r.state === 'installed' ? (r.notInstalled ? 'Not installed (your settings)' : 'Installed') : 'Available';
-  const facts = h('div', { class: 'recipe-facts' },
+  const facts = h('div', { class: 'recipe-facts' }, spacedTags([
     h('span', { class: 'tag ' + (r.state === 'in use' ? 'ok' : r.state === 'installed' && !r.notInstalled ? 'info' : 'outline'), 'data-recipe-state': r.state }, stateWord),
     h('span', { class: 'tag outline' }, r.source), r.isDefault ? h('span', { class: 'tag info' }, '★ your default image’s agent') : null,
-    r.published ? null : h('span', { class: 'tag' }, 'unpublished'));
+    r.published ? null : h('span', { class: 'tag' }, 'unpublished')]));
   const old = r.settings.flatMap((s) => s.aliases || []);
   const uninstall = r.images.length || r.settings.some((s) => s.source === 'mac')
     ? btn('Uninstall…', () => uninstallDialog(r), { small: true, icon: 'trash-2', title: r.uninstallRefusal || 'Remove its baked images from this Mac' }) : null;

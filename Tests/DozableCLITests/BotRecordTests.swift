@@ -99,6 +99,13 @@ final class BotRecordTests: XCTestCase {
         XCTAssertEqual(BotIsolation.words("unfenced"), "unfenced (acts as you)")
     }
 
+    /// `--isolation sandbox` is stored as `vm`, and is said back as "sandbox" — never "vm".
+    func testASandboxBotIsSaidAsSandbox() {
+        XCTAssertEqual(BotIsolation.words(IsolationWord.stored("sandbox")), "sandbox")
+        XCTAssertEqual(BotIsolation.words("vm"), "sandbox")
+        XCTAssertEqual(BotIsolation.words("fenced"), "fenced")
+    }
+
     /// 0700 folders, 0600 files; the instructions copied with an empty notes.md beside them.
     func testModesAndInstructions() throws {
         try bots.write(BotsFile(bots: [record()]))
