@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import Security
 import DozableKit
 import DozableHost
 
@@ -577,6 +578,75 @@ func cliFenceNetworkChecks(_ t: CLIHarness, root: String, home: String, store: S
     check(row("lis")?.capabilities?.contains { $0.id == "listen" } == false, "…and the capability is gone")
     for s in ["lis", "lisx"] { t.run(["sessions", "end", "@mac", s, "--yes"], timeout: 60); started.remove(s) }
 
+    // MARK: CA — the tools in the fence trust what its proxy presents (a first-run bug: an allowed HTTPS site failed curl's
+    // check, exit 60 — the bundle was /etc/ssl/cert.pem + the CA, and cert.pem lacks roots the System Roots have; outside the
+    // fence the tools fall back to the keychain's trust, which the fence closes). No network: denied.doz.test:443 is
+    // answered INSIDE TLS with a leaf of the session's CA, so curl, Python, git and Node each finish the handshake (a 403)
+    // only if they trust it; and the bundle holds every System Roots anchor (read here, outside, with `security`).
+    // Python as pip and requests use it: the bundle REQUESTS_CA_BUNDLE names (Apple's own /usr/bin/python3 reads only
+    // /etc/ssl/cert.pem whatever SSL_CERT_FILE says, then asks the keychain's trust — closed in the fence).
+    put(net + "/ca.py", """
+    import os, ssl, sys, urllib.request, urllib.error
+    try:
+        urllib.request.urlopen('https://denied.doz.test/', timeout=10, context=ssl.create_default_context(cafile=os.environ['REQUESTS_CA_BUNDLE']))
+        sys.exit(4)
+    except urllib.error.HTTPError as e:
+        sys.exit(0 if e.code == 403 else 2)
+    except Exception as e:
+        open('res/ca_py.err', 'w').write(repr(e)); sys.exit(3)
+    """)
+    put(net + "/ca.sh", helpers + """
+    env | grep -E '^(SSL_CERT_FILE|CURL_CA_BUNDLE|REQUESTS_CA_BUNDLE|GIT_SSL_CAINFO|NODE_EXTRA_CA_CERTS)=' | sort > res/ca_env
+    cp "$CURL_CA_BUNDLE" res/ca-bundle.pem
+    c ca_curl -m 10 https://denied.doz.test/
+    r ca_py /usr/bin/python3 ca.py
+    git ls-remote https://denied.doz.test/x.git > /dev/null 2> res/ca_git.err; echo $? > res/ca_git
+    if command -v node > /dev/null; then node -e "fetch('https://denied.doz.test/').then(r => process.exit(r.status === 403 ? 0 : 2), e => { console.error(String(e.cause || e)); process.exit(1) })" 2> res/ca_node.err; echo $? > res/ca_node; else echo none > res/ca_node; fi
+    echo done > res/CADONE
+    sleep 600
+    """)
+    r = run("netca", "ca.sh", extra: ["--permissions", sites])
+    check(r.code == 0 && t.waitFor(60) { FileManager.default.fileExists(atPath: net + "/res/CADONE") }, "CA a fenced session's TLS probes ran")
+    let caEnv = get(net + "/res/ca_env")
+    let bundlePath = caEnv.split(separator: "\n").first { $0.hasPrefix("CURL_CA_BUNDLE=") }.map { String($0.dropFirst("CURL_CA_BUNDLE=".count)) } ?? "?"
+    check(["SSL_CERT_FILE", "REQUESTS_CA_BUNDLE", "GIT_SSL_CAINFO"].allSatisfy { caEnv.contains("\($0)=\(bundlePath)\n") }
+          && bundlePath.hasSuffix("/etc/ca-bundle.pem") && caEnv.contains("NODE_EXTRA_CA_CERTS=" + (bundlePath as NSString).deletingLastPathComponent + "/ca.pem"),
+          "CA SSL_CERT_FILE, CURL_CA_BUNDLE, REQUESTS_CA_BUNDLE and GIT_SSL_CAINFO name the session's bundle; NODE_EXTRA_CA_CERTS its CA")
+    var bmode = stat()
+    check(lstat(bundlePath, &bmode) == 0 && bmode.st_mode & 0o777 == 0o444 && bmode.st_uid == getuid(), "CA the bundle is 0444, the person's file (read-only in the fence)")
+    func caDERs(_ pem: String) -> Set<Data> {
+        Set(pem.components(separatedBy: "-----BEGIN CERTIFICATE-----").dropFirst().compactMap { b in
+            b.range(of: "-----END CERTIFICATE-----").flatMap { Data(base64Encoded: String(b[..<$0.lowerBound].filter { !$0.isWhitespace })) }
+        })
+    }
+    let sysRoots: String = {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/security")
+        p.arguments = ["find-certificate", "-a", "-p", "/System/Library/Keychains/SystemRootCertificates.keychain"]
+        let o = Pipe(); p.standardOutput = o; p.standardError = FileHandle.nullDevice
+        try? p.run(); let d = o.fileHandleForReading.readDataToEndOfFile(); p.waitUntilExit()
+        return String(decoding: d, as: UTF8.self)
+    }()
+    // The System Roots keychain's self-signed roots (it also holds an intermediate or two — Developer ID's CA — that no
+    // TLS chain ends at and that are not trust anchors).
+    let roots = caDERs(sysRoots).filter { d in
+        guard let c = SecCertificateCreateWithData(nil, d as CFData),
+              let sub = SecCertificateCopyNormalizedSubjectSequence(c), let iss = SecCertificateCopyNormalizedIssuerSequence(c) else { return false }
+        return (sub as Data) == (iss as Data)
+    }
+    let held = caDERs(get(net + "/res/ca-bundle.pem"))
+    let certPem = caDERs((try? String(contentsOfFile: "/private/etc/ssl/cert.pem", encoding: .utf8)) ?? "")
+    check(!roots.isEmpty && roots.isSubset(of: held) && certPem.isSubset(of: held),
+          "CA the bundle holds every System Roots root (\(roots.count); cert.pem alone lacks \(roots.subtracting(certPem).count)) and all of cert.pem — \(held.count) in it")
+    check(res("ca_curl") == 0 && code("ca_curl").hasPrefix("403"), "CA curl trusts the session's CA: https://denied.doz.test/ refused inside TLS, not exit 60 (\(res("ca_curl").map(String.init) ?? "-"), \(code("ca_curl")))")
+    check(res("ca_py") == 0, "CA Python with REQUESTS_CA_BUNDLE (as pip and requests) trusts it: an HTTPError 403, not a certificate error (\(res("ca_py").map(String.init) ?? "-") \(get(net + "/res/ca_py.err")))")
+    let gitErr = get(net + "/res/ca_git.err")
+    check(!gitErr.isEmpty && !gitErr.lowercased().contains("certificate"), "CA git over https trusts it: refused by the proxy, never a certificate problem (\(gitErr.prefix(160)))")
+    let nodeRes = get(net + "/res/ca_node").trimmingCharacters(in: .whitespacesAndNewlines)
+    check(nodeRes == "0" || nodeRes == "none", "CA Node fetch trusts it: a 403 (or no node here) — \(nodeRes) \(get(net + "/res/ca_node.err").prefix(160))")
+    t.run(["sessions", "end", "@mac", "netca", "--yes"], timeout: 60)
+    started.remove("netca")
+
     // MARK: 2.16 the hand-over: the host's program replaced by rename, only a fenced session live
     await fenceHandOver(t, root: root, net: net, binary: binary, store: store, sites: sites, allowed: allowed, started: &started)
 
@@ -588,10 +658,15 @@ func cliFenceNetworkChecks(_ t: CLIHarness, root: String, home: String, store: S
         r git git ls-remote https://github.com/git/git HEAD
         r node sh -c 'command -v node >/dev/null || exit 0; node -e "fetch(\\"https://registry.npmjs.org/left-pad\\").then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"'
         c nope -m 30 https://example.com/
+        while [ ! -f res/ALLOWED ]; do sleep 0.2; done
+        c exm -m 30 https://example.com/
         echo done > res/IDONE
         sleep 600
         """)
         r = run("netreal", "i.sh")
+        _ = t.waitFor(60) { FileManager.default.fileExists(atPath: net + "/res/nope") }
+        check(t.run(["net", "allow", "@mac", "--session", "netreal", "site:example.com"]).code == 0, "[FENCE_NET] doz net allow @mac --session netreal site:example.com")
+        put(net + "/res/ALLOWED", "1")
         check(r.code == 0 && t.waitFor(120) { FileManager.default.fileExists(atPath: net + "/res/IDONE") }, "[FENCE_NET] a fenced session on the real internet")
         check(code("gh").hasPrefix("200") || code("gh").hasPrefix("30"), "[FENCE_NET] curl https://github.com (Standard: GitHub) — \(code("gh"))")
         check(res("py") == 0, "[FENCE_NET] Python urllib → PyPI")
@@ -599,6 +674,7 @@ func cliFenceNetworkChecks(_ t: CLIHarness, root: String, home: String, store: S
         check(res("node") == 0, "[FENCE_NET] Node fetch with NODE_USE_ENV_PROXY (or no node here)")
         // 775: refused inside the tunnel ("403 200") or at the CONNECT ("000 403").
         check(code("nope").hasPrefix("403") || code("nope").hasSuffix(" 403"), "[FENCE_NET] example.com (not in Standard) refused — \(code("nope"))")
+        check(res("exm") == 0 && code("exm").hasPrefix("200"), "[FENCE_NET] …then curl https://example.com succeeds (its chain ends at a System Roots anchor) — \(res("exm").map(String.init) ?? "-") \(code("exm"))")
         t.run(["sessions", "end", "@mac", "netreal", "--yes"], timeout: 60)
         started.remove("netreal")
     } else {

@@ -1,6 +1,7 @@
 import Darwin
 import DozableKit
 import Foundation
+import Security
 
 /// A fenced session's network: the ONLY outbound connection its profile allows is `localhost:<its port>`, a socket
 /// on this Mac's loopback that the host binds at open and its holder holds for the session's life
@@ -91,11 +92,50 @@ public enum MacFenceNetwork {
         return true
     }
 
-    /// The system's trust store as PEM (`/etc/ssl/cert.pem` — what curl, Python and git read on macOS), for the session's
-    /// CA bundle.
-    static func systemBundle() -> String {
-        guard let d = FileManager.default.contents(atPath: "/private/etc/ssl/cert.pem"), d.count <= 4 << 20 else { return "" }
-        return String(decoding: d, as: UTF8.self)
+    /// The system's trust store as PEM, for the session's CA bundle: `/etc/ssl/cert.pem` (what curl, Python and git read on
+    /// macOS) AND the system's trust anchors (`SecTrustCopyAnchorCertificates` — the System Roots keychain), each root once.
+    /// cert.pem alone is not enough: Apple's copy lags the System Roots (found on a first run: an allowed site's chain
+    /// ended at a root cert.pem lacks, and every tool in the fence failed its check — curl 60). Outside the fence Apple's
+    /// curl and Python fall back to the keychain's trust; inside, the fence closes that service, so the bundle must hold
+    /// every root itself. A person's own or an administrator's added roots are not included. Made once per daemon (the
+    /// trust anchors' call and the merge cost ~0.3 s — a fenced start's budget is 50 ms; `cachedSystemBundle`).
+    static func systemBundle() -> String { cachedSystemBundle }
+
+    /// The system bundle, made at its first use and kept for the daemon's life (a macOS update that changes the roots
+    /// restarts it anyway).
+    static let cachedSystemBundle: String = makeSystemBundle()
+
+    static func makeSystemBundle() -> String {
+        var file = ""
+        if let d = FileManager.default.contents(atPath: "/private/etc/ssl/cert.pem"), d.count <= 4 << 20 { file = String(decoding: d, as: UTF8.self) }
+        return mergedBundle(file: file, anchors: systemAnchorsDER())
+    }
+
+    /// The system's trust anchors, DER (none when the call fails).
+    static func systemAnchorsDER() -> [Data] {
+        var out: CFArray?
+        guard SecTrustCopyAnchorCertificates(&out) == errSecSuccess, let certs = out as? [SecCertificate] else { return [] }
+        return certs.map { SecCertificateCopyData($0) as Data }
+    }
+
+    /// `file`'s PEM text, then each of `anchors` (DER) it does not already hold, as PEM — at most 4 MiB in all. Pure.
+    static func mergedBundle(file: String, anchors: [Data]) -> String {
+        var have = Set<Data>()
+        for block in file.components(separatedBy: "-----BEGIN CERTIFICATE-----").dropFirst() {
+            guard let end = block.range(of: "-----END CERTIFICATE-----") else { continue }
+            let b64 = block[..<end.lowerBound].filter { !$0.isWhitespace }
+            if let d = Data(base64Encoded: String(b64)) { have.insert(d) }
+        }
+        var s = file
+        if !s.isEmpty, !s.hasSuffix("\n") { s += "\n" }
+        for d in anchors where !have.contains(d) {
+            have.insert(d)
+            let lines = d.base64EncodedString(options: [.lineLength64Characters, .endLineWithLineFeed])
+            let pem = "-----BEGIN CERTIFICATE-----\n" + lines + "\n-----END CERTIFICATE-----\n"
+            if s.utf8.count + pem.utf8.count > 4 << 20 { break }
+            s += pem
+        }
+        return s
     }
 
     /// The session's CA (`<store>/mac-sessions/fence/NAME/egress-ca*.pem`, the key never leaves the store) — and its copies

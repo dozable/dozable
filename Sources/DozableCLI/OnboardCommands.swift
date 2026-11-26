@@ -170,7 +170,7 @@ struct OnboardingFlow {
         let doctor = Doctor.checks(store: store, claude: keyFlag == nil && claudeFlag != "none").map { (check: $0.check, status: $0.status.rawValue, detail: $0.detail) }
         func basePrepared(_ id: String) -> Bool { prep.base?.id == id && prep.base?.prepared == true }
         let checkBase = BaseCatalogue.base(baseID ?? storeBase) ?? BaseCatalogue.all[0]
-        var checks = Onboarding.checks(doctor: doctor, store: store, base: checkBase, prepared: baseID == nil || basePrepared(checkBase.id))
+        var checks = Onboarding.checks(doctor: doctor, store: store, base: checkBase, prepared: basePrepared(checkBase.id), wanted: baseID != nil)
         // 637 (owner: "1. Welcome (before the doctor)"): what Dozable is and what these steps set up, then a pause.
         header(1, "Welcome", lead: "Dozable runs each project in its own small Linux virtual machine on this Mac — your coding agents and tools work there, on your project's folder, without reaching the rest of your Mac.")
         if talk {
@@ -339,6 +339,7 @@ struct OnboardingFlow {
         case .kept: status(.info, "\(settingsPath.map { DisplayPath.tilde($0) } ?? "doz.toml") exists — left as it is")
         case .unavailable: status(.warn, "no settings file (neither XDG_CONFIG_HOME nor HOME is set)")
         }
+        if settings != .unavailable, let n = SharedSettingsNote.line(storeOption: g.store, settingsPath: settingsPath) { status(.warn, n) }
         // 634: the store's base into a file that was kept (as the Access choices are).
         if settings == .kept, let id = baseID {
             let set: [String]

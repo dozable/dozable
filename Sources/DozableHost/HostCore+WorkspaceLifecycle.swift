@@ -581,7 +581,8 @@ extension HostCore {
                 secret = s
             }
             var pl = try WorkerLaunch.plan(isolation: iso, agent: agent, model: bot?.model, bot: bot?.name, startFile: startFile, pagePort: pagePort,
-                                           fingerprint: secret?.fingerprint ?? "", name: name, shared: shared)
+                                           fingerprint: secret?.fingerprint ?? "", name: name, shared: shared,
+                                           readFiles: AgentSkillFiles.readFiles(AgentSkillFiles.worker, isolation: iso))
             // A fenced worker's kept secret stays in its session's record; only a bot's or a new one is given again.
             pl.secret = iso == .fenced && bot == nil && !newToken ? nil : secret
             if iso == .vm, pl.secret == nil { throw HostError(.failed, "\(name)'s token is not held by its sandbox \(place) — doz worker end \(n) \(name), then add it again") }
@@ -602,7 +603,7 @@ extension HostCore {
             let files = try writeAgentTokenFolder(workerTokenFolder(place), token: value, start: start, who: name)
             plan = try WorkerLaunch.plan(isolation: .unfenced, agent: agent, model: bot?.model, bot: bot?.name, startFile: files.startFile,
                                          pagePort: pagePort, fingerprint: BotTokens.fingerprint(value), tokenFile: files.tokenFile, name: name, shared: false,
-                                         session: place)
+                                         session: place, readFiles: AgentSkillFiles.readFiles(AgentSkillFiles.worker, isolation: .unfenced))
         }
         let order = WorkerLaunchOrder(workspace: n, name: name, isolation: iso, place: place, session: shared ? name : (iso == .vm ? name : nil), shared: shared,
                                       workdir: workdir, plan: plan, start: start, agent: agent, account: bot?.account, model: bot?.model,

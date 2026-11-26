@@ -668,7 +668,8 @@ extension HostCore {
             made.fingerprint = secret.fingerprint
             var pl = try WorkerLaunch.plan(isolation: p.isolation, agent: p.agent, model: p.bot?.model, bot: p.bot?.name, startFile: startFile,
                                            pagePort: pagePort, fingerprint: secret.fingerprint, name: name, shared: p.shared,
-                                           allowTools: p.isolation == .fenced ? p.allowTools : [], permissionMode: p.permissionMode)
+                                           allowTools: p.isolation == .fenced ? p.allowTools : [], permissionMode: p.permissionMode,
+                                           readFiles: AgentSkillFiles.readFiles(AgentSkillFiles.worker, isolation: p.isolation))
             pl.secret = secret
             plan = pl
         case .unfenced:
@@ -692,7 +693,8 @@ extension HostCore {
             if let b = p.bot { notes += await pointBotInbox(n, bot: b, place: p.place) }
             plan = try WorkerLaunch.plan(isolation: .unfenced, agent: p.agent, model: p.bot?.model, bot: p.bot?.name, startFile: files.startFile,
                                          pagePort: pagePort, fingerprint: made.fingerprint ?? "", tokenFile: files.tokenFile, name: name, shared: false,
-                                         permissionMode: p.permissionMode, session: p.place)
+                                         permissionMode: p.permissionMode, session: p.place,
+                                         readFiles: AgentSkillFiles.readFiles(AgentSkillFiles.worker, isolation: .unfenced))
         }
         if p.shared { notes.append("\(name) shares \(p.place): workers there can read each other's placeholders") }
         // 5. Its session or sandbox.

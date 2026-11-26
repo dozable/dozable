@@ -75,9 +75,10 @@ public enum ManagerLaunch {
     /// server's; `tokenFile`: an unfenced manager's token file; `fingerprint`: the bot's token's.
     /// `session`: its session's name on this Mac (an unfenced Claude Code is named after it — `AgentLaunch.plan`).
     public static func plan(isolation: ManagerIsolation, agent: String, model: String?, bot: String, startFile: String, pagePort: Int,
-                            fingerprint: String, tokenFile: String? = nil, session: String? = nil) throws -> Plan {
+                            fingerprint: String, tokenFile: String? = nil, session: String? = nil, readFiles: [String] = []) throws -> Plan {
         try AgentLaunch.plan(role: .manager, isolation: isolation, agent: agent, model: model, bot: bot, startFile: startFile, pagePort: pagePort,
-                             fingerprint: fingerprint, tokenFile: tokenFile, allowedTools: ["Bash(dozchat:*)"], session: session)
+                             fingerprint: fingerprint, tokenFile: tokenFile, allowedTools: ["Bash(dozchat:*)"], session: session,
+                             readFiles: readFiles)
     }
 
     /// A VM manager started again after a stop: its program continues the conversation it had.
@@ -95,11 +96,14 @@ public enum AgentLaunch {
 
     /// `variable` / `fileVariable`: the token's (a worker sharing a sandbox has its own, `WorkerLaunch.tokenVariables`);
     /// `bot`: the bot whose token it is (nil: a worker's throwaway token, a daemon-made launch secret); `allowedTools`: a
-    /// Claude Code allow-list (last in argv — it takes every word after it; never on a VM, whose approvals are skipped).
+    /// Claude Code allow-list (last in argv — it takes every word after it; never on a VM, whose approvals are skipped);
+    /// `readFiles`: the other files START tells it to read (the chat skills' — `AgentSkillFiles.paths`), each allowed by an
+    /// exact `Read` rule beside START's own (`readRules`).
     public static func plan(role: Role, isolation: ManagerIsolation, agent: String, model: String?, bot: String?, startFile: String,
                             pagePort: Int, fingerprint: String, tokenFile: String? = nil,
                             variable: String = ManagerLaunch.tokenVariable, fileVariable: String = ManagerLaunch.tokenFileVariable,
-                            allowedTools: [String], permissionMode: String? = nil, session: String? = nil) throws -> ManagerLaunch.Plan {
+                            allowedTools: [String], permissionMode: String? = nil, session: String? = nil,
+                            readFiles: [String] = []) throws -> ManagerLaunch.Plan {
         guard let program = ManagerLaunch.program(agent: agent) else {
             throw HostError(.invalid, "Dozable does not start \(role == .manager ? "a manager" : "a worker") running \(agent) yet")
         }
@@ -114,8 +118,10 @@ public enum AgentLaunch {
             // (`MacPlace.bypassesPermissions`); a VM's approvals are skipped already.
             if permissionMode == "bypass" { argv += ["--permission-mode", "bypassPermissions"] }
             else if isolation == .fenced { argv += ["--permission-mode", "dontAsk"] }
-            // The allow-list takes every word after it: it goes last.
-            argv += ["--allowedTools"] + allowedTools
+            // The allow-list takes every word after it: it goes last. Its START and the skill files START names are
+            // outside its folder: under dontAsk an unlisted Read is refused (and unfenced it would stop to ask), so the
+            // agent sat idle without its instructions — each gets an exact Read rule, nothing wider.
+            argv += ["--allowedTools"] + allowedTools + readRules([startFile] + readFiles)
         }
         var env: [String: String] = [:]
         var secret: LaunchSecret?
@@ -133,6 +139,20 @@ public enum AgentLaunch {
             env["CHAT_URL"] = chatURL(isolation: isolation, pagePort: pagePort)
         }
         return ManagerLaunch.Plan(argv: argv, environment: env, startFile: startFile, hostPorts: ports, secret: secret)
+    }
+
+    /// Claude Code's rule that lets it Read exactly the file at each absolute path, and nothing else: `Read(//ABS)` — in a
+    /// Read rule `//` starts an absolute path (a single `/` is relative to the project; probed against Claude Code 2.1.332:
+    /// `Read(/ABS)` was refused, `Read(//ABS)` allowed, a path with a space included, and a sibling file still refused). A
+    /// path that is not absolute, or that carries a character a rule would read as a pattern or its end, gets no rule (it
+    /// would not match exactly); the paths Dozable writes are resolved and never carry one. In order, once each.
+    public static func readRules(_ paths: [String]) -> [String] {
+        let special: Set<Character> = ["*", "?", "[", "]", "{", "}", "(", ")", "\\", "!", "#"]
+        var seen = Set<String>(), out: [String] = []
+        for p in paths where p.hasPrefix("/") && !p.hasPrefix("//") && !p.contains(where: { special.contains($0) || $0.isNewline }) {
+            if seen.insert(p).inserted { out.append("Read(/" + p + ")") }
+        }
+        return out
     }
 
     /// An unfenced Claude Code named after its session on this Mac (`--name S` right after the program, unless its argv

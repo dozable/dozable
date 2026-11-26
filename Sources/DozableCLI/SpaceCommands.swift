@@ -399,7 +399,7 @@ struct SpaceUpCommand: AsyncParsableCommand {
 
 /// What `up` or `down` did, and its exit: 0 every step done or skipped; 75 (partial) when a step failed after others
 /// were done — `--json` adds `partial` {done, remaining, retry} and `error`; 1 when a step failed before anything was done.
-func finishSpaceActed(_ d: SpaceActed, retry: [String], _ g: GlobalOptions) throws {
+func finishSpaceActed(_ d: SpaceActed, retry: [String], word: String? = nil, _ g: GlobalOptions) throws {
     let done = d.results.filter { $0.status == "done" || $0.status == "skipped" }.map(\.subject)
     let remaining = d.results.filter { $0.status == "failed" || $0.status == "not-run" }.map(\.subject)
     let e: HostError? = d.ok ? nil
@@ -408,12 +408,13 @@ func finishSpaceActed(_ d: SpaceActed, retry: [String], _ g: GlobalOptions) thro
     if g.json {
         if let e { Out.json(WithError(value: d, error: e, partial: e.code == .partial ? PartialAnswer(done: done, remaining: remaining, retry: retry) : nil)) }
         else { Out.json(d) }
-    } else { Out.stdout(spaceActedText(d)) }
+    } else { Out.stdout(spaceActedText(d, word: word)) }
     if let e { throw ExitCode(DozableExit.code(for: e)) }
 }
 
-/// What `up` or `down` did, as a person reads it.
-func spaceActedText(_ d: SpaceActed) -> String {
+/// What `up` or `down` did, as a person reads it. `word`: the command typed, in place of the daemon's verb for a down (a
+/// finish says finish).
+func spaceActedText(_ d: SpaceActed, word: String? = nil) -> String {
     var s = ""
     for x in d.results {
         let mark = x.status == "done" ? "done   " : x.status == "skipped" ? "skip   " : x.status == "failed" ? "FAILED " : "not run"
@@ -422,7 +423,7 @@ func spaceActedText(_ d: SpaceActed) -> String {
     }
     for n in d.notes { s += "note: \(n)\n" }
     let done = d.results.filter { $0.status == "done" }.count, skipped = d.results.filter { $0.status == "skipped" }.count
-    s += "\(d.verb): \(d.space)" + (d.run.map { ", run \($0)" } ?? "") + ": \(done) step\(done == 1 ? "" : "s") done, \(skipped) already there or nothing to do"
+    s += "\(d.verb == "down" ? (word ?? d.verb) : d.verb): \(d.space)" + (d.run.map { ", run \($0)" } ?? "") + ": \(done) step\(done == 1 ? "" : "s") done, \(skipped) already there or nothing to do"
         + (d.ok ? "" : "; stopped at a failure") + "\n"
     // Down (which is finish) always says what it removed and what it kept.
     if let kept = d.kept {
@@ -478,9 +479,10 @@ struct SpaceDownCommand: AsyncParsableCommand {
     }
 }
 
-/// The down plan as a person reads it.
-func spaceDownText(_ p: SpaceDownPlan, dryRun: Bool) -> String {
-    var s = "space \(p.purge ? "down --purge" : "down") \"\(p.space)\"" + (dryRun ? " (dry run: nothing changes)" : "") + "\n"
+/// The down plan as a person reads it. `word`: the command the person typed (finish says finish, never "space down").
+func spaceDownText(_ p: SpaceDownPlan, dryRun: Bool, word: String = "down") -> String {
+    let verb = word == "down" ? "space down" : word
+    var s = "\(verb)\(p.purge ? " --purge" : "") \"\(p.space)\"" + (dryRun ? " (dry run: nothing changes)" : "") + "\n"
     for line in p.summary { s += "  \(line)\n" }
     let width = String(max(p.steps.count, 1)).count
     for st in p.steps {

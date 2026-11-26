@@ -65,6 +65,8 @@ extension HostCore {
     /// The host start (and every listing from a host): live holders are watched; stale sockets removed.
     public func adoptMacSessions() async {
         guard !readOnly else { return }
+        // The fence's CA bundle's system part, made once in the background so no fenced start waits for it.
+        Task.detached(priority: .utility) { _ = MacFenceNetwork.cachedSystemBundle }
         let live = await mac.adopt()
         if !live.isEmpty { note(MacPlace.name, "\(live.count) session\(live.count == 1 ? "" : "s") on this Mac adopted (\(live.joined(separator: ", ")))") }
         for s in live { await watchStatus(MacPlace.name, session: s) }

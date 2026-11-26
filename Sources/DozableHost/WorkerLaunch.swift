@@ -34,10 +34,11 @@ public enum WorkerLaunch {
     /// Where a VM worker's START is copied (under the image user's home): `~/.doz-workspace/NAME/start.md`.
     public static let vmStartFolder = ManagerLaunch.vmStartFolder
 
-    /// A worker's own place: `W-NAME` (a session on this Mac, or a new sandbox), or — over 32 characters (a session's limit)
-    /// — its first 27, `-` and 4 hex of the whole name's SHA-256.
+    /// A worker's own place: `W-NAME` (a session on this Mac, or a new sandbox) — or NAME alone when it already starts
+    /// with `W-` (a template's agent is named for its workspace, `W-agent`: never `W-W-agent`) — or, over 32 characters (a
+    /// session's limit), its first 27, `-` and 4 hex of the whole name's SHA-256.
     public static func placeName(workspace w: String, name: String) -> String {
-        let full = w + "-" + name
+        let full = name.hasPrefix(w + "-") ? name : w + "-" + name
         guard full.count > MacPlace.maximumSessionName else { return full }
         let h = SHA256.hash(data: Data(full.utf8)).map { String(format: "%02x", $0) }.joined()
         return String(full.prefix(27)) + "-" + h.prefix(4)
@@ -116,12 +117,13 @@ public enum WorkerLaunch {
     /// then `--allow-tool`; only a fenced one takes any beyond the default).
     public static func plan(isolation: ManagerIsolation, agent: String, model: String?, bot: String?, startFile: String, pagePort: Int,
                             fingerprint: String, tokenFile: String? = nil, name: String, shared: Bool,
-                            allowTools: [String] = [], permissionMode: String? = nil, session: String? = nil) throws -> ManagerLaunch.Plan {
+                            allowTools: [String] = [], permissionMode: String? = nil, session: String? = nil,
+                            readFiles: [String] = []) throws -> ManagerLaunch.Plan {
         let v = tokenVariables(name: name, shared: shared)
         return try AgentLaunch.plan(role: .worker, isolation: isolation, agent: agent, model: model, bot: bot, startFile: startFile,
                                     pagePort: pagePort, fingerprint: fingerprint, tokenFile: tokenFile, variable: v.variable,
                                     fileVariable: v.fileVariable, allowedTools: defaultAllowedTools + (isolation == .fenced ? allowTools : []),
-                                    permissionMode: permissionMode, session: session)
+                                    permissionMode: permissionMode, session: session, readFiles: readFiles)
     }
 
     /// What isolates it, as a person reads it (`doz worker ls`'s CONTROL).

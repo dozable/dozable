@@ -239,7 +239,7 @@ func cliFenceSuite(binary: String) async {
     r k_ps ps
     r k_procargs /usr/bin/python3 pa.py \(by.processIdentifier)
     r n_nc nc -z -w 3 1.1.1.1 443
-    r n_curl curl -sS -m 5 https://example.com
+    r n_curl curl -sS -f -m 5 https://example.com
     r c_nested sh -c 'sh -c "cat ~/.zsh_history"'
     sh -c 'nohup sh -c "cat ~/.zsh_history > nh.txt 2>/dev/null" >/dev/null 2>&1 &'; sleep 1
     r t_tty sh -c 'echo tty-ok > /dev/tty'
@@ -322,7 +322,7 @@ func cliFenceSuite(binary: String) async {
     no("k_ps", "1.11b ps (unavailable)")
     no("k_procargs", "1.11c another process's environment (kern.procargs2) — its argv stays readable: a stated residual")
     no("n_nc", "2.3 no direct connection (nc to an address)")
-    no("n_curl", "2.2 curl https://example.com — through the proxy, not in Standard: refused")
+    no("n_curl", "2.2 curl -f https://example.com — through the proxy, not in Standard: refused (a 403 inside TLS, or at the CONNECT)")
     no("c_nested", "1.12 a nested shell inherits the fence")
     check(get(work + "/nh.txt").isEmpty, "1.12 a nohup'd grandchild inherits the fence (it read nothing)")
     ok("t_tty", "1.13 /dev/tty")

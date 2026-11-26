@@ -95,6 +95,17 @@ token of one store means nothing to another). Three things to know:
   its own settings folder (`XDG_CONFIG_HOME`); two chat servers cannot share a port, so give each store its own settings
   folder, or its own `chat.page_port` and `chat.line_port`. `doz chat status --store DIR` shows the ports it uses. An agent
   Dozable starts is given its own store's address (`CHAT_URL`); one you start yourself must be told it.
+- **Its settings are yours unless you say otherwise.** With `DOZ_STORE` (or `--store`) and no `XDG_CONFIG_HOME`,
+  `doz config set` changes your own `~/.config/doz/doz.toml` — the one every store reads. `doz config set`, `doz doctor`
+  and `doz onboard` say so when it happens, naming the file; `doz config path` prints it.
+- **Where else it writes.** A few files live outside the store, whatever `DOZ_STORE` says:
+  - `~/Library/Application Support/Dozable/fence/HASH/` — fenced sessions on this Mac: one folder per session (its
+    temporary files, caches and agent settings), HASH named for the store, so each store has its own; beside them the
+    `.not-fenced` marker, which no fenced program can read (it is how Dozable tells a fenced program from one that is
+    not).
+  - `~/Library/HTTPStorages/doz.binarycookies` — macOS makes this one for the `doz` program itself: the cookie store of
+    its web requests, one for every store.
+  - The settings folder above, and the login item if you turn it on (`~/Library/LaunchAgents`).
 - **It keeps running.** `daemon.always_on` is on by default, for every store: the second store's daemon stays up after
   its last sandbox stops, until `doz daemon stop --store DIR`.
 - **The menu bar app is for the default store only** (the one `doz` uses with no `--store`), its Start at Login

@@ -37,6 +37,8 @@ final class WorkerLaunchTests: XCTestCase {
 
     func testPlaceNames() {
         XCTAssertEqual(WorkerLaunch.placeName(workspace: "demo", name: "bot1"), "demo-bot1")
+        XCTAssertEqual(WorkerLaunch.placeName(workspace: "demo", name: "demo-agent"), "demo-agent", "a template's agent: never demo-demo-agent")
+        XCTAssertEqual(WorkerLaunch.placeName(workspace: "demo", name: "demolition"), "demo-demolition", "only W- itself")
         let w = String(repeating: "w", count: 30)
         let n = WorkerLaunch.placeName(workspace: w, name: "bot1")
         XCTAssertEqual(n.count, 32)
@@ -55,7 +57,8 @@ final class WorkerLaunchTests: XCTestCase {
     func testFencedClaude() throws {
         let p = try plan(.fenced, port: 41000, allow: ["Edit", "Bash(git status:*)"])
         XCTAssertEqual(p.argv, ["claude", "Read \(start) and do what it says.", "--permission-mode", "dontAsk",
-                                "--allowedTools", "Bash(dozchat:*)", "Edit", "Bash(git status:*)"], "the allow-list last, --allow-tool appended")
+                                "--allowedTools", "Bash(dozchat:*)", "Edit", "Bash(git status:*)", "Read(/\(start))"],
+                       "the allow-list last, --allow-tool appended, then START's exact Read rule")
         XCTAssertEqual(WorkerLaunch.defaultAllowedTools, ["Bash(dozchat:*)"], "nothing beyond dozchat by default")
         XCTAssertEqual(p.environment, ["CHAT_URL": "http://host.dozable.internal:41000"])
         XCTAssertEqual(p.hostPorts, [41000])
@@ -71,7 +74,7 @@ final class WorkerLaunchTests: XCTestCase {
         XCTAssertEqual(v.argv, ["claude", "Read \(start) and do what it says."], "a VM's approvals are skipped: no dontAsk, no list")
         let u = try plan(.unfenced)
         XCTAssertFalse(u.argv.contains("dontAsk"), "dontAsk only fenced")
-        XCTAssertEqual(u.argv.suffix(2), ["--allowedTools", "Bash(dozchat:*)"])
+        XCTAssertEqual(u.argv.suffix(3), ["--allowedTools", "Bash(dozchat:*)", "Read(/\(start))"])
         XCTAssertEqual(u.environment, ["CHAT_TOKEN_FILE": "/t/doz-1/manager-demo-bot1/chat-token", "CHAT_URL": "http://127.0.0.1:8790"])
         XCTAssertNil(u.secret)
         let c = try plan(.fenced, agent: "codex")
@@ -156,11 +159,41 @@ final class WorkerLaunchTests: XCTestCase {
                        "added the worker bot1 (fenced; its task 14 bytes)")
     }
 
-    /// The manager's plan is unchanged by the generalisation.
+    /// A first-run bug: a fenced Claude Code ran under dontAsk with only Bash(dozchat:*) allowed, and its START and the chat
+    /// skills START names are outside its folder — every Read was refused and the agent sat idle. Each file it is told to
+    /// read gets exactly one `Read(//ABS)` rule (an absolute path in a Read rule starts with `//`), and nothing wider: no bare
+    /// Read, no folder, no pattern; a VM and Codex get none; a path a rule could not name exactly gets none.
+    func testEveryAgentMayReadExactlyItsStartAndSkillFiles() throws {
+        let skills = ["/opt/doz/libexec/skills/chat-worker/SKILL.md", "/opt/doz/libexec/skills/chat-room-member/SKILL.md"]
+        for i in [ManagerIsolation.fenced, .unfenced] {
+            let w = try WorkerLaunch.plan(isolation: i, agent: "claude-code", model: nil, bot: nil, startFile: start, pagePort: 8790,
+                                          fingerprint: "f", tokenFile: i == .unfenced ? "/t/f" : nil, name: "bot1", shared: false, readFiles: skills)
+            let list = Array(w.argv.suffix(from: try XCTUnwrap(w.argv.firstIndex(of: "--allowedTools")) + 1))
+            XCTAssertEqual(list, ["Bash(dozchat:*)", "Read(/\(start))", "Read(/\(skills[0]))", "Read(/\(skills[1]))"], "\(i)")
+            XCTAssertFalse(list.contains("Read"), "never a bare Read")
+            let m = try ManagerLaunch.plan(isolation: i, agent: "claude-code", model: nil, bot: "mira", startFile: start, pagePort: 8790,
+                                           fingerprint: "f", tokenFile: i == .unfenced ? "/t/f" : nil, readFiles: [skills[1]])
+            XCTAssertEqual(Array(m.argv.suffix(3)), ["Bash(dozchat:*)", "Read(/\(start))", "Read(/\(skills[1]))"], "\(i)")
+        }
+        let v = try WorkerLaunch.plan(isolation: .vm, agent: "claude-code", model: nil, bot: nil, startFile: "~/.doz-workspace/bot1/start.md",
+                                      pagePort: 8790, fingerprint: "f", name: "bot1", shared: false, readFiles: skills)
+        XCTAssertFalse(v.argv.contains { $0.hasPrefix("Read(") }, "a VM's approvals are skipped: no list")
+        let c = try WorkerLaunch.plan(isolation: .fenced, agent: "codex", model: nil, bot: nil, startFile: start, pagePort: 8790,
+                                      fingerprint: "f", name: "bot1", shared: false, readFiles: skills)
+        XCTAssertFalse(c.argv.contains { $0.hasPrefix("Read(") }, "Codex takes no Claude Code rules")
+        // The rule's form; spaces kept (the fence's folder is under Application Support); once each; nothing it could not name.
+        XCTAssertEqual(AgentLaunch.readRules(["/h/a/Library/Application Support/Dozable/fence/x/s/etc/worker/start.md"]),
+                       ["Read(//h/a/Library/Application Support/Dozable/fence/x/s/etc/worker/start.md)"])
+        XCTAssertEqual(AgentLaunch.readRules(["/a/b", "/a/b"]), ["Read(//a/b)"])
+        XCTAssertEqual(AgentLaunch.readRules(["~/x", "rel/x", "//x", "/a/*", "/a/[b]", "/a/(b)", "/a/b\nc", "/a/!b", "/a/#b", "/a/{b}", "/a/b\\c"]), [])
+    }
+
+    /// The manager's plan is unchanged by the generalisation (but for START's Read rule).
     func testTheManagersPlanIsUnchanged() throws {
         let m = try ManagerLaunch.plan(isolation: .fenced, agent: "claude-code", model: nil, bot: "mira", startFile: start, pagePort: 8790,
                                        fingerprint: "f")
-        XCTAssertEqual(m.argv, ["claude", "Read \(start) and do what it says.", "--permission-mode", "dontAsk", "--allowedTools", "Bash(dozchat:*)"])
+        XCTAssertEqual(m.argv, ["claude", "Read \(start) and do what it says.", "--permission-mode", "dontAsk", "--allowedTools", "Bash(dozchat:*)",
+                                "Read(/\(start))"])
         XCTAssertEqual(m.secret?.bot, "mira")
         XCTAssertThrowsError(try ManagerLaunch.plan(isolation: .fenced, agent: "pi", model: nil, bot: "m", startFile: start, pagePort: 1,
                                                     fingerprint: "f")) { e in

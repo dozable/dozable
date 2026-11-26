@@ -42,7 +42,10 @@ struct WorkspaceStateCommand: AsyncParsableCommand {
 func spaceStateText(_ s: SpaceState) -> String {
     let fromRecord = s.agentConditions?.from == "record"
     var out = (fromRecord ? "workspace" : "space") + " \(s.space) on \(s.host)"
-    if let r = s.run { out += " · run \(r.id) (\(r.phase))" }
+    // Two phases in --json: the workspace's (top level) and its run's (up | down). Said apart here, so they never read
+    // as one contradicting the other ("asleep" beside "up").
+    if let p = s.agentConditions?.phase { out += " · \(p.replacingOccurrences(of: "-", with: " "))" }
+    if let r = s.run { out += " · run \(r.id) \(r.phase == "up" ? "open" : r.phase == "down" ? "closed" : r.phase)" }
     out += s.factsKnown ? "\n" : "\n  no daemon is running: every state is not known (none was started)\n"
     func rows(_ items: [SpaceState.Item]) -> String {
         var t: [[String]] = [["  TYPE", "NAME", "LIFETIME", "STATE", "NOTE"]]

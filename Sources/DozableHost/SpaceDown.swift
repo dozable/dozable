@@ -135,7 +135,7 @@ public enum SpaceDown {
                 step("folder-release", "folder \(path)", "release the folder \(DisplayPath.tilde(path)) (off the record; never deleted)")
             }
         }
-        if !steps.isEmpty || purge { step("record", "workspace \(space)", purge ? "record the space retired (--purge)" : "record the space down") }
+        if !steps.isEmpty || purge { step("record", "workspace \(space)", purge ? "record the space retired (--purge)" : "record the workspace finished") }
         p.steps = steps
         if steps.isEmpty { p.notes.append("\(space) is down already: nothing to take down") }
         if ref.isStanding {

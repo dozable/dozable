@@ -34,6 +34,36 @@ import DozableHost
 //  21. refusals: an unknown, retired or elsewhere bot; a fenced inbox bot (the fix named); a webhook bot; releasing a
 //      running manager
 //  22. the daemon stopped: workspace ls / show give the manager and the state, and no daemon starts
+/// The FAKE claudes' permission check (a first-run bug: a fenced Claude Code under dontAsk with only `Bash(dozchat:*)`
+/// allowed could not read its START or the skill files START names — it sat idle, "permission denied"). Modelled on Claude
+/// Code's own: a Read is allowed only by a bare `Read` or an exact `Read(//ABS)` rule in the allow-list (the words after
+/// `--allowedTools`), or under bypassPermissions; anything else is refused under dontAsk and — any other mode — would stop
+/// to ask the person, which no one answers here. A refused fake says so on its screen and sleeps without a word in chat, so
+/// every "is up" row fails if a launch loses a rule. Then each file is really read (the fence must let it, too).
+let fakeClaudeReadCheck = #"""
+# The permission check (see fakeClaudeReadCheck).
+pmode=""; plist=" "; pin=0; pprev=""
+for a in "$@"; do
+  [ $pin = 1 ] && plist="$plist$a "
+  [ "$a" = "--allowedTools" ] && pin=1
+  [ "$pprev" = "--permission-mode" ] && pmode="$a"
+  pprev="$a"
+done
+may_read() {
+  [ "$pmode" = bypassPermissions ] && return 0
+  case "$plist" in *" Read "*|*" Read(/$1) "*) return 0 ;; esac
+  return 1
+}
+refused() { echo "Read $1: permission denied (${pmode:-default} mode, not in the allow-list)"; echo "2 actions not run · permission denied"; exec sleep 600; }
+may_read "$start" || refused "$start"
+head -n 1 "$start" > /dev/null 2>&1 || refused "$start (the fence)"
+sed -n 's/^- [a-z-]*: read \(\/.*\)$/\1/p' "$start" | while IFS= read -r skill; do
+  may_read "$skill" || { echo "$skill" > "${TMPDIR:-/tmp}/.fake-claude-refused-$$"; break; }
+  head -n 1 "$skill" > /dev/null 2>&1 || { echo "$skill" > "${TMPDIR:-/tmp}/.fake-claude-refused-$$"; break; }
+done
+if [ -f "${TMPDIR:-/tmp}/.fake-claude-refused-$$" ]; then s=$(cat "${TMPDIR:-/tmp}/.fake-claude-refused-$$"); rm -f "${TMPDIR:-/tmp}/.fake-claude-refused-$$"; refused "$s"; fi
+"""#
+
 func cliWorkspaceManagerRows(_ h: CLIHarness, root: URL, store: DozableStore, started: inout Set<String>) {
     print("cli: a workspace's manager — fenced on this Mac, a FAKE claude")
     let fm = FileManager.default
@@ -66,6 +96,7 @@ func cliWorkspaceManagerRows(_ h: CLIHarness, root: URL, store: DozableStore, st
       prev="$a"
     done
     [ -n "$start" ] || exec sleep 600
+    \(fakeClaudeReadCheck)
     first=$(head -n 1 "$start")
     room=$(sed -n 's/^Your room in chat: //p' "$start")
     bot=$(printf '%s' "$first" | sed -n 's/^You are \\([^,]*\\),.*/\\1/p')
