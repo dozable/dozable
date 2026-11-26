@@ -1463,8 +1463,10 @@ feeds and the session typing are the daemon's.
   `JournalFeed.notice` — outcomes and `met: no|partly` reviews only, text redacted with `BuildLogs.redact`; source
   `{name: the identity, log: journal}` — "from NAME's journal" —, subject the run; posted to the room, never to its source); `health` (`macProgramEnded`: a workspace agent's program on this Mac exited non-zero); and every
   30 s (`runFeedWatch`, only for workspaces with live agents): `accounts` (a `LoginWatcher`'s state turning `expired` —
-  warning — or `signed-out` — critical), `network` (a proxy log's denied records — a sandbox's egress, a fenced session's
-  proxy — 3 for one host and one place in 10 minutes), `resources` (`statfs` of the store: < 10 GiB warning, < 2 GiB
+  warning — or `signed-out` — critical; and a request the proxy answered 401 itself because the agent's login is
+  unavailable — `FeedNetworkWatch.signInNotice`, "needs signing in again", once per agent and host), `network` (a proxy
+  log's records the allow list denied — a sandbox's egress, a fenced session's proxy — 3 for one host and one place in 10
+  minutes; a credential refusal is never one: `FeedNetworkWatch.reason`, `FeedNetworkWatchTests`), `resources` (`statfs` of the store: < 10 GiB warning, < 2 GiB
   critical). Only a change is posted.
 - **The test door** `workspace-feeds-emit` (`doz workspace feeds W --emit KIND`, the owner's only — `ActionClasses`
   Dozable's own): a notice from the `test` feed through the same path; `--action-command` checked by `ChatNoticeCommand`

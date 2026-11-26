@@ -343,12 +343,19 @@ extension HostCore {
                 else if a.place.mac == true, let s = a.place.session { place = MacPlace.name + "/" + s; log = macProxies[s]?.proxy.log }
                 else { continue }
                 guard let log else { continue }
-                for r in log.records where r.verdict == .denied && !r.open {
+                for r in log.records {
+                    guard let reason = FeedNetworkWatch.reason(r) else { continue }
                     let id = place + "#" + r.id.uuidString
                     guard feedWatch.netCounted.insert(id).inserted else { continue }
                     let k = place + "\u{1F}" + r.host.lowercased()
                     // Counted by when each was refused: an old refusal found at a daemon's start is not a new one now.
                     guard now.timeIntervalSince(r.time) < 600 else { continue }
+                    // The proxy answered for a login that needs signing in again (401): the account's notice, never the
+                    // network's — the allow list let it through.
+                    if reason == .signIn {
+                        _ = try? await postFeedNotice(rec.name, feed: "accounts", notice: FeedNetworkWatch.signInNotice(agent: a.name, record: r))
+                        continue
+                    }
                     feedWatch.refusals[k] = (feedWatch.refusals[k] ?? []).filter { now.timeIntervalSince($0) < 600 } + [r.time]
                     guard feedWatch.refusals[k]!.count == 3 else { continue }
                     let host = String(r.host.prefix(120))
@@ -383,6 +390,34 @@ extension HostCore {
                 }
             }
         }
+    }
+}
+
+/// Which of a proxy's records the network feed counts: a refusal by the allow list. A request the proxy answered itself for a
+/// credential is not one — a login that needs signing in again (401) is said as the account's, anything else about a
+/// credential (a placeholder sent elsewhere, a strict pin) not at all here.
+enum FeedNetworkWatch {
+    enum Reason: Equatable { case allowList, signIn }
+
+    static func reason(_ r: ConnectionRecord) -> Reason? {
+        guard r.verdict == .denied, !r.open else { return nil }
+        if r.credentialUse == .unavailable || r.credential?.hasPrefix("unavailable:") == true { return .signIn }
+        guard r.credentialUse == nil, r.credential == nil else { return nil }
+        return .allowList
+    }
+
+    /// The notice for a request the proxy answered 401 because the agent's login is unavailable (expired, signed out):
+    /// the proxy's own reason, once per agent and host (its dedupe).
+    static func signInNotice(agent: String, record r: ConnectionRecord) -> ChatNotice {
+        let host = String(r.host.prefix(120))
+        var why = r.credential.map { $0.hasPrefix("unavailable: ") ? String($0.dropFirst("unavailable: ".count)) : $0 } ?? ""
+        why = String(why.split(whereSeparator: \.isNewline).first ?? "").prefix(600).description
+        let text = "\(agent)'s login for \(host) needs signing in again" + (why.isEmpty ? "." : ": \(why)")
+        return ChatNotice(kind: "account.expired", severity: "warning", subject: ChatNoticeSubject(type: "identity", name: agent),
+                          source: ChatNoticeSource(name: "this Mac", log: "accounts"), text: text,
+                          action: ChatNoticeAction(label: "Check", command: "doz", args: ["account", "ls"]),
+                          dedupe: "account.unavailable:\(agent):\(host)",
+                          title: String("\(agent)'s login needs signing in again".prefix(ChatNotice.maximumTitle)))
     }
 }
 
