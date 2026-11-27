@@ -94,7 +94,7 @@ A bare file name is in `Sources/DozableKit/`.
   thread asks for user-initiated: a no-op under a clamp); `MacSessions.spawnAndWait` spawns the holder at
   `QOS_CLASS_USER_INITIATED` (a clamp on the daemon still wins). `doz doctor` warns separately — `clamped` keeps its
   meaning — when the daemon runs at utility (`daemon priority`, `ProcessPriority.belowNormal`) and when a session's
-  program does (`session priority`, from `daemon status`'s `heldSessionPri`: each running session → its `pti_priority`).
+  program does (`session QoS`, from `daemon status`'s `heldSessionPri`: each running session → its `pti_priority`).
 
 - **The daemon is always on, and an update still reaches it** (693, owner: "yes always on (a new setting - default on).
   change timeout default to 0 (never times out)"). `daemon.always_on` (default on, `$DOZ_DAEMON_ALWAYS_ON`, applies now —

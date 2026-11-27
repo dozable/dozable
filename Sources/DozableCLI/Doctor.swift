@@ -260,7 +260,7 @@ struct Doctor: AsyncParsableCommand {
                 }
                 // 788: sessions on this Mac whose programs run at utility QoS or below.
                 if let pris = st.heldSessionPri, let w = ProcessPriority.heldSessionsWarning(pris) {
-                    heldPriority = DoctorCheck(check: "session priority", status: .warn, detail: w)
+                    heldPriority = DoctorCheck(check: "session QoS", status: .warn, detail: w)
                 }
                 // 591: its program changed under it — overwritten in place is a failure (its VMs are refused).
                 if let note = st.executableNote {

@@ -219,7 +219,7 @@ Run `doz doctor`. When `doz` was started at macOS background priority (by `taskp
 runs in the background), it and everything it starts run many times slower; doctor's `priority` line says so and how
 to move it out. A daemon started that way leaves the background priority by itself (`daemon priority` in doctor).
 When the daemon, or a session it holds on this Mac, runs at utility QoS, doctor says so too (`daemon priority`,
-`session priority`): macOS then runs it mostly on the efficiency cores, so an agent's builds and tests are slower than
+`session QoS`): macOS then runs it mostly on the efficiency cores, so an agent's builds and tests are slower than
 the same work in a terminal. Stop the daemon (`doz daemon stop`), let a command from a normal terminal start it, then
 start the session again.
 
