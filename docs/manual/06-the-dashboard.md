@@ -23,6 +23,7 @@ refused and allowing it with one click. It runs on your Mac only; nothing else c
 doz ui                    # serve it and open it in your browser (the same as doz ui start)
 doz ui --print-url        # print the link instead of opening a browser
 doz ui link               # another browser or tab on the dashboard that runs
+doz ui open W             # open workspace W's page (doz ui starts in the background if needed); --workspaces: every workspace
 doz ui restart            # restart the running dashboard as the doz installed now: open pages carry on by themselves
 doz ui --new-link         # sign every page out and make a new link
 doz ui --detach           # run it in the background (no terminal needed), open it, and return

@@ -6,7 +6,8 @@ import DozableMenuBarCore
 // arguments below are modes that never start NSApplication, never draw anything and exit:
 //
 //   --dump-menu            the menu it would show now, as JSON (what a person over ssh, or a test, can look at)
-//   --run-action ACTION    run one item's doz command (start|stop|restart|dashboard) or Start at Login's click
+//   --run-action ACTION    run one item's doz command (start|stop|restart|dashboard|all-workspaces, and
+//                          open-workspace|sleep-workspace|wake-workspace NAME) or Start at Login's click
 //                          (login-on|login-off) and print the outcome — a TEST seam: guarded runs only (DOZ_TEST_GUARD=1),
 //                          where Start at Login is the recording service (it never calls SMAppService or launchctl)
 //   --launch-daemon        what launchd runs for the app's agent (com.dozable.app.daemon): find doz — Dozable's team
@@ -86,9 +87,18 @@ case "--run-action"?:
     }
     guard let i = arguments.firstIndex(of: "--run-action"), i + 1 < arguments.count,
           let action = MenuAction(rawValue: arguments[i + 1]),
-          [.start, .stop, .restart, .dashboard, .loginOn, .loginOff].contains(action) else {
-        complain("--run-action start|stop|restart|dashboard|login-on|login-off")
+          [.start, .stop, .restart, .dashboard, .loginOn, .loginOff, .allWorkspaces, .openWorkspace, .sleepWorkspace, .wakeWorkspace]
+            .contains(action) else {
+        complain("--run-action start|stop|restart|dashboard|login-on|login-off|all-workspaces|open-workspace NAME|sleep-workspace NAME|wake-workspace NAME")
         exit(64)
+    }
+    var workspace: String?
+    if action.needsWorkspace {
+        guard i + 2 < arguments.count, WorkspaceName.isValid(arguments[i + 2]) else {
+            complain("--run-action \(action.rawValue) NAME — a workspace's name")
+            exit(64)
+        }
+        workspace = arguments[i + 2]
     }
     if action == .loginOn || action == .loginOff {
         let o = source().performLogin(action)
@@ -96,7 +106,7 @@ case "--run-action"?:
                       "needsApproval": o.needsApproval]))
         exit(o.error == nil ? 0 : 1)
     }
-    let error = source().perform(action)
+    let error = source().perform(action, workspace: workspace)
     say(jsonLine(["action": action.rawValue, "ok": error == nil, "error": error ?? NSNull()]))
     exit(error == nil ? 0 : 1)
 case "--launch-daemon"?:

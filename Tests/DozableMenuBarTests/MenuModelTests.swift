@@ -240,4 +240,139 @@ final class MenuModelTests: XCTestCase {
         XCTAssertEqual(d["icon"] as? String, "cube.fill")
         XCTAssertEqual(((d["items"] as? [[String: Any]])?.first)?["title"] as? String, "Daemon running · 0.50.7")
     }
+
+    // MARK: workspaces (789)
+
+    func wsSnap(_ list: [WorkspaceEntry]?, doz version: String? = "0.60.8", busy: Snapshot.Busy? = nil, busyWorkspace: String? = nil) -> Snapshot {
+        var s = snap(Fixture.runningWith { $0["version"] = version ?? "0.60.8" }, doz: version)
+        s.workspaces = list
+        s.busy = busy
+        s.busyWorkspace = busyWorkspace
+        return s
+    }
+    func rows(_ items: [MenuItem]) -> [MenuItem] { items.filter { $0.submenu != nil } }
+
+    /// Each state: its row in the dashboard's words, Open under it, and the one of Sleep and Wake its state offers.
+    func testAWorkspaceRowPerState() {
+        let table: [(String, String, MenuAction?)] = [
+            ("waiting-on-you", "waiting on you", .sleepWorkspace), ("working", "working", .sleepWorkspace),
+            ("starting", "starting", .sleepWorkspace), ("idle", "idle", .sleepWorkspace), ("setting-up", "setting up", nil),
+            ("asleep", "asleep", .wakeWorkspace), ("stopped", "stopped", .wakeWorkspace), ("finished", "finished", nil),
+            ("archived", "archived", nil),
+        ]
+        for (state, words, verb) in table {
+            let items = MenuModel.items(for: wsSnap([WorkspaceEntry(name: "alpha", state: state)]))
+            let row = rows(items)
+            XCTAssertEqual(row.count, 1, state)
+            XCTAssertEqual(row.first?.title, "alpha · \(words)", state)
+            let under = row.first?.submenu ?? []
+            XCTAssertEqual(under.first?.title, "Open", state)
+            XCTAssertEqual(under.first?.action, .openWorkspace)
+            XCTAssertEqual(under.first?.workspace, "alpha")
+            let verbs = under.compactMap(\.action).filter { $0 == .sleepWorkspace || $0 == .wakeWorkspace }
+            XCTAssertEqual(verbs, verb.map { [$0] } ?? [], state)
+            if let v = verb {
+                XCTAssertEqual(under.first { $0.action == v }?.title, v == .sleepWorkspace ? "Sleep" : "Wake", state)
+                XCTAssertEqual(under.first { $0.action == v }?.workspace, "alpha")
+            }
+            XCTAssertEqual(item(items, .allWorkspaces)?.title, "All Workspaces…")
+        }
+    }
+
+    /// The section sits after Open Dashboard and before Quit; everything above it is the menu as it was.
+    func testTheSectionLeavesTheRestOfTheMenuAsItWas() {
+        let without = MenuModel.items(for: wsSnap(nil))
+        let with = MenuModel.items(for: wsSnap([WorkspaceEntry(name: "alpha", state: "idle")]))
+        XCTAssertTrue(titles(without).allSatisfy { !$0.contains("Workspace") }, "no listing: no section")
+        let head = Array(with.prefix(while: { $0.title != "Workspaces" }))
+        XCTAssertEqual(head.dropLast().map(\.title), without.dropLast(2).map(\.title), "the items above the section are unchanged")
+        XCTAssertEqual(with.last?.action, .quit)
+        let ws = with.firstIndex { $0.title == "Workspaces" }!, dash = with.firstIndex { $0.action == .dashboard }!
+        XCTAssertLessThan(dash, ws)
+        XCTAssertEqual(with[ws].kind, .header)
+    }
+
+    /// Waiting on you first (the dashboard's order), then by name; the first ten, then All Workspaces….
+    func testTheCapAndTheOrder() {
+        var list = (1...12).map { WorkspaceEntry(name: String(format: "w%02d", $0), state: "idle") }
+        list.append(WorkspaceEntry(name: "zz", state: "waiting-on-you"))
+        list.append(WorkspaceEntry(name: "aa", state: "archived"))
+        let items = MenuModel.items(for: wsSnap(list))
+        let r = rows(items)
+        XCTAssertEqual(r.count, MenuBarApp.workspaceCap)
+        XCTAssertEqual(r.first?.title, "zz · waiting on you")
+        XCTAssertEqual(r.dropFirst().map(\.workspace), (1...9).map { String(format: "w%02d", $0) })
+        XCTAssertEqual(item(items, .allWorkspaces)?.enabled, true)
+        XCTAssertEqual(MenuAction.allWorkspaces.command?.arguments, ["ui", "open", "--workspaces", "-q"])
+    }
+
+    func testNoWorkspacesYet() {
+        let items = MenuModel.items(for: wsSnap([]))
+        XCTAssertTrue(titles(items).contains("Workspaces"))
+        XCTAssertTrue(titles(items).contains("No workspaces yet"))
+        XCTAssertNil(item(items, .allWorkspaces))
+        XCTAssertTrue(rows(items).isEmpty)
+    }
+
+    /// `workspace ls --json` carries no Needs you count: a workspace that waits on you says so in its state, with no number.
+    func testWaitingOnYouIsTheStateWithNoCount() {
+        let r = rows(MenuModel.items(for: wsSnap([WorkspaceEntry(name: "alpha", state: "waiting-on-you")])))
+        XCTAssertEqual(r.first?.title, "alpha · waiting on you")
+        XCTAssertNil(r.first?.title.rangeOfCharacter(from: .decimalDigits))
+    }
+
+    /// An older doz (no `doz ui open`), or one whose version cannot be read: no section, whatever the snapshot holds.
+    func testAnOlderDozHasNoWorkspaceSection() {
+        for v in ["0.60.7", "0.50.7", "0.60.8-canary.1", nil] as [String?] {
+            let items = MenuModel.items(for: wsSnap([WorkspaceEntry(name: "alpha", state: "idle")], doz: v))
+            XCTAssertFalse(titles(items).contains("Workspaces"), "\(v ?? "nil")")
+            XCTAssertTrue(rows(items).isEmpty)
+            XCTAssertNotNil(item(items, .dashboard), "the rest of the menu still works")
+        }
+        XCTAssertTrue(MenuBarApp.supportsWorkspaces("0.60.8"))
+        XCTAssertTrue(MenuBarApp.supportsWorkspaces("0.61.0"))
+    }
+
+    func testABusyWorkspaceShowsTheDashboardsTransitionalWordAndDisablesItsActions() {
+        let list = [WorkspaceEntry(name: "alpha", state: "idle"), WorkspaceEntry(name: "beta", state: "asleep")]
+        let s = wsSnap(list, busy: .sleepingWorkspace, busyWorkspace: "alpha")
+        let items = MenuModel.items(for: s)
+        XCTAssertEqual(rows(items).map(\.title), ["alpha · sleeping…", "beta · asleep"])
+        XCTAssertTrue(rows(items).flatMap { $0.submenu ?? [] }.filter { $0.kind == .action }.allSatisfy { !$0.enabled })
+        XCTAssertEqual(item(items, .allWorkspaces)?.enabled, false)
+        XCTAssertEqual(MenuModel.header(for: s), "Daemon running · 0.60.8", "the header stays the daemon's")
+        let w = wsSnap(list, busy: .wakingWorkspace, busyWorkspace: "beta")
+        XCTAssertEqual(rows(MenuModel.items(for: w)).map(\.title), ["alpha · idle", "beta · waking…"])
+    }
+
+    func testTheWorkspaceCommands() {
+        XCTAssertEqual(MenuAction.openWorkspace.command(workspace: "alpha")?.arguments, ["ui", "open", "alpha", "-q"])
+        XCTAssertEqual(MenuAction.openWorkspace.command(workspace: "alpha")?.output, .discard, "doz ui's output never reaches the app")
+        XCTAssertEqual(MenuAction.sleepWorkspace.command(workspace: "alpha")?.arguments, ["workspace", "sleep", "alpha", "--json"])
+        XCTAssertEqual(MenuAction.wakeWorkspace.command(workspace: "alpha")?.arguments, ["workspace", "wake", "alpha", "--json"])
+        XCTAssertEqual(MenuAction.sleepWorkspace.command(workspace: "alpha")?.label, "workspace sleep", "the log names no workspace")
+        for bad in [nil, "", "-q", "--all", "Alpha", "a b", String(repeating: "a", count: 41)] as [String?] {
+            XCTAssertNil(MenuAction.openWorkspace.command(workspace: bad), "\(bad ?? "nil")")
+            XCTAssertNil(MenuAction.sleepWorkspace.command(workspace: bad))
+        }
+        XCTAssertNil(MenuAction.openWorkspace.command, "a workspace's action needs its name")
+        XCTAssertEqual(MenuAction.start.command(workspace: nil)?.arguments, ["daemon", "start", "--json"])
+    }
+
+    func testTheListingIsReadForNameAndStateOnly() {
+        let json = #"{"workspaces":[{"name":"alpha","state":"waiting-on-you","driver":"you","agents":2,"later":{"x":1}},{"name":"-bad","state":"idle"},{"name":"nostate"},{"name":"beta","state":"asleep"}],"loose":[]}"#
+        XCTAssertEqual(DozWorkspaceListing.decode(Data(json.utf8)),
+                       [WorkspaceEntry(name: "alpha", state: "waiting-on-you"), WorkspaceEntry(name: "beta", state: "asleep")])
+        XCTAssertEqual(DozWorkspaceListing.decode(Data(#"{"workspaces":[],"loose":[]}"#.utf8)), [])
+        XCTAssertNil(DozWorkspaceListing.decode(Data(#"{"error":{"message":"x"}}"#.utf8)))
+        XCTAssertNil(DozWorkspaceListing.decode(Data("garbage".utf8)))
+    }
+
+    func testTheDumpCarriesTheSubmenus() throws {
+        let s = wsSnap([WorkspaceEntry(name: "alpha", state: "asleep")])
+        let d = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(MenuDump(s).json().utf8)) as? [String: Any])
+        let row = try XCTUnwrap((d["items"] as? [[String: Any]])?.first { $0["workspace"] as? String == "alpha" && $0["submenu"] != nil })
+        let under = try XCTUnwrap(row["submenu"] as? [[String: Any]])
+        XCTAssertEqual(under.compactMap { $0["action"] as? String }, ["open-workspace", "wake-workspace"])
+    }
 }

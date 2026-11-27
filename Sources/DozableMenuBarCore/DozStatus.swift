@@ -56,6 +56,41 @@ public struct DozStatus: Decodable, Equatable, Sendable {
     }
 }
 
+/// 789: what `doz workspace ls --json` says, as the menu reads it — each workspace's name and state (the raw value:
+/// `waiting-on-you`, `setting-up`, …); every other field ignored, a row without both left out.
+public struct DozWorkspaceListing: Decodable, Equatable, Sendable {
+    public var workspaces: [Row]?
+
+    public struct Row: Decodable, Equatable, Sendable {
+        public var name: String?
+        public var state: String?
+    }
+
+    /// The rows the menu may show: a name a workspace may have (`WorkspaceName.isValid`) and a state. nil: not a listing.
+    public static func decode(_ data: Data) -> [WorkspaceEntry]? {
+        guard let l = try? JSONDecoder().decode(DozWorkspaceListing.self, from: data), let rows = l.workspaces else { return nil }
+        return rows.compactMap { r in
+            guard let n = r.name, WorkspaceName.isValid(n), let st = r.state, !st.isEmpty, st.count <= 40 else { return nil }
+            return WorkspaceEntry(name: n, state: st)
+        }
+    }
+}
+
+/// One workspace as the menu shows it.
+public struct WorkspaceEntry: Equatable, Sendable {
+    public var name: String
+    /// `workspace ls --json`'s raw value.
+    public var state: String
+    public init(name: String, state: String) { self.name = name; self.state = state }
+}
+
+/// A workspace's name, the store's rule: what the menu puts in an argv (never one that could read as an option).
+public enum WorkspaceName {
+    public static func isValid(_ s: String) -> Bool {
+        s.range(of: #"^[a-z0-9][a-z0-9-]{0,39}$"#, options: .regularExpression) != nil
+    }
+}
+
 /// What `doz app status --json` says (all optional): the copy of the menu bar app inside doz's own folder, and the
 /// installed copies.
 public struct DozAppStatus: Decodable, Equatable, Sendable {

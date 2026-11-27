@@ -143,6 +143,7 @@ app/status
 app/uninstall
 ui
 ui/link
+ui/open
 ui/restart
 ui/start
 ui/stop

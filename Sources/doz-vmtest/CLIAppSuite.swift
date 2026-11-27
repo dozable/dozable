@@ -17,6 +17,10 @@
 //   5. A FAKE old doz (0.50.3, `{"running":false}`) → the too-old line, and Start, Stop, Restart and the dashboard still
 //      offered as the state allows; the fake's argv log shows doz run with an argv (no shell) and the refreshes marked as
 //      not the person's commands.
+//   6. The workspace section: a FAKE new doz (0.60.8) answering `workspace ls --json` → the rows in the dashboard's order
+//      and words, Open + Sleep / Open + Wake under them, All Workspaces…; the argv each runs; a name that is not a
+//      workspace's runs nothing; an empty listing → "No workspaces yet"; a failing one → no section. Row 5's old doz is
+//      never asked. Then the real doz: a fresh store → "No workspaces yet"; Open through the browser seam (in 7).
 //   7. Open Dashboard through the browser seam: exactly one `open http://127.0.0.1:N` line, no link or token anywhere —
 //      not in the seam's file, the app's output or its log (os_log, when `log show` can read it); `doz ui stop`.
 //   8. doz in a scratch prefix replaced BY RENAME (a new file and VERSION) → the next dump shows the new version, and a
@@ -247,6 +251,58 @@ func cliAppSuite(binary: String, app: String, devApp: String? = nil) async {
     check(argv.contains("--version|") && argv.contains("daemon|status|--json|--no-send-anonymous-usage-stats|")
           && argv.contains("daemon|start|--json|") && argv.allSatisfy { !$0.contains("-c|") },
           "app 5: doz run with an argv — the refreshes not counted as the person's commands, start as typed (\(argv))")
+    check(!titles(d).contains("Workspaces") && !argv.contains { $0.hasPrefix("workspace|") },
+          "app 5: an old doz → no workspace section, and `workspace ls` never run")
+
+    // 6. the workspace section, against a FAKE new doz.
+    let wsDir = base.appendingPathComponent("fakews")
+    try? fm.createDirectory(at: wsDir, withIntermediateDirectories: true)
+    let wsFake = wsDir.appendingPathComponent("doz").path
+    let wsLog = wsDir.appendingPathComponent("argv.log").path
+    let wsList = wsDir.appendingPathComponent("list.json").path
+    try? """
+    #!/bin/sh
+    printf '%s|' "$@" >> '\(wsLog)'; echo >> '\(wsLog)'
+    case "$1" in
+      --version) echo 0.60.8 ;;
+      daemon) echo '{"running":false,"held":false,"alwaysOn":true}' ;;
+      workspace) case "$2" in ls) [ -f '\(wsList)' ] || exit 1; cat '\(wsList)' ;; sleep|wake) echo '{"name":"'"$3"'"}' ;; *) exit 64 ;; esac ;;
+      ui) exit 0 ;;
+      *) echo "doz: unknown command $1" >&2; exit 64 ;;
+    esac
+    """.write(toFile: wsFake, atomically: true, encoding: .utf8)
+    chmod(wsFake, 0o755)
+    func wsArgv() -> [String] { ((try? String(contentsOfFile: wsLog, encoding: .utf8)) ?? "").split(separator: "\n").map(String.init) }
+    try? #"{"workspaces":[{"name":"beta","state":"asleep","agents":1},{"name":"alpha","state":"waiting-on-you","agents":2}],"loose":[]}"#
+        .write(toFile: wsList, atomically: true, encoding: .utf8)
+    d = dump(wsFake)
+    let rows = items(d).filter { $0["submenu"] != nil }
+    let under = rows.map { ($0["submenu"] as? [[String: Any]] ?? []).compactMap { $0["action"] as? String } }
+    check(titles(d).contains("Workspaces") && rows.compactMap { $0["title"] as? String } == ["alpha · waiting on you", "beta · asleep"]
+          && under == [["open-workspace", "sleep-workspace"], ["open-workspace", "wake-workspace"]] && enabled(d, "all-workspaces") == true,
+          "app 6: two workspaces → waiting on you first, the dashboard's words, Open + Sleep / Open + Wake, All Workspaces… (\(rows.compactMap { $0["title"] as? String }), \(under))")
+    check(wsArgv().contains("workspace|ls|--json|--no-send-anonymous-usage-stats|"),
+          "app 6: the listing is `workspace ls --json`, not counted as the person's command")
+    var wsOK = true
+    for (action, name, line) in [("open-workspace", "alpha", "ui|open|alpha|-q|"), ("sleep-workspace", "alpha", "workspace|sleep|alpha|--json|"),
+                                 ("wake-workspace", "beta", "workspace|wake|beta|--json|"), ("all-workspaces", nil, "ui|open|--workspaces|-q|")] as [(String, String?, String)] {
+        r = appRun(["--run-action", action] + (name.map { [$0] } ?? []), doz: wsFake)
+        if !(r.code == 0 && wsArgv().last == line) { wsOK = false; info("app 6: \(action) → exit \(r.code), \(wsArgv().last ?? "-")") }
+    }
+    check(wsOK, "app 6: Open, Sleep, Wake and All Workspaces… run `ui open NAME -q`, `workspace sleep|wake NAME --json`, `ui open --workspaces -q`")
+    let wsBefore = wsArgv().count
+    r = appRun(["--run-action", "sleep-workspace", "--all"], doz: wsFake)
+    check(r.code == 64 && wsArgv().count == wsBefore, "app 6: a name that is not a workspace's is refused, nothing run (exit \(r.code))")
+    try? #"{"workspaces":[],"loose":[]}"#.write(toFile: wsList, atomically: true, encoding: .utf8)
+    d = dump(wsFake)
+    check(titles(d).contains("No workspaces yet") && item(d, "all-workspaces") == nil, "app 6: none → \"No workspaces yet\"")
+    try? fm.removeItem(atPath: wsList)
+    d = dump(wsFake)
+    check(!titles(d).contains("Workspaces") && enabled(d, "dashboard") == true && header(d) == "Daemon stopped",
+          "app 6: a failing listing → no section, the rest of the menu as before (\(header(d)))")
+    d = dump(binary)
+    check(titles(d).contains("No workspaces yet") && !h.hostRunning,
+          "app 6: the real doz on a fresh store → \"No workspaces yet\", no daemon started by looking")
 
     // 7. the dashboard through the browser seam.
     let browserLog = base.appendingPathComponent("browser.log").path
@@ -264,6 +320,13 @@ func cliAppSuite(binary: String, app: String, devApp: String? = nil) async {
     } else {
         info("app 7: log show could not read the unified log (exit \(log.0)) — the log line's content is pinned by CommandRunnerTests")
     }
+    // 6/7: a workspace's page through the same seam — one open line naming the page, no link.
+    try? fm.removeItem(atPath: browserLog)
+    r = appRun(["--run-action", "open-workspace", "alpha"], doz: binary, extra: ["DOZ_TEST_BROWSER_LOG": browserLog])
+    let wsOpened = ((try? String(contentsOfFile: browserLog, encoding: .utf8)) ?? "").split(separator: "\n").map(String.init)
+    check(r.code == 0 && wsOpened.count == 1 && wsOpened[0].range(of: #"^open http://127\.0\.0\.1:[0-9]+  page w/alpha$"#, options: .regularExpression) != nil
+          && !wsOpened.joined().contains("cap=") && !r.out.contains("http"),
+          "app 7: Open on a workspace → `doz ui open NAME` → one `open http://127.0.0.1:N  page w/alpha`, no link (\(wsOpened))")
     r = h.run(["ui", "stop"], timeout: 30)
     check(r.code == 0, "app 7: doz ui stop")
     h.run(["daemon", "stop"], timeout: 120)
