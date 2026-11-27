@@ -88,6 +88,13 @@ A bare file name is in `Sources/DozableKit/`.
   keeps what they chose. `doz doctor` warns (`priority`, `daemon priority`) when doz or its daemon is clamped
   (`ProcessPriority`: the Darwin background state, the background QoS, `pti_priority`). `ProcessPriorityTests`,
   `make test-cli-startup`.
+  **Nor a utility QoS, and neither do its sessions** (788: a launchd `ProcessType Standard` daemon ran at utility, pri 20 —
+  mostly the efficiency cores — and every session on this Mac it held inherited it; a terminal's ran at 31). The login
+  items run as `ProcessType Interactive`; a launched daemon also calls `ProcessPriority.liftInheritedUtility()` (its
+  thread asks for user-initiated: a no-op under a clamp); `MacSessions.spawnAndWait` spawns the holder at
+  `QOS_CLASS_USER_INITIATED` (a clamp on the daemon still wins). `doz doctor` warns separately — `clamped` keeps its
+  meaning — when the daemon runs at utility (`daemon priority`, `ProcessPriority.belowNormal`) and when a session's
+  program does (`session QoS`, from `daemon status`'s `heldSessionPri`: each running session → its `pti_priority`).
 
 - **The daemon is always on, and an update still reaches it** (693, owner: "yes always on (a new setting - default on).
   change timeout default to 0 (never times out)"). `daemon.always_on` (default on, `$DOZ_DAEMON_ALWAYS_ON`, applies now —
@@ -137,7 +144,8 @@ A bare file name is in `Sources/DozableKit/`.
   - **The plist** `~/Library/LaunchAgents/com.dozable.daemon.<8 hex>.plist` (the store path's hash, as its socket folder —
     `MacPlace.storeHash`; doz-dev's store never collides), 0644, written atomically, an XML comment naming the store and
     how to remove it. `ProgramArguments = [<stable doz>, daemon, start, --login-item, --store, <store>]` (doz itself, never
-    `sh`), `RunAtLoad`, `StartInterval 900`, `LimitLoadToSessionType Aqua`, `AbandonProcessGroup`, `ProcessType Standard`,
+    `sh`), `RunAtLoad`, `StartInterval 900`, `LimitLoadToSessionType Aqua`, `AbandonProcessGroup`, `ProcessType Interactive` (788: under `Standard` the daemon and every session it held ran at
+    utility QoS, pri 20 — mostly the efficiency cores),
     `StandardOutPath`/`StandardErrorPath` = `<store>/login-item.log` (cut back above 256 KiB), `EnvironmentVariables
     {XDG_CONFIG_HOME}` only when set and not the default. Never `KeepAlive`, `Sockets` or `MachServices`.
     `DaemonLoginItemTests` round-trips it through `PropertyListSerialization`.

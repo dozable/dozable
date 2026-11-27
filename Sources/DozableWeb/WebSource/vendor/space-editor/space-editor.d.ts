@@ -92,10 +92,30 @@ export interface HostHooks {
     /** the "doz space editor" mark in the title bar */
     brand?: boolean;
 }
+/** v0.21.0: what a host says of a step, kept with it through undo and redo. The editor reads none of it. */
+export type StepMeta = Readonly<Record<string, string>>;
+/** v0.21.0: a step of the undo history. Its id is never another step's, and undo and redo keep it. */
+export interface HistoryEntry {
+    readonly id: number;
+    readonly label: string;
+    readonly origin: 'text' | 'tree' | 'canvas' | 'props' | 'menu' | 'api' | 'history' | 'file';
+    readonly meta?: StepMeta;
+}
 export interface SpaceEditor {
     getText(): string;
-    /** replace the text (a new file, or the host's fresh copy): undo starts again, and it is not dirty */
-    setText(text: string): void;
+    /** replace the text (a new file, or the host's fresh copy): undo starts again, and it is not dirty. `fit` (v0.12.5):
+     *  another document, so its drawing is fitted (default: the view stays where it is). */
+    setText(text: string, o?: {
+        fit?: boolean;
+    }): true;
+    /** v0.21.0: one whole text for the open file's, as one undoable step: the step (always truthy), or false where the
+     *  text is the same. The host's own act: read-only doesn't stop it. */
+    setText(text: string, o: {
+        fit?: boolean;
+        undoable: true;
+        label?: string;
+        meta?: StepMeta;
+    }): HistoryEntry | false;
     setReadOnly(readOnly: boolean): void;
     setTheme(theme: Theme): void;
     /** v0.4.1: load and attach features to the mounted editor ('text', 'plan'), keeping the file, its undo history and

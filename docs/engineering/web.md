@@ -1424,7 +1424,7 @@ browser only and `heldOnly`.
   `terminal.html` → `/terminal-frame`), each with its one script and style (607: the page's script is a module graph — app.js and app/**);
   the page-code rules apply to all of them.
 - **Vendoring by peer commit** (742, 744): code that comes from no registry — the space editor's build — is vendored by the
-  commit it was built at (783: the editor 0.20.0, the engine @johnoscott/isometric-engine 0.20.0). `vendor/space-editor/` holds that build's files byte for byte — its core (`space-core.js`), the
+  commit it was built at (788: the editor 0.26.0, the engine @johnoscott/isometric-engine 0.26.0 — a space file can be drawn compact, `x-editor: { compact: true, gap: 1.5 }`, a new file is, and the canvas menu turns it on or off for an existing one; 783 was 0.20.0). `vendor/space-editor/` holds that build's files byte for byte — its core (`space-core.js`), the
   eight features (`space-{canvas,text,edit,plan,live,motion,sim,timeline}.js`), every `space-chunk-*.js`, the renderer
   (`space-render.js`), `space-editor.css`, Monaco (`monaco/{monaco.js,monaco.css,editor.worker.js,codicon.ttf}`), the
   references (`*.d.ts`, `types/*.d.ts`, the two schemas — kept, never shipped) and `LICENSES/*` — and its `PIN` (`sha256  path`

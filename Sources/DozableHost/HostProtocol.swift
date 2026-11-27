@@ -1731,6 +1731,9 @@ public struct HostStatus: Codable, Equatable, Sendable {
     /// background state it inherited from the client that started it.
     public var priority: ProcessPriority?
     public var priorityRestored: Bool?
+    /// 788: each running session on this Mac → its program's scheduling priority (`ps -o pri`; 20 = utility QoS, mostly the
+    /// efficiency cores). nil: an older daemon.
+    public var heldSessionPri: [String: Int32]? = nil
     /// 679 B6: why this host cannot read the login keychain (`ssh`, `no login session`) — it was started from such a
     /// session; nil: it can. Its sandboxes' Mac account is then unreadable.
     public var keychainLocked: String?

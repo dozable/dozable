@@ -125,7 +125,8 @@ launch, never by itself:
   `Contents/Library/LaunchAgents/` inside the bundle, SEALED by the signature. Exactly these keys and no others (the same
   as doz's own item but the program): `Label com.dozable.app.daemon` (doz's reserved `DaemonLoginItem.appLabel`),
   `BundleProgram Contents/MacOS/Dozable`, `ProgramArguments ["Dozable", "--launch-daemon"]`, `RunAtLoad`, `StartInterval
-  900`, `LimitLoadToSessionType Aqua`, `AbandonProcessGroup`, `ProcessType Standard`. Never `KeepAlive`, `Sockets` or
+  900`, `LimitLoadToSessionType Aqua`, `AbandonProcessGroup`, `ProcessType Interactive` (not `Standard`: a Standard agent's daemon and its held sessions ran at
+  utility QoS). Never `KeepAlive`, `Sockets` or
   `MachServices`. Why the app's own executable and not doz: a sealed plist cannot name where doz is installed (Homebrew
   on either prefix, any channel, or `~/.local`).
 - **the app itself** — `SMAppService.mainApp`: the menu comes back at login.

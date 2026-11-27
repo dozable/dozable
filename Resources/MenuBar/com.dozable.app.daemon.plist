@@ -3,7 +3,8 @@
 <!-- Dozable's Start at Login: the menu bar app's agent, registered through SMAppService only when the person clicks
      Start at Login. launchd runs the app's own executable with its launch-daemon flag, which runs doz daemon start
      with its login-item flag (doz starts the daemon and exits; launchd never runs the daemon itself). Sealed by the
-     app's signature: exactly these keys (Scripts/assemble-app.sh and the release check them). -->
+     app's signature: exactly these keys (Scripts/assemble-app.sh and the release check them). ProcessType is Interactive:
+     under Standard the daemon and every session it holds ran at utility QoS (mostly the efficiency cores). -->
 <plist version="1.0">
 <dict>
 	<key>Label</key>
@@ -24,6 +25,6 @@
 	<key>AbandonProcessGroup</key>
 	<true/>
 	<key>ProcessType</key>
-	<string>Standard</string>
+	<string>Interactive</string>
 </dict>
 </plist>
