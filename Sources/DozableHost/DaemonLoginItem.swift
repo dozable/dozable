@@ -93,7 +93,7 @@ public enum DaemonLoginItem {
         \t<key>AbandonProcessGroup</key>
         \t<true/>
         \t<key>ProcessType</key>
-        \t<string>Interactive</string>
+        \t<string>\(processType)</string>
         \t<key>StandardOutPath</key>
         \t<string>\(x(log))</string>
         \t<key>StandardErrorPath</key>
@@ -135,7 +135,7 @@ public enum DaemonLoginItem {
                 return mode == .command ? Decision(action: .install, wanted: true, reason: why)
                     : Decision(action: .none, wanted: true, reason: "not installed — a daemon's start never installs it (doz daemon login-item on does)")
             }
-            if stale { return Decision(action: .rewrite, wanted: true, reason: why + " — its program path is out of date") }
+            if stale { return Decision(action: .rewrite, wanted: true, reason: why + " — it is out of date (its program path or its process type)") }
             if !loaded, mode == .command { return Decision(action: .load, wanted: true, reason: why) }
             return Decision(action: .none, wanted: true, reason: why)
         }
@@ -179,6 +179,22 @@ public enum DaemonLoginItem {
         return p["ProgramArguments"] as? [String]
     }
 
+    /// The process type this build writes (788: Interactive — under Standard the daemon and its sessions ran at utility).
+    public static let processType = "Interactive"
+
+    /// An installed plist's `ProcessType` (nil: unreadable or absent).
+    public static func installedProcessType(_ url: URL) -> String? {
+        guard let d = try? Data(contentsOf: url),
+              let p = try? PropertyListSerialization.propertyList(from: d, format: nil) as? [String: Any] else { return nil }
+        return p["ProcessType"] as? String
+    }
+
+    /// 788: an installed item is out of date when its program path or its process type is not this build's (an item
+    /// written before 788 says Standard; the next daemon start rewrites it, which a start already does for a stale path).
+    static func isStale(_ url: URL, expected: [String]) -> Bool {
+        installedArguments(url) != expected || installedProcessType(url) != processType
+    }
+
     /// The login item as `doz daemon status` and `doctor` show it — read only (the plist, `print`, `print-disabled`); it
     /// starts nothing. nil folder or launchctl: a guarded run without the seams (nothing of launchd or the folder is read).
     public static func status(store: DozableStore, settings: DozableSettings = .load(), keepers: Int = 0,
@@ -200,7 +216,7 @@ public enum DaemonLoginItem {
         st.program = args?.first
         if st.installed {
             let expected = programArguments(store: store, program: program)
-            st.stale = args != expected || !(args.flatMap(\.first).map { FileManager.default.isExecutableFile(atPath: $0) } ?? false)
+            st.stale = isStale(url, expected: expected) || !(args.flatMap(\.first).map { FileManager.default.isExecutableFile(atPath: $0) } ?? false)
             st.loaded = launchctl.printJob(label: st.label) != nil
             st.disabled = launchctl.disabled(label: st.label)
         }
@@ -279,7 +295,7 @@ public enum DaemonLoginItem {
         }
         let program = program ?? StableExecutable.path()
         let expected = programArguments(store: store, program: program)
-        let stale = installed && installedArguments(url) != expected
+        let stale = installed && isStale(url, expected: expected)
         let loaded = installed && lc.printJob(label: lbl) != nil
         let app = appJob(lc, appPlaces: appPlaces ?? MenuBarAppPlaces.lookPlaces(env: env))
         let d = decide(setting: setting, alwaysOn: alwaysOn, keepers: keepers, appOwned: app.loaded, installed: installed,
