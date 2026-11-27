@@ -14,7 +14,7 @@ only gains fields).
 
 | Path | What |
 |---|---|
-| `Sources/DozableMenuBarCore/` — `DozStatus.swift`, `MenuModel.swift`, `SnapshotSource.swift`, `DozLocator.swift`, `CommandRunner.swift`, `Version.swift`, `LoginItem.swift`, `LaunchAgent.swift`, `Flavour.swift` (the dev flavour: `MenuBarFlavour`, `RefusingLoginItemService` — below) | the target `DozableMenuBarCore` (Foundation, Security and os only): the app's own all-optional types for `doz daemon status --json` and `doz app status --json`, the menu as a pure function (`MenuModel.items(for:)`, `loginItem(for:)`, `icon(for:)`, `header(for:)`), the refresh and the actions (`SnapshotSource`), finding doz (`DozLocator`, `FileIdentity`, `MenuBarSeams`; the team check `DozSignature`), running it (`CommandRunner`, `DozCommand`), versions (`DozVersion`), Start at Login without SMAppService (`AgentPlist`, the `LoginItemService` protocol, `RecordingLoginItemService`, `LaunchdLook`, `LoginItemFlow`, `LoginPlace`), the login agent's mode (`LaunchAgent`), the constants (`MenuBarApp.minimumDoz` 0.50.5, `minimumDozForLogin` 0.50.8) |
+| `Sources/DozableMenuBarCore/` — `DozStatus.swift`, `MenuModel.swift`, `SnapshotSource.swift`, `DozLocator.swift`, `CommandRunner.swift`, `Version.swift`, `LoginItem.swift`, `LaunchAgent.swift`, `Flavour.swift` (the dev flavour: `MenuBarFlavour`, `RefusingLoginItemService` — below) | the target `DozableMenuBarCore` (Foundation, Security and os only): the app's own all-optional types for `doz daemon status --json` and `doz app status --json`, the menu as a pure function (`MenuModel.items(for:)`, `loginItem(for:)`, `icon(for:)`, `header(for:)`), the refresh and the actions (`SnapshotSource`), finding doz (`DozLocator`, `FileIdentity`, `MenuBarSeams`; the team check `DozSignature`), running it (`CommandRunner`, `DozCommand`), versions (`DozVersion`), Start at Login without SMAppService (`AgentPlist`, the `LoginItemService` protocol, `RecordingLoginItemService`, `LaunchdLook`, `LoginItemFlow`, `LoginPlace`), the login agent's mode (`LaunchAgent`), the constants (`MenuBarApp.minimumDoz` 0.50.5, `minimumDozForLogin` 0.50.8, `minimumDozForWorkspaces` 0.60.8, `workspaceCap` 10); `workspace ls --json` read for name and state only (`DozWorkspaceListing`, `WorkspaceEntry`, `WorkspaceName`) |
 | `Sources/DozableMenuBar/` — `main.swift`, `MenuBarController.swift`, `LoginService.swift` | the executable target `DozableMenuBar`, product `Dozable` (AppKit + Core): the modes, `NSStatusItem` + `NSMenu` drawing the model, the timers, the Stop question; `LoginService.swift` is the ONE file that imports ServiceManagement (`SystemLoginItemService`: `SMAppService.agent(plistName:)` + `SMAppService.mainApp`) |
 | `Resources/MenuBar/Info.plist`, `Resources/MenuBar/com.dozable.app.daemon.plist`, `Scripts/assemble-app.sh`, `Scripts/check-agent-plist.py` | the bundle's Info.plist template, the login agent's plist (copied as is to `Contents/Library/LaunchAgents/`), the assembly (no signing; every Info.plist value checked with `plutil -extract`, the agent plist with `check-agent-plist.py`: exactly its keys, its label doz's reserved one) |
 | `Sources/DozableCLI/AppCommands.swift` | `doz app install|status|uninstall` (`MenuBarAppInstall`: the bundled copy, the destination, verify, the swap, the running copies, the open seam); `doz uninstall` lists and removes an installed copy (`UninstallCommand.swift`) |
@@ -32,7 +32,8 @@ dependencies of both targets.
 
 - **doz by absolute path, an argv array, never a shell**; stdin `/dev/null`; stdout read up to 1 MB (the rest drained and
   dropped); stderr to `/dev/null`; a timeout per command (SIGTERM, SIGKILL 2 s later): status, version and app status
-  10 s, start 100 s, stop and restart 300 s, the dashboard 30 s, the app update 60 s.
+  10 s, start 100 s, stop and restart 300 s, the dashboard 30 s, the app update 60 s; `workspace ls` 10 s, a workspace's page
+  30 s, its sleep and wake 300 s.
 - **Which doz** (`DozLocator`, a `stat` at every refresh): `/opt/homebrew/bin/doz`, `/usr/local/bin/doz`,
   `~/.local/bin/doz` — the path kept as is (a `bin/doz` link is not resolved, so a `brew upgrade` that re-points it is
   followed). Its version (`doz --version`) and the bundled app's (`doz app status --json`) are asked again only when the
@@ -44,6 +45,14 @@ dependencies of both targets.
 - **The dashboard's link never passes through the app**: Open Dashboard runs `doz ui --detach --open -q` with BOTH outputs
   to `/dev/null` — never read, never logged — and never `--print-url`; doz opens the one-use link through LaunchServices
   itself.
+- **A workspace's page** is opened the same way: `doz ui open NAME -q` (All Workspaces…: `doz ui open
+  --workspaces -q`), both outputs to `/dev/null`. `doz ui open` (`UIOpen`, UICommand.swift) is `doz try --ui`'s
+  `showDashboardPage` with the page `w/NAME` or `workspaces`: doz ui started in the background when none runs; an open page
+  pointed there by `ui.sock`'s `show` line (`WebControl.showPage` allows `try[/AGENT]`, `workspaces`, `w/NAME` and nothing
+  else; the page's SSE `show` handler the same, never over a modal); else a browser still signed in gets
+  `origin/#/w/NAME`, or a new one-use link with `&to=w/NAME` (the bootstrap's allow-list likewise). A NAME is checked
+  against the store's rule (`WorkspaceName.isValid`, `^[a-z0-9][a-z0-9-]{0,39}$`) before it goes into an argv — a row
+  whose name is not one is not shown, and an action with one runs nothing.
 - **The log** (os_log, subsystem `com.dozable.app`, category `doz`, level notice): `doz <command words> → exit N in M ms`
   — never an output, a value or a path. `log show --predicate 'subsystem == "com.dozable.app"' --last 1h` reads it.
 - **Nothing secret is shown**: the app's types have no field for argv, an environment or a session's screen (a later
@@ -61,9 +70,11 @@ dependencies of both targets.
 | started from ssh / without a login session (`keychainLocked`) | Daemon started from ssh — it cannot read your Keychain | as running | as running — Restart is the remedy |
 | an older build runs (`executableChange`, or its version ≠ `doz --version`) | Daemon runs an older build (V) — Restart to update | as running | as running |
 | doz older than `MinimumDoz` (0.50.5) | the state above | doz V is older than this app needs (0.50.5 or later) — upgrade doz | everything that works on it: status, Start/Stop/Restart, the dashboard |
+| doz older than `minimumDozForWorkspaces` (0.60.8) | the state above | — | everything above; no workspace section, `workspace ls` never run |
 | an action under way | Starting… / Stopping… / Restarting… / Opening the dashboard… / Updating the menu bar app… | — | Quit only |
 
-Between Restart and Open Dashboard (separators around it): the Start at Login row (below). Always: the last action's failure (doz's own `--json` message, one line) until the next action; "Update Menu Bar App (X → Y)"
+Between Restart and Open Dashboard (separators around it): the Start at Login row (below). After Open Dashboard and the
+update rows: the workspace section ("Workspaces", below). Always: the last action's failure (doz's own `--json` message, one line) until the next action; "Update Menu Bar App (X → Y)"
 when the copy that came with doz is newer than the running app (it runs `doz app install --open`); "Restart to Update (X →
 Y)" instead when the copy ON DISK at the app's own place is already newer than the running one (an install swapped it in
 under it — `AppOnDisk.version` reads its Info.plist again at each refresh): it runs no doz command, opens that copy as a
@@ -71,6 +82,39 @@ new instance (`NSWorkspace.openApplication`, `createsNewApplicationInstance`) an
 quits the app only — never the daemon. The icon is an SF Symbol drawn as a template (a placeholder until there is art):
 `cube.fill` running, `cube` stopped, `exclamationmark.triangle` when a Restart is due or the state cannot be read,
 `cube.transparent` with no doz. This version has no kept sessions.
+
+## Workspaces (`MenuModel.workspaceItems(for:)`)
+
+Only with a doz of `minimumDozForWorkspaces` (0.60.8 — the first with `doz ui open`) or later whose version reads, and a
+listing that answered; otherwise no section at all (the rest of the menu as before) and `workspace ls` is never run.
+
+```
+──────────────
+Workspaces                         (header, disabled)
+alpha · waiting on you          ▸  Open | ── | Sleep
+beta · asleep                   ▸  Open | ── | Wake
+All Workspaces…                    (the Workspaces page)
+──────────────
+Quit Dozable Menu
+```
+
+- **The rows**: `doz workspace ls --json` (`--no-send-anonymous-usage-stats`: a refresh's look; answered in-process with no
+  daemon — looking never starts one), name and state only. The state in the dashboard's words (`workspacePill`: the raw
+  value with `-` → space: `waiting on you`, `setting up`). Order: the dashboard's `STATE_ORDER` (waiting on you, working,
+  starting, idle, setting up, asleep, stopped, finished, archived; an unknown state after), then by name; the first 10
+  (`workspaceCap`), the rest on the Workspaces page. None: "No workspaces yet" (the dashboard's words) and no All
+  Workspaces….
+- **No Needs you count**: `workspace ls --json` carries none (a workspace's needs-you items are `workspace show`'s, one
+  call each). A workspace waiting on you says so by its state, with no number.
+- **Under each row**: Open (its page), then the one of Sleep and Wake its state offers — the dashboard's `primaryVerb`
+  restricted to those two: idle, working, waiting on you, starting → Sleep; asleep, stopped → Wake; setting up, finished,
+  archived → neither. They run `doz workspace sleep|wake NAME --json` (they ask nothing, as in the dashboard; a refusal
+  of the plan is doz's message, one line). While one runs its row reads the dashboard's transitional word ("sleeping…",
+  "waking…"), the header stays the daemon's, and every action but Quit waits.
+- **Refresh**: the listing is asked only while the menu is open (at `menuWillOpen`, its 2 s ticks) and after an action; a
+  closed-menu refresh keeps the last one (nothing shows it then) — the closed steady state stays one process.
+- **Drawing**: `MenuItem.submenu` → an `NSMenu` per row, updated in place like the top level (`sameShape` recurses);
+  `MenuItem.workspace` rides with the action (`representedObject` = `[action, workspace]`).
 
 ## Start at Login
 
@@ -228,7 +272,7 @@ person can watch an unreleased build next to the release one and tell them apart
 `--self-config` (identifier, version, the doz it needs, `requireTeam`, the agent's label — the release's check),
 `--login-status` (SMAppService's two states, whether launchd has the job loaded, the bundle and whether it is in a place
 that may hold it — a look), `--launch-daemon` (launchd's job, above), `--unregister` (doz's uninstall), `--version`,
-`--help`; `--run-action start|stop|restart|dashboard|login-on|login-off` is a TEST seam (guarded runs only — there is no
+`--help`; `--run-action start|stop|restart|dashboard|login-on|login-off|all-workspaces|open-workspace NAME|sleep-workspace NAME|wake-workspace NAME` is a TEST seam (guarded runs only — there is no
 way to register Start at Login without the click). With no argument it is the menu — and a guarded run (`DOZ_TEST_GUARD=1`) refuses that (exit 70): a test never
 shows anything on screen. `DOZ_MENUBAR_DOZ` (guarded only) is the ONE doz a test run uses — without it a test finds none,
 never this Mac's own.
@@ -243,7 +287,11 @@ killed; (3) stop → held; (4) `--launch-daemon`: a fake doz exec'd in the same 
 "reboot" → a daemon with parent 1, a second run < 300 ms with the same pid; (5) a FAKE old doz → the too-old line, what still works, the argv it was run with; (7) the
 dashboard through `DOZ_TEST_BROWSER_LOG` → one `open http://127.0.0.1:N`, no link anywhere (the os_log lines too, when
 `log show` can read them); (8) doz replaced by rename in a scratch prefix → the next dump, and a newer bundled copy →
-"Update Menu Bar App"; (9) `doz app install|status|uninstall --dest` (verified, quarantine gone, a running copy quit and
+"Update Menu Bar App"; (6) a FAKE new doz (0.60.8) answering `workspace ls --json` with two workspaces → the section
+(the order, the words, Open + Sleep / Open + Wake), the argv of Open, Sleep, Wake and All Workspaces… (`ui open NAME -q`, `workspace sleep|wake NAME --json`, `ui open --workspaces -q`), a name that is not a workspace's refused before
+anything runs, an empty listing → "No workspaces yet", a failing one → no section; row 5's old doz is never asked
+`workspace ls`; then the real doz: a fresh store → "No workspaces yet", and Open through the browser seam → one
+`open http://127.0.0.1:N  page w/NAME` line, no link anywhere; (9) `doz app install|status|uninstall --dest` (verified, quarantine gone, a running copy quit and
 swapped by rename, opened through the seam, a tampered copy refused, no destination refused) and `doz uninstall`; (10)
 Start at Login through the recording service and the fake launchctl: doz's own item → the hand-over offered; login-on →
 "would register" agent + mainApp, the job loaded, THEN `daemon.login_item on` (doz's plist gone, owner app); login-off;

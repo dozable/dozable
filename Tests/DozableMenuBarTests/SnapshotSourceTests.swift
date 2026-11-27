@@ -89,4 +89,44 @@ final class SnapshotSourceTests: XCTestCase {
         XCTAssertNil(source(r).perform(.quit))
         XCTAssertFalse(r.labels.contains("quit"))
     }
+
+    /// 789: `workspace ls --json` runs only for a doz new enough for the section, and only when asked (the open menu).
+    func testTheWorkspaceListOnlyWhenAskedAndOnlyFromANewEnoughDoz() {
+        let r = FakeRunner()
+        r.answer(.version, "0.60.8\n")
+        r.answer(.appStatus, #"{"bundled":{"version":"0.60.8"}}"#)
+        r.answer(.status, Fixture.noDaemon)
+        r.answer(.workspaces, #"{"workspaces":[{"name":"alpha","state":"idle"}],"loose":[]}"#)
+        let src = source(r)
+        var s = src.snapshot(workspaces: false)
+        XCTAssertNil(s.workspaces)
+        XCTAssertFalse(r.labels.contains("workspace ls"))
+        s = src.snapshot()
+        XCTAssertEqual(s.workspaces, [WorkspaceEntry(name: "alpha", state: "idle")])
+        XCTAssertEqual(r.labels.suffix(2), ["daemon status", "workspace ls"])
+        XCTAssertTrue(DozCommand.workspaces.arguments.contains("--no-send-anonymous-usage-stats"), "a refresh is not the person's command")
+        r.answer(.workspaces, "", exit: 1)
+        XCTAssertNil(src.snapshot().workspaces, "no answer: no section")
+
+        let old = FakeRunner()
+        old.answer(.version, "0.60.7\n")
+        old.answer(.status, Fixture.noDaemon)
+        old.answer(.workspaces, #"{"workspaces":[]}"#)
+        XCTAssertNil(source(old).snapshot().workspaces)
+        XCTAssertFalse(old.labels.contains("workspace ls"), "an older doz is never asked")
+    }
+
+    func testTheWorkspaceActions() {
+        let r = FakeRunner()
+        r.answer(.sleepWorkspace("alpha"), #"{"name":"alpha"}"#)
+        XCTAssertNil(source(r).perform(.sleepWorkspace, workspace: "alpha"))
+        r.answer(.wakeWorkspace("alpha"), #"{"error":{"code":"conflict","message":"alpha changed since it looked"}}"#, exit: 3)
+        XCTAssertEqual(source(r).perform(.wakeWorkspace, workspace: "alpha"), "Wake failed: alpha changed since it looked")
+        r.answers[DozCommand.openWorkspace("alpha").label] = CommandResult(exit: 1, stdout: Data("SECRET".utf8))
+        XCTAssertEqual(source(r).perform(.openWorkspace, workspace: "alpha"), "Could not open the dashboard (exit 1)")
+        let before = r.labels.count
+        XCTAssertEqual(source(r).perform(.sleepWorkspace, workspace: "--all"), "Not a workspace's name")
+        XCTAssertEqual(source(r).perform(.openWorkspace, workspace: nil), "Not a workspace's name")
+        XCTAssertEqual(r.labels.count, before, "nothing runs for a name that is not a workspace's")
+    }
 }

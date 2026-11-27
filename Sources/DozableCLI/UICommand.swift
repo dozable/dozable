@@ -48,7 +48,7 @@ struct UICommand: AsyncParsableCommand {
         doz ui macs keeps the list of your other Macs' dashboards that the machine picker shows (doz ui macs add NAME \
         ADDRESS): picking one opens its address in a new tab, where you sign in to that Mac.
         """,
-        subcommands: [UIStart.self, UILink.self, UIRestart.self, UIStop.self, UIStatus.self, ServeShare.self, ServeDevices.self,
+        subcommands: [UIStart.self, UIOpen.self, UILink.self, UIRestart.self, UIStop.self, UIStatus.self, ServeShare.self, ServeDevices.self,
                       ServeRevoke.self, ServeRename.self, ServeLog.self, UIPublish.self, UIUnpublish.self, UIMacs.self, UIServe.self],
         defaultSubcommand: UIStart.self)
 }
@@ -123,7 +123,9 @@ func bringBrowserForward(_ origin: String) {
 /// 617: `doz try --ui [AGENT]` — the dashboard's Quick try (`page`: `try` or `try/AGENT`). doz ui is started in the
 /// background when none runs for this store; an open page of it is pointed there (`show`, the control socket) — per
 /// `ui.open_browser` (auto: a page already open is reused, no new tab); else a new link opens straight on that page.
-func showDashboardPage(_ page: String, _ g: GlobalOptions) async throws {
+/// 789: also a workspace's page (`w/NAME`) and the Workspaces page (`workspaces`) — `doz ui open`; `words` names the page
+/// in what it prints ("the Quick try" for `doz try --ui`, unchanged).
+func showDashboardPage(_ page: String, _ g: GlobalOptions, words: String = "the Quick try", titleCue: String? = "Quick try") async throws {
     let store = g.dozableStore
     guard store.socketPathFits else { throw fail(HostError(.unavailable, UnixSocket.Failure.pathTooLong(store.socket.path).localizedDescription), g) }
     let mode = WebSettingsStore(environment: ProcessInfo.processInfo.environment, flags: configFlags(g)).current.string(SettingKey.openBrowser) ?? "auto"
@@ -150,27 +152,54 @@ func showDashboardPage(_ page: String, _ g: GlobalOptions) async throws {
         // A page cannot raise its own window: bring the browser forward (the page focuses itself and marks its title).
         bringBrowserForward(ui.origin)
         if !g.quiet {
-            Out.stdout("the Quick try is open in doz ui (\(ui.origin)) — \(n == 1 ? "its open page" : "its \(n) open pages") went there"
-                       + " (an installed Dozable app's window shows it too: look for \"Quick try\" in its title)\n")
+            Out.stdout("\(words) is open in doz ui (\(ui.origin)) — \(n == 1 ? "its open page" : "its \(n) open pages") went there"
+                       + (titleCue.map { " (an installed Dozable app's window shows it too: look for \"\($0)\" in its title)" } ?? "") + "\n")
         }
         return
     }
     if mode == "never" {
-        Out.stdout("doz ui runs at \(ui.origin) — open its Quick try: \(ui.origin)/#/\(page) (doz ui link opens a page)\n")
+        Out.stdout("doz ui runs at \(ui.origin) — open \(words): \(ui.origin)/#/\(page) (doz ui link opens a page)\n")
         return
     }
     // A browser that is still signed in (a session kept for this port) needs no new link: open the page itself.
     if let port = Int(ui.origin.split(separator: ":").last ?? ""), WebSessionStore.keptSessions(file: WebControl.sessionsFile(store), port: port) > 0,
        let url = URL(string: ui.origin + "/#/" + page) {
         try openDashboardLink(url, g)
-        if !g.quiet { Out.stdout("opened the Quick try in doz ui (\(ui.origin)) — if it asks you to sign in: doz ui link\n") }
+        if !g.quiet { Out.stdout("opened \(words) in doz ui (\(ui.origin)) — if it asks you to sign in: doz ui link\n") }
         return
     }
     guard let link = WebControl.requestLink(store), let url = URL(string: link.absoluteString + "&to=" + page) else {
         throw fail(HostError(.unavailable, "doz ui at \(ui.origin) gave no link — doz ui link"), g)
     }
     try openDashboardLink(url, g)
-    if !g.quiet { Out.stdout("opened the Quick try in doz ui (\(ui.origin))\n") }
+    if !g.quiet { Out.stdout("opened \(words) in doz ui (\(ui.origin))\n") }
+}
+
+/// 789: `doz ui open NAME | --workspaces` — a page of the dashboard, opened the way `doz try --ui` opens the
+/// Quick try (`showDashboardPage`): doz ui started in the background when none runs; an open page pointed there; else a
+/// browser still signed in gets the page's address, or a new one-use link that names it. What the menu bar app's
+/// workspace items run (it never sees a link).
+struct UIOpen: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "open",
+        abstract: "Open a page of the dashboard: a workspace's page, or the Workspaces page (doz ui starts in the background when none runs).")
+    @OptionGroup var g: GlobalOptions
+    @Argument(help: "The workspace whose page opens.") var workspace: String?
+    @Flag(name: .long, help: "The Workspaces page (every workspace).") var workspaces = false
+
+    /// The page's address after `#/` — the one `WebControl.showPage` allows.
+    var page: String { workspace.map { "w/" + $0 } ?? "workspaces" }
+
+    func validate() throws {
+        if (workspace != nil) == workspaces { throw ValidationError("a workspace's name or --workspaces, one of them") }
+        if let w = workspace, !UIOpen.isWorkspaceName(w) { throw ValidationError("\(w) is not a workspace's name (a-z, 0-9 and -, at most 40)") }
+    }
+
+    static func isWorkspaceName(_ s: String) -> Bool { s.range(of: #"^[a-z0-9][a-z0-9-]{0,39}$"#, options: .regularExpression) != nil }
+
+    func run() async throws {
+        let words = workspace.map { "workspace \($0)'s page" } ?? "the Workspaces page"
+        try await showDashboardPage(page, g, words: words, titleCue: nil)
+    }
 }
 
 /// What `doz ui start` takes (and the hidden `serve` it was called before).

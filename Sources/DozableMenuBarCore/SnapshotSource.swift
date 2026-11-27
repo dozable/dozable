@@ -55,8 +55,10 @@ public final class SnapshotSource: @unchecked Sendable {
         login.map { LoginSnapshot(service: $0.service.state(), stablePlace: $0.stablePlace) }
     }
 
-    /// The menu's state now. `busy` and `lastError` are the caller's to fill.
-    public func snapshot() -> Snapshot {
+    /// The menu's state now. `busy` and `lastError` are the caller's to fill. `workspaces`: also run
+    /// `doz workspace ls --json` (a doz new enough for the section only) — the menu asks while it is open, not every
+    /// closed-menu refresh (nothing shows the list then).
+    public func snapshot(workspaces: Bool = true) -> Snapshot {
         let onDisk = installedAppVersion?()
         guard let doz = locator.locate() else {
             return Snapshot(doz: .missing, appVersion: appVersion, login: loginSnapshot(), installedAppVersion: onDisk, flavour: flavour)
@@ -82,19 +84,24 @@ public final class SnapshotSource: @unchecked Sendable {
         else if r.exit != 0 { s.statusProblem = "doz daemon status failed (\(Self.failure(r)))" }
         else if let st = DozStatus.decode(r.stdout) { s.status = st }
         else { s.statusProblem = "doz's answer could not be read" }
+        if workspaces, MenuBarApp.supportsWorkspaces(version) {
+            let w = runner.run(.workspaces, doz: doz)
+            s.workspaces = w.ok ? DozWorkspaceListing.decode(w.stdout) : nil
+        }
         return s
     }
 
     /// Forget the cached version (the next snapshot asks doz again).
     public func invalidate() { lock.withLock { cache = nil } }
 
-    /// Run `action`'s doz command. nil: done; else what to show (one line).
-    public func perform(_ action: MenuAction) -> String? {
+    /// Run `action`'s doz command (`workspace`: the one a workspace's action is for). nil: done; else what to show (one line).
+    public func perform(_ action: MenuAction, workspace: String? = nil) -> String? {
         switch action {
         case .loginOn, .loginOff, .loginSettings: return performLogin(action).error
         default: break
         }
-        guard let command = action.command else { return nil }
+        if action.needsWorkspace, action.command(workspace: workspace) == nil { return "Not a workspace's name" }
+        guard let command = action.command(workspace: workspace) else { return nil }
         // `doz app install` puts an app in Applications: never from the dev build, even if something asks.
         if flavour.isDev, action == .updateApp { return Self.devRefusal }
         guard let doz = locator.locate() else { return "doz is not installed" }
@@ -107,6 +114,9 @@ public final class SnapshotSource: @unchecked Sendable {
         case .restart: what = "Restart failed"
         case .dashboard: what = "Could not open the dashboard"
         case .updateApp: what = "Could not update the menu bar app"
+        case .openWorkspace, .allWorkspaces: what = "Could not open the dashboard"
+        case .sleepWorkspace: what = "Sleep failed"
+        case .wakeWorkspace: what = "Wake failed"
         case .installHelp, .quit, .loginOn, .loginOff, .loginSettings, .restartApp: what = "Failed"
         }
         if r.timedOut { return "\(what): doz did not finish within \(Int(command.timeout)) seconds" }

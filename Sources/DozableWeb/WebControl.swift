@@ -201,14 +201,15 @@ public enum WebControl {
         return url
     }
 
-    /// 617: the one page a control line may show — the Quick try, with an agent or not (nil: not a `show` line).
+    /// 617: the pages a control line may show — the Quick try, with an agent or not; 789: the Workspaces page and one
+    /// workspace's page (`doz ui open`). nil: not a `show` line, or another page.
     public static func showPage(_ command: String) -> String? {
         guard command.hasPrefix("show ") else { return nil }
         let page = String(command.dropFirst(5))
-        return page.range(of: #"^try(/[a-z0-9][a-z0-9-]{0,39})?$"#, options: .regularExpression) != nil ? page : nil
+        return page.range(of: #"^(try(/[a-z0-9][a-z0-9-]{0,39})?|workspaces|w/[a-z0-9][a-z0-9-]{0,39})$"#, options: .regularExpression) != nil ? page : nil
     }
 
-    /// 617: point the running UI's open pages at `page` (`try` or `try/AGENT`); the number of pages told, or nil when no
+    /// 617: point the running UI's open pages at `page` (`try`, `try/AGENT`, `workspaces`, `w/NAME`); the number of pages told, or nil when no
     /// UI runs (or it is an older one that does not know the line).
     public static func requestShow(_ store: DozableStore, page: String) -> Int? {
         guard showPage("show " + page) != nil, let line = ask(store, "show " + page), line.hasPrefix("shown ") else { return nil }

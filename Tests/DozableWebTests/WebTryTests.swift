@@ -169,6 +169,16 @@ final class WebTryTests: XCTestCase {
         }
     }
 
+    /// 789: `doz ui open` — the Workspaces page and one workspace's page, nothing else.
+    func testTheShowLineAlsoNamesTheWorkspacesPages() {
+        XCTAssertEqual(WebControl.showPage("show workspaces"), "workspaces")
+        XCTAssertEqual(WebControl.showPage("show w/alpha"), "w/alpha")
+        XCTAssertEqual(WebControl.showPage("show w/a-1"), "w/a-1")
+        for bad in ["show w/", "show w/Alpha", "show w/a/room", "show w/-a", "show w/../x", "show workspaces/x", "show w/" + String(repeating: "a", count: 41)] {
+            XCTAssertNil(WebControl.showPage(bad), bad)
+        }
+    }
+
     func testNoPlanFieldIsSecretShaped() throws {
         let catalog = WebTryCatalog(agents: [], coming: [], secretEntry: false)
         let p = WebPlan(CreatePlan.sample(name: "try-grok", image: "grok"))

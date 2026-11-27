@@ -40,6 +40,23 @@ public struct DozCommand: Equatable, Sendable {
                                                label: "config set daemon.login_item on")
     public static let loginItemOff = DozCommand(["config", "set", "daemon.login_item", "off", "--json"], timeout: 30,
                                                 label: "config set daemon.login_item off")
+
+    /// 789: the workspaces, each with its state — a refresh's look (not counted), answered with no daemon too.
+    public static let workspaces = DozCommand(["workspace", "ls", "--json", notCounted], timeout: 10, label: "workspace ls")
+    /// The Workspaces page in the dashboard — as `dashboard`: doz opens it itself, both outputs to /dev/null, unread.
+    public static let openWorkspaces = DozCommand(["ui", "open", "--workspaces", "-q"], timeout: 30, output: .discard,
+                                                  label: "ui open --workspaces")
+    /// One workspace's page in the dashboard (`name` checked by `WorkspaceName.isValid` first: never an option).
+    public static func openWorkspace(_ name: String) -> DozCommand {
+        DozCommand(["ui", "open", name, "-q"], timeout: 30, output: .discard, label: "ui open")
+    }
+    /// The dashboard's Sleep and Wake (they ask nothing): `doz workspace sleep|wake NAME --json`. The log names the verb only.
+    public static func sleepWorkspace(_ name: String) -> DozCommand {
+        DozCommand(["workspace", "sleep", name, "--json"], timeout: 300, label: "workspace sleep")
+    }
+    public static func wakeWorkspace(_ name: String) -> DozCommand {
+        DozCommand(["workspace", "wake", name, "--json"], timeout: 300, label: "workspace wake")
+    }
 }
 
 /// What a command did.

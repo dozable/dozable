@@ -27,6 +27,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private var inFlight = false
     private var snapshot: Snapshot
     private var busy: Snapshot.Busy?
+    private var busyWorkspace: String?
+    private var menuOpen = false
     private var lastError: String?
     private var closedTimer: Timer?
     private var openTimer: Timer?
@@ -58,24 +60,36 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     // MARK: refresh
 
-    private func refresh() {
+    /// `workspaces`: also `doz workspace ls` — while the menu is open (and after an action); a closed-menu refresh keeps
+    /// the last list (nothing shows it then).
+    private func refresh(workspaces: Bool? = nil) {
         guard !inFlight else { return }
         inFlight = true
         let source = self.source
+        let want = workspaces ?? menuOpen
         queue.async {
-            let s = source.snapshot()
+            let s = source.snapshot(workspaces: want)
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
                     self.inFlight = false
-                    self.snapshot = s
+                    self.adopt(s, workspaces: want)
                     self.draw()
                 }
             }
         }
     }
 
+    private func adopt(_ new: Snapshot, workspaces: Bool) {
+        var s = new
+        if !workspaces, MenuBarApp.supportsWorkspaces(s.dozVersion) { s.workspaces = snapshot.workspaces }
+        snapshot = s
+    }
+
     func menuWillOpen(_ menu: NSMenu) {
-        refresh()
+        // A workspace's submenu opening is not the menu opening.
+        guard menu === self.menu else { return }
+        menuOpen = true
+        refresh(workspaces: true)
         openTimer?.invalidate()
         let t = Timer(timeInterval: Self.openInterval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.refresh() }
@@ -85,6 +99,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     }
 
     func menuDidClose(_ menu: NSMenu) {
+        guard menu === self.menu else { return }
+        menuOpen = false
         openTimer?.invalidate()
         openTimer = nil
     }
@@ -94,6 +110,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private var current: Snapshot {
         var s = snapshot
         s.busy = busy
+        s.busyWorkspace = busyWorkspace
         s.lastError = lastError
         return s
     }
@@ -116,28 +133,51 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             statusItem.button?.toolTip = MenuModel.header(for: s)
         }
 
-        let model = MenuModel.items(for: s)
-        // In place when the shape is the same (an open menu updates without flicker); rebuilt otherwise.
-        let sameShape = menu.items.count == model.count
-            && zip(menu.items, model).allSatisfy { $0.isSeparatorItem == ($1.kind == .separator) }
-        if !sameShape {
+        fill(menu, MenuModel.items(for: s))
+    }
+
+    /// Same shape: the same separators, and a submenu where the model has one, of the same shape.
+    private static func sameShape(_ items: [NSMenuItem], _ model: [MenuItem]) -> Bool {
+        items.count == model.count && zip(items, model).allSatisfy { item, m in
+            guard item.isSeparatorItem == (m.kind == .separator) else { return false }
+            switch (item.submenu, m.submenu) {
+            case (nil, nil): return true
+            case let (sub?, under?): return sameShape(sub.items, under)
+            default: return false
+            }
+        }
+    }
+
+    /// Draw `model` into `menu` — in place when the shape is the same (an open menu updates without flicker); rebuilt otherwise.
+    private func fill(_ menu: NSMenu, _ model: [MenuItem]) {
+        if !Self.sameShape(menu.items, model) {
             menu.removeAllItems()
-            for m in model { menu.addItem(m.kind == .separator ? .separator() : NSMenuItem()) }
+            for m in model {
+                let item = m.kind == .separator ? NSMenuItem.separator() : NSMenuItem()
+                if m.submenu != nil {
+                    let sub = NSMenu()
+                    sub.autoenablesItems = false
+                    item.submenu = sub
+                }
+                menu.addItem(item)
+            }
         }
         for (item, m) in zip(menu.items, model) where m.kind != .separator {
             item.title = m.title
             item.isEnabled = m.enabled
             item.state = m.checked ? .on : .off
-            item.representedObject = m.action?.rawValue
+            item.representedObject = m.action.map { [$0.rawValue, m.workspace ?? ""] as [String] }
             item.target = m.action == nil ? nil : self
             item.action = m.action == nil ? nil : #selector(choose(_:))
+            if let sub = item.submenu, let under = m.submenu { fill(sub, under) }
         }
     }
 
     // MARK: actions
 
     @objc private func choose(_ sender: NSMenuItem) {
-        guard let raw = sender.representedObject as? String, let action = MenuAction(rawValue: raw) else { return }
+        guard let chosen = sender.representedObject as? [String], chosen.count == 2, let action = MenuAction(rawValue: chosen[0]) else { return }
+        let workspace = chosen[1].isEmpty ? nil : chosen[1]
         switch action {
         case .quit:
             // This app only — the daemon keeps running.
@@ -166,7 +206,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             refresh()
         default:
             if let c = MenuModel.items(for: current).first(where: { $0.action == action })?.confirm, !ask(c) { return }
-            run(action)
+            run(action, workspace: workspace)
         }
     }
 
@@ -180,23 +220,25 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         return alert.runModal() == .alertFirstButtonReturn
     }
 
-    private func run(_ action: MenuAction) {
+    private func run(_ action: MenuAction, workspace: String? = nil) {
         guard !inFlight else { return }
         inFlight = true
         busy = action.busy
+        busyWorkspace = workspace
         lastError = nil
         draw()
         let source = self.source
         queue.async {
-            let error = source.perform(action)
+            let error = source.perform(action, workspace: workspace)
             if action == .updateApp { source.invalidate() }
-            let s = source.snapshot()
+            let s = source.snapshot(workspaces: true)
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
                     self.inFlight = false
                     self.busy = nil
+                    self.busyWorkspace = nil
                     self.lastError = error
-                    self.snapshot = s
+                    self.adopt(s, workspaces: true)
                     self.draw()
                 }
             }

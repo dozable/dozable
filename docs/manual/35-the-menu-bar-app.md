@@ -53,6 +53,11 @@ hollow when there is no doz.
 - **Open Dashboard** — the same as `doz ui --detach --open`: the dashboard opens in your browser, signed in. The
   sign-in link goes straight from doz to your browser; the app never sees it.
 - **Start at Login** — see below.
+- **Workspaces** — your workspaces, the ones waiting on you first, each with its state in the dashboard's words
+  ("waiting on you", "working", "idle", "asleep", …). Under each: **Open** (its page in the dashboard — the same as
+  `doz ui open NAME`) and **Sleep** or **Wake**, whichever its state allows (the same as
+  `doz workspace sleep NAME` / `doz workspace wake NAME`). The menu lists the first ten; **All Workspaces…** opens the
+  Workspaces page. It needs doz 0.60.8 or later; with an older doz the section is not shown.
 - **Quit Dozable Menu** — quits the app only. The daemon and your sandboxes keep running.
 
 The app runs `doz` for each of these, so it does exactly what the command does — including refusing what the command

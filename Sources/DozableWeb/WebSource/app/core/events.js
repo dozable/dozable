@@ -64,10 +64,18 @@ export function connect() {
     paintStartProgress();                              // 617: the build bar follows the preparation
     if (state.view === 'sandbox' && state.param) syncBuildLogTab(state.param);   // 617: its log's tab after the build
   });
-  // 617: `doz try --ui AGENT` with this page open — show the Quick try (only that page, only its own hash).
+  // 617: `doz try --ui AGENT` with this page open — show the Quick try (only that page, only its own hash); `doz ui open`
+  // (the menu bar app's workspace items) — the Workspaces page or a workspace's page.
   es.addEventListener('show', (ev) => {
     let d; try { d = JSON.parse(ev.data); } catch (_) { return; }
-    if (!d || typeof d.hash !== 'string' || !/^#\/try(\/[a-z0-9][a-z0-9-]{0,39})?$/.test(d.hash)) return;
+    if (!d || typeof d.hash !== 'string') return;
+    if (/^#\/(workspaces|w\/[a-z0-9][a-z0-9-]{0,39})$/.test(d.hash)) {
+      if (state.modal) return;                                   // never over a wizard the person is in
+      if (location.hash !== d.hash) location.hash = d.hash;
+      window.focus();
+      return;
+    }
+    if (!/^#\/try(\/[a-z0-9][a-z0-9-]{0,39})?$/.test(d.hash)) return;
     if (state.modal && state.modal !== 'try') return;            // never over a wizard the person is in
     state.tr = null;
     // Already there (the Quick try open on that agent): no hashchange follows, so route now — the page's state was just

@@ -14,8 +14,9 @@ const banner = upcall('banner'), connect = upcall('connect'), dropBanner = upcal
 
 // ── session ─────────────────────────────────────────────────────────────────
 export async function bootstrap() {
-  // 617: `doz try --ui` opens a link that also names its page (`&to=try/AGENT` — the Quick try only).
-  const m = /^#cap=([A-Za-z0-9_-]{16,256})(?:&to=(try(?:\/[a-z0-9][a-z0-9-]{0,39})?))?$/.exec(location.hash);
+  // 617: `doz try --ui` opens a link that also names its page (`&to=try/AGENT`); `doz ui open` the Workspaces page or a
+  // workspace's (`&to=workspaces`, `&to=w/NAME`) — those pages only.
+  const m = /^#cap=([A-Za-z0-9_-]{16,256})(?:&to=(try(?:\/[a-z0-9][a-z0-9-]{0,39})?|workspaces|w\/[a-z0-9][a-z0-9-]{0,39}))?$/.exec(location.hash);
   if (m) {
     // The capability leaves the address bar and the history entry before anything else happens.
     history.replaceState(null, '', location.pathname + (m[2] ? '#/' + m[2] : '#/home'));

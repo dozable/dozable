@@ -19,6 +19,18 @@ public enum MenuBarApp {
     /// The oldest doz Start at Login works with: the first that sees the app's SMAppService job as the owner of the login
     /// item (its program named relative to the bundle) and so removes its own — never two.
     public static let minimumDozForLogin = "0.50.8"
+    /// The oldest doz the workspace section works with: the first with `doz ui open NAME` (the page itself
+    /// through doz — the app never builds a link). An older doz (or one whose version cannot be read): no section, and
+    /// `workspace ls` is never run.
+    public static let minimumDozForWorkspaces = "0.60.8"
+    /// How many workspaces the menu lists (in the dashboard's order); the rest are on the Workspaces page.
+    public static let workspaceCap = 10
+
+    /// The doz at `version` has what the workspace section needs.
+    public static func supportsWorkspaces(_ version: String?) -> Bool {
+        guard let version, DozVersion(version) != nil else { return false }
+        return !DozVersion.isOlder(version, than: minimumDozForWorkspaces)
+    }
 }
 
 /// Everything the menu is drawn from — gathered by running doz, then handed to `MenuModel` (pure).
@@ -31,6 +43,9 @@ public struct Snapshot: Equatable, Sendable {
 
     public enum Busy: String, Equatable, Sendable, Encodable {
         case starting, stopping, restarting, openingDashboard, updatingApp, loginItem
+        /// A workspace's Sleep or Wake under way (`busyWorkspace` names it): its row shows the dashboard's
+        /// transitional word; the header stays the daemon's.
+        case sleepingWorkspace, wakingWorkspace
     }
 
     public var doz: Doz
@@ -53,13 +68,17 @@ public struct Snapshot: Equatable, Sendable {
     public var login: LoginSnapshot?
     /// Which app this is (the dev flavour: its own header, and no Start at Login or app install).
     public var flavour: MenuBarFlavour
+    /// `doz workspace ls --json`'s workspaces (nil: not read — a doz too old for it, or no answer: no section).
+    public var workspaces: [WorkspaceEntry]?
+    /// The workspace a Sleep or Wake under way is for.
+    public var busyWorkspace: String?
 
     public init(doz: Doz, status: DozStatus? = nil, statusProblem: String? = nil, busy: Busy? = nil, appVersion: String? = nil,
                 bundledAppVersion: String? = nil, lastError: String? = nil, login: LoginSnapshot? = nil, installedAppVersion: String? = nil,
-                flavour: MenuBarFlavour = .release) {
+                flavour: MenuBarFlavour = .release, workspaces: [WorkspaceEntry]? = nil) {
         self.doz = doz; self.status = status; self.statusProblem = statusProblem; self.busy = busy; self.appVersion = appVersion
         self.bundledAppVersion = bundledAppVersion; self.lastError = lastError; self.login = login
-        self.installedAppVersion = installedAppVersion; self.flavour = flavour
+        self.installedAppVersion = installedAppVersion; self.flavour = flavour; self.workspaces = workspaces
     }
 
     public var dozPath: String? { if case .found(let p, _) = doz { return p }; return nil }
@@ -74,6 +93,12 @@ public enum MenuAction: String, Equatable, Sendable, Encodable {
     /// Start at Login: on (register the agent and the app, then tell doz), off, and — when macOS waits for the person —
     /// open System Settings › Login Items. None runs a doz command by itself (`LoginItemFlow`).
     case loginOn = "login-on", loginOff = "login-off", loginSettings = "login-settings"
+    /// A workspace (the item's `workspace`): its page in the dashboard, its Sleep, its Wake — and the Workspaces page.
+    case openWorkspace = "open-workspace", sleepWorkspace = "sleep-workspace", wakeWorkspace = "wake-workspace"
+    case allWorkspaces = "all-workspaces"
+
+    /// The actions that name a workspace.
+    public var needsWorkspace: Bool { self == .openWorkspace || self == .sleepWorkspace || self == .wakeWorkspace }
 
     /// The doz command an action runs (nil: none — Quit quits this app only, never the daemon).
     public var command: DozCommand? {
@@ -83,7 +108,20 @@ public enum MenuAction: String, Equatable, Sendable, Encodable {
         case .restart: .restart
         case .dashboard: .dashboard
         case .updateApp: .updateApp
-        case .installHelp, .quit, .loginOn, .loginOff, .loginSettings, .restartApp: nil
+        case .allWorkspaces: .openWorkspaces
+        case .installHelp, .quit, .loginOn, .loginOff, .loginSettings, .restartApp, .openWorkspace, .sleepWorkspace, .wakeWorkspace: nil
+        }
+    }
+
+    /// The doz command an action runs for `workspace` (nil: none, or a name that is not a workspace's).
+    public func command(workspace: String?) -> DozCommand? {
+        guard needsWorkspace else { return command }
+        guard let workspace, WorkspaceName.isValid(workspace) else { return nil }
+        switch self {
+        case .openWorkspace: return .openWorkspace(workspace)
+        case .sleepWorkspace: return .sleepWorkspace(workspace)
+        case .wakeWorkspace: return .wakeWorkspace(workspace)
+        default: return nil
         }
     }
 
@@ -95,6 +133,9 @@ public enum MenuAction: String, Equatable, Sendable, Encodable {
         case .dashboard: .openingDashboard
         case .updateApp: .updatingApp
         case .loginOn, .loginOff: .loginItem
+        case .openWorkspace, .allWorkspaces: .openingDashboard
+        case .sleepWorkspace: .sleepingWorkspace
+        case .wakeWorkspace: .wakingWorkspace
         case .installHelp, .quit, .loginSettings, .restartApp: nil
         }
     }
@@ -117,11 +158,17 @@ public struct MenuItem: Equatable, Sendable, Encodable {
     public var confirm: Confirmation?
     /// Drawn with a check mark (Start at Login when on).
     public var checked: Bool
+    /// The workspace the action is for (open, sleep, wake).
+    public var workspace: String?
+    /// The items under it (a workspace's row: Open, then Sleep or Wake). nil: none.
+    public var submenu: [MenuItem]?
 
     public static let separator = MenuItem(kind: .separator, title: "", enabled: false)
 
-    public init(kind: Kind, title: String, enabled: Bool, action: MenuAction? = nil, confirm: Confirmation? = nil, checked: Bool = false) {
+    public init(kind: Kind, title: String, enabled: Bool, action: MenuAction? = nil, confirm: Confirmation? = nil, checked: Bool = false,
+                workspace: String? = nil, submenu: [MenuItem]? = nil) {
         self.kind = kind; self.title = title; self.enabled = enabled; self.action = action; self.confirm = confirm; self.checked = checked
+        self.workspace = workspace; self.submenu = submenu
     }
 
     static func line(_ s: String) -> MenuItem { MenuItem(kind: .line, title: s, enabled: false) }
@@ -163,7 +210,7 @@ public enum MenuModel {
         case .openingDashboard?: return "Opening the dashboard…"
         case .updatingApp?: return "Updating the menu bar app…"
         case .loginItem?: return "Changing Start at Login…"
-        case nil: break
+        case .sleepingWorkspace?, .wakingWorkspace?, nil: break
         }
         guard case .found = s.doz else { return "doz is not installed" }
         if s.statusProblem != nil { return "Cannot read the daemon's state" }
@@ -228,6 +275,7 @@ public enum MenuModel {
                     items.append(MenuItem(kind: .action, title: "Update Menu Bar App (\(mine) → \(bundled))", enabled: idle, action: .updateApp))
                 }
             }
+            items.append(contentsOf: workspaceItems(for: s))
         } else {
             items.append(MenuItem(kind: .action, title: "How to Install doz…", enabled: true, action: .installHelp))
         }
@@ -238,6 +286,53 @@ public enum MenuModel {
 }
 
 extension MenuModel {
+    /// The dashboard's order (`core/workspaces.js` STATE_ORDER): what waits on you first; an unknown state after these.
+    public static let workspaceStateOrder = ["waiting-on-you", "working", "starting", "idle", "setting-up", "asleep", "stopped",
+                                             "finished", "archived"]
+
+    /// A state as the dashboard words it (`workspacePill`: `waiting on you`, `setting up`).
+    public static func workspaceStateWords(_ state: String) -> String { state.replacingOccurrences(of: "-", with: " ") }
+
+    /// The one of Sleep and Wake a state offers (the dashboard's `primaryVerb`, those two only): running — idle, working,
+    /// waiting on you, starting — → Sleep; asleep or stopped → Wake; setting up, finished, archived → neither.
+    public static func workspaceVerb(_ state: String) -> MenuAction? {
+        switch state {
+        case "idle", "working", "waiting-on-you", "starting": .sleepWorkspace
+        case "asleep", "stopped": .wakeWorkspace
+        default: nil
+        }
+    }
+
+    /// The workspace section (empty: none — doz too old, or no listing): a "Workspaces" header; the first
+    /// `MenuBarApp.workspaceCap` in the dashboard's order, each "NAME · STATE" with Open and Sleep or Wake under it;
+    /// "All Workspaces…" (the Workspaces page); "No workspaces yet" when there are none.
+    public static func workspaceItems(for s: Snapshot) -> [MenuItem] {
+        guard let list = s.workspaces, MenuBarApp.supportsWorkspaces(s.dozVersion) else { return [] }
+        let idle = s.busy == nil
+        var items: [MenuItem] = [.separator, MenuItem(kind: .header, title: "Workspaces", enabled: false)]
+        if list.isEmpty {
+            items.append(.line("No workspaces yet"))
+            return items
+        }
+        let at = { (st: String) in workspaceStateOrder.firstIndex(of: st) ?? workspaceStateOrder.count }
+        let sorted = list.sorted { at($0.state) != at($1.state) ? at($0.state) < at($1.state) : $0.name < $1.name }
+        for w in sorted.prefix(MenuBarApp.workspaceCap) {
+            var words = workspaceStateWords(w.state)
+            if w.name == s.busyWorkspace {
+                if s.busy == .sleepingWorkspace { words = "sleeping…" } else if s.busy == .wakingWorkspace { words = "waking…" }
+            }
+            var under = [MenuItem(kind: .action, title: "Open", enabled: idle, action: .openWorkspace, workspace: w.name)]
+            if let verb = workspaceVerb(w.state) {
+                under.append(.separator)
+                under.append(MenuItem(kind: .action, title: verb == .sleepWorkspace ? "Sleep" : "Wake", enabled: idle, action: verb,
+                                      workspace: w.name))
+            }
+            items.append(MenuItem(kind: .action, title: "\(w.name) · \(words)", enabled: true, workspace: w.name, submenu: under))
+        }
+        items.append(MenuItem(kind: .action, title: "All Workspaces…", enabled: idle, action: .allWorkspaces))
+        return items
+    }
+
     /// The Start at Login row (nil: no row — the login state is not known). In order:
     ///   · doz too old for it → disabled, "needs doz X";
     ///   · macOS waits for the person (switched off in System Settings) → "needs approval", opens that page;

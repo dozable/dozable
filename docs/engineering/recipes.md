@@ -538,7 +538,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   provider's key only through `POST /api/v1/accounts` (kind `key` + provider; sources stay CLI-only). Its page is an
   ordinary sandbox's (634: no try tag, no try bar, no Guide-first). `doz try --ui [AGENT]` (`showDashboardPage`, UICommand.swift — the
   only CoreServices file): starts doz ui detached when none runs; an open page is pointed there by `ui.sock`'s `show
-  try[/AGENT]` line (SSE `show`; `WebControl.showPage` and the page both allow ONLY that hash) — a page cannot raise its
+  try[/AGENT]` line (SSE `show`; `WebControl.showPage` and the page both allow ONLY that hash — and, for `doz ui open`, `workspaces` and `w/NAME`: menu-bar-app.md) — a page cannot raise its
   own window, so the CLI activates the default browser through LaunchServices (`bringBrowserForward`, no AppleScript)
   and the page calls `window.focus()` and marks its title "▶ Quick try — …" for 10 s (an installed dashboard app is
   its own window: the title is the cue); with no page open, a browser still signed in for this port
