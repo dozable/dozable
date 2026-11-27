@@ -490,6 +490,11 @@ public actor MacSessions {
                 var none = sigset_t()
                 sigemptyset(&none)
                 posix_spawnattr_setsigmask(&attr, &none)
+                // 788: the holder (and the agent under it) runs a person's work — builds, tests, a browser. Ask for a
+                // normal QoS rather than inheriting the daemon's: a launchd-started daemon ran at utility (pri 20), so
+                // every held session ran mostly on the efficiency cores. A utility clamp on the daemon itself still
+                // wins over this; the daemon's launchd items run as Interactive for that (DaemonLoginItem).
+                posix_spawnattr_set_qos_class_np(&attr, QOS_CLASS_USER_INITIATED)
                 var fa: posix_spawn_file_actions_t?
                 posix_spawn_file_actions_init(&fa)
                 defer { posix_spawn_file_actions_destroy(&fa) }

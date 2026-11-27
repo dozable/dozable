@@ -44,7 +44,7 @@ final class DaemonLoginItemTests: XCTestCase {
         XCTAssertEqual(p["StartInterval"] as? Int, 900)
         XCTAssertEqual(p["LimitLoadToSessionType"] as? String, "Aqua")
         XCTAssertEqual(p["AbandonProcessGroup"] as? Bool, true)
-        XCTAssertEqual(p["ProcessType"] as? String, "Standard")
+        XCTAssertEqual(p["ProcessType"] as? String, "Interactive")
         XCTAssertEqual(p["StandardOutPath"] as? String, "/tmp/doz-li--store/login-item.log")
         XCTAssertEqual(p["StandardErrorPath"] as? String, "/tmp/doz-li--store/login-item.log")
         for never in ["KeepAlive", "Sockets", "MachServices", "Program", "EnvironmentVariables"] { XCTAssertNil(p[never], never) }
@@ -52,6 +52,22 @@ final class DaemonLoginItemTests: XCTestCase {
                       "the comment names the store (its dashes broken up: a comment may not hold two)")
         XCTAssertTrue(text.contains("doz daemon login-item off"), "and how to remove it")
         XCTAssertFalse(text.components(separatedBy: "<!--")[1].components(separatedBy: "-->")[0].contains("--"))
+    }
+
+    /// 788: an item written before (ProcessType Standard) is out of date even with this build's program path, so the next
+    /// daemon start rewrites it — otherwise a Mac that turned the item on earlier kept its daemon at utility QoS.
+    func testAStandardItemIsStaleAndThisBuildsIsNot() throws {
+        let program = "/opt/homebrew/opt/doz/libexec/doz/doz"
+        let expected = DaemonLoginItem.programArguments(store: store, program: program)
+        let now = root.appendingPathComponent("now.plist"), before = root.appendingPathComponent("before.plist")
+        let text = DaemonLoginItem.render(store: store, program: program, xdgConfigHome: nil)
+        try text.write(to: now, atomically: true, encoding: .utf8)
+        try text.replacingOccurrences(of: "<string>Interactive</string>", with: "<string>Standard</string>")
+            .write(to: before, atomically: true, encoding: .utf8)
+        XCTAssertEqual(DaemonLoginItem.installedProcessType(now), "Interactive")
+        XCTAssertEqual(DaemonLoginItem.installedProcessType(before), "Standard")
+        XCTAssertFalse(DaemonLoginItem.isStale(now, expected: expected))
+        XCTAssertTrue(DaemonLoginItem.isStale(before, expected: expected), "the same program path, the old process type")
     }
 
     func testXDGOnlyWhenSetAndNotTheDefault() throws {

@@ -323,6 +323,15 @@ extension HostCore {
     }
 
     /// The fenced sessions this host keeps up (their git guard and proxy need a host).
+    /// 788: each running session on this Mac → its program's scheduling priority (doctor warns at utility or below).
+    public func macSessionPriorities() async -> [String: Int32] {
+        var out: [String: Int32] = [:]
+        for r in await mac.rows() where !r.ended {
+            if let pid = r.pid, pid > 1, let p = ProcessPriority.pri(of: pid_t(pid)) { out[r.name] = p }
+        }
+        return out
+    }
+
     public func fencedMacSessions() async -> [String] {
         for s in Set(macFenceWatches.keys).union(macProxies.keys).sorted() where !(await mac.isRunning(s)) {
             dropFenceWatch(s)

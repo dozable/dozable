@@ -40,6 +40,19 @@ struct Doctor: AsyncParsableCommand {
     /// the OLDER side: an older daemon is stopped (the next command starts this build); a NEWER daemon means this doz is
     /// the old one — a copy still running from before an upgrade (the dashboard's, in the background) when the daemon's
     /// release is installed, else one to upgrade. (It said "doz daemon stop" for both: wrong when the daemon was newer.)
+    /// 678/788: the daemon's own scheduling — clamped to background (warn), at utility QoS (warn, its own words), else
+    /// normal.
+    static func daemonPriorityCheck(_ p: ProcessPriority, pid: Int32, restored: Bool) -> DoctorCheck {
+        if let w = p.warning("the daemon", pid: pid) { return DoctorCheck(check: "daemon priority", status: .warn, detail: w) }
+        if let w = p.utilityWarning("the daemon") {
+            return DoctorCheck(check: "daemon priority", status: .warn,
+                               detail: w + "; restart it from a normal terminal: doz daemon stop, then any doz command")
+        }
+        return DoctorCheck(check: "daemon priority", status: .ok,
+                           detail: "normal (QoS \(p.qos)\(p.pri.map { ", pri \($0)" } ?? ""))"
+                               + (restored ? " — moved out of the background priority it inherited from the command that started it" : ""))
+    }
+
     static func daemonVersionAdvice(daemon: String, this: String, installed: String?, upgrade: String?) -> String? {
         guard daemon != this else { return nil }
         switch SemVer.compare(daemon, this) {
@@ -72,6 +85,7 @@ struct Doctor: AsyncParsableCommand {
         let mine = ProcessPriority.current()
         out.append(DoctorCheck(check: "priority", status: mine.clamped ? .warn : .ok,
                                detail: mine.warning("doz", pid: getpid()) ?? "normal (QoS \(mine.qos)\(mine.pri.map { ", pri \($0)" } ?? ""))"))
+        // 788: doz itself at utility is ordinary (many tools run there) — only the daemon and its held sessions warn.
         let ent = hasVirtualizationEntitlement()
         out.append(DoctorCheck(check: "entitlement", status: ent ? .ok : .fail,
                                detail: ent ? "com.apple.security.virtualization — \(HostLauncher.executablePath)"
@@ -211,6 +225,7 @@ struct Doctor: AsyncParsableCommand {
             var detail = "running, pid \(store.hostPID().map(String.init) ?? "?")"
             var status = DoctorCheck.Status.ok
             var hostPriority: DoctorCheck?
+            var heldPriority: DoctorCheck?
             if let m = try? HostClient.request(HostRequest(.ping), store: store, autostart: false),
                let st = try? m.result?.decode(HostStatus.self) {
                 daemonStatus = st
@@ -241,10 +256,11 @@ struct Doctor: AsyncParsableCommand {
                 if let why = st.keychainLocked { hostKeychain = (why, st.pid, st.startedAt) }       // 679 B6
                 // 678: the host's own scheduling — a clamped host makes every wake crawl.
                 if let p = st.priority {
-                    hostPriority = DoctorCheck(check: "daemon priority", status: p.clamped ? .warn : .ok,
-                                               detail: p.warning("the daemon", pid: st.pid)
-                                                   ?? "normal (QoS \(p.qos)\(p.pri.map { ", pri \($0)" } ?? ""))"
-                                                   + (st.priorityRestored == true ? " — moved out of the background priority it inherited from the command that started it" : ""))
+                    hostPriority = Doctor.daemonPriorityCheck(p, pid: st.pid, restored: st.priorityRestored == true)
+                }
+                // 788: sessions on this Mac whose programs run at utility QoS or below.
+                if let pris = st.heldSessionPri, let w = ProcessPriority.heldSessionsWarning(pris) {
+                    heldPriority = DoctorCheck(check: "session QoS", status: .warn, detail: w)
                 }
                 // 591: its program changed under it — overwritten in place is a failure (its VMs are refused).
                 if let note = st.executableNote {
@@ -257,6 +273,7 @@ struct Doctor: AsyncParsableCommand {
             }
             out.append(DoctorCheck(check: "daemon", status: status, detail: detail))
             if let hostPriority { out.append(hostPriority) }
+            if let heldPriority { out.append(heldPriority) }
             // 608: a sandbox whose live view of its folder could not start is shared directly — say so.
             var ls = HostRequest(.ls); ls.withSessions = false
             if let m = try? HostClient.request(ls, store: store, autostart: false), let rows = try? m.result?.decode([SandboxInfo].self) {

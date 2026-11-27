@@ -1034,7 +1034,7 @@ final class WebModulesTests: XCTestCase {
         XCTAssertTrue(pageText.contains("import('\(folder)space-core.js')"))
         XCTAssertTrue(pageText.contains("'\(folder)space-editor.css'"))
         // The build's own relative loads are served unrewritten (its bytes are its pin's).
-        XCTAssertTrue(String(decoding: a.assets[folder + "space-chunk-HTVO4EZR.js"]!.data, as: UTF8.self).contains("import(\"./space-text.js\")"))
+        XCTAssertTrue(String(decoding: a.assets[folder + "space-chunk-TQ4IU7Q4.js"]!.data, as: UTF8.self).contains("import(\"./space-text.js\")"))
         let web = Self.root.appendingPathComponent("Sources/DozableWeb/Resources/Web/licences")
         for l in ["space-editor", "monaco-editor", "monaco-editor__ThirdPartyNotices", "ajv", "fast-deep-equal", "yaml", "lucide-static", "README"] {
             XCTAssertTrue(FileManager.default.fileExists(atPath: web.appendingPathComponent("space-editor-LICENSES-\(l).txt").path), "\(l) ships")
@@ -1078,7 +1078,7 @@ final class WebModulesTests: XCTestCase {
         func flip(_ file: String) -> (URL) throws -> Void {
             { src in let u = src.appendingPathComponent(v + file); var d = try Data(contentsOf: u); d[d.count / 2] ^= 0x01; try d.write(to: u) }
         }
-        try refused("one changed byte in a chunk", "is not the pinned file", flip("space-chunk-HTVO4EZR.js"))
+        try refused("one changed byte in a chunk", "is not the pinned file", flip("space-chunk-TQ4IU7Q4.js"))
         try refused("one changed byte in monaco.js", "is not the pinned file", flip("monaco/monaco.js"))
         try refused("one changed byte in the PIN", "is not the pinned PIN") { src in
             let u = src.appendingPathComponent(v + "PIN")
