@@ -22,6 +22,7 @@ final class AgentPlistTests: XCTestCase {
         XCTAssertEqual(p["BundleProgram"] as? String, "Contents/MacOS/Dozable")
         XCTAssertEqual(p["ProgramArguments"] as? [String], ["Dozable", "--launch-daemon"])
         XCTAssertEqual(p["StartInterval"] as? Int, 900)
+        XCTAssertEqual(p["ProcessType"] as? String, "Interactive", "Standard held the daemon and its sessions at utility QoS")
         for never in ["KeepAlive", "Sockets", "MachServices", "Program", "EnvironmentVariables", "StandardOutPath"] { XCTAssertNil(p[never], never) }
         XCTAssertEqual(AgentPlist.label, "com.dozable.app.daemon")
         XCTAssertEqual(AgentPlist.fileName, "com.dozable.app.daemon.plist")

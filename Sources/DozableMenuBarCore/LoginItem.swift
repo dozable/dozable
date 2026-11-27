@@ -29,7 +29,9 @@ public enum AgentPlist {
          "StartInterval": 900,
          "LimitLoadToSessionType": "Aqua",
          "AbandonProcessGroup": true,
-         "ProcessType": "Standard"]
+         // Interactive, not Standard: a Standard agent's daemon (and every session it holds) ran at utility QoS, pri 20 —
+         // mostly the efficiency cores.
+         "ProcessType": "Interactive"]
     }
 
     /// What is wrong with a plist (empty: it is exactly the expected one).

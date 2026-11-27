@@ -19,7 +19,8 @@ EXPECTED = {
     "StartInterval": 900,
     "LimitLoadToSessionType": "Aqua",
     "AbandonProcessGroup": True,
-    "ProcessType": "Standard",
+    # Interactive, not Standard: under Standard the daemon and every session it holds ran at utility QoS (pri 20).
+    "ProcessType": "Interactive",
 }
 
 if len(sys.argv) != 2:

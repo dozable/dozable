@@ -44,7 +44,7 @@ final class DaemonLoginItemTests: XCTestCase {
         XCTAssertEqual(p["StartInterval"] as? Int, 900)
         XCTAssertEqual(p["LimitLoadToSessionType"] as? String, "Aqua")
         XCTAssertEqual(p["AbandonProcessGroup"] as? Bool, true)
-        XCTAssertEqual(p["ProcessType"] as? String, "Standard")
+        XCTAssertEqual(p["ProcessType"] as? String, "Interactive")
         XCTAssertEqual(p["StandardOutPath"] as? String, "/tmp/doz-li--store/login-item.log")
         XCTAssertEqual(p["StandardErrorPath"] as? String, "/tmp/doz-li--store/login-item.log")
         for never in ["KeepAlive", "Sockets", "MachServices", "Program", "EnvironmentVariables"] { XCTAssertNil(p[never], never) }

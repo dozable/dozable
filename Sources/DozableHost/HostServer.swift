@@ -79,6 +79,8 @@ public final class HostServer: @unchecked Sendable {
     nonisolated(unsafe) public static var launchedDetached: Bool = false
     /// 678: this host left a Darwin background state it inherited at its start (`ProcessPriority.liftInheritedBackground`).
     nonisolated(unsafe) public static var priorityRestored: Bool = false
+    /// 788: this host left a utility/background QoS it inherited at its start (`ProcessPriority.liftInheritedUtility`).
+    nonisolated(unsafe) public static var qosRestored: Bool = false
     /// 679 B6: why this host's session cannot read the login keychain (nil: it can) — read at its start.
     nonisolated(unsafe) public static var keychainLocked: String?
 
@@ -93,6 +95,8 @@ public final class HostServer: @unchecked Sendable {
         // state (a `taskpolicy -b` tool, a background agent worker) — and every wake it runs crawls. A launched host
         // leaves it; a person's `--foreground` host keeps what they chose.
         if launched { priorityRestored = ProcessPriority.liftInheritedBackground() }
+        // 788: and a utility QoS (a launchd `Standard` job's, `taskpolicy -c utility`): every session it holds inherited it.
+        if launched { qosRestored = ProcessPriority.liftInheritedUtility() }
         setvbuf(stdout, nil, _IOLBF, 0)
         signal(SIGPIPE, SIG_IGN)
         signal(SIGHUP, SIG_IGN)
@@ -113,6 +117,7 @@ public final class HostServer: @unchecked Sendable {
         HostLog.line(launched ? "detached: parent \(getppid())\(getppid() == 1 ? " (launchd)" : " — NOT launchd"), session \(getsid(0))"
                               : "in the foreground (parent \(getppid())): it lives in that terminal's process tree")
         if priorityRestored { HostLog.line("started at background priority (inherited from the client that started it) — moved to normal priority") }
+        if qosRestored { HostLog.line("started at utility QoS (inherited from what started it) — asked for user-initiated") }
         keychainLocked = HostSessionKind.lockedReason()
         if let why = keychainLocked {
             HostLog.line("started from a session where the login keychain is locked (\(why)): this Mac's Claude login (and anything else in the keychain) cannot be read — doz daemon restart from a logged-in session")
@@ -623,6 +628,7 @@ public final class HostServer: @unchecked Sendable {
                                            alwaysOn: alwaysOn, keepers: keepers)
                 // 694: what replacing this daemon would cost (the login item's look at a locked daemon).
                 st.fencedSessions = await core.fencedMacSessions()
+                st.heldSessionPri = await core.macSessionPriorities()          // 788
                 st.preparations = await core.runningPreparations()
                 st.chat = await chat.status()
                 conn.send((try? JSONValue(encoding: st)).map { HostMessage.success($0) } ?? .failure(HostError(.failed, "status")))

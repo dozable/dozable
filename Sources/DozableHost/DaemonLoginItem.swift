@@ -15,7 +15,9 @@ import DozableKit
 ///     naming the store and how to remove it;
 ///   · ProgramArguments = [the STABLE doz (`StableExecutable` — a Homebrew formula's `opt` path survives `brew upgrade` and
 ///     `brew cleanup`), daemon, start, --login-item, --store, <store>] — doz itself, never a shell;
-///   · RunAtLoad, StartInterval 900, LimitLoadToSessionType Aqua, AbandonProcessGroup, ProcessType Standard,
+///   · RunAtLoad, StartInterval 900, LimitLoadToSessionType Aqua, AbandonProcessGroup, ProcessType Interactive
+///     (788: under `Standard` the daemon, and every session it holds, ran at utility QoS — pri 20, mostly the efficiency
+///     cores — so a held agent's builds and tests ran slower than the same agent in a terminal),
 ///     StandardOutPath = StandardErrorPath = <store>/login-item.log, EnvironmentVariables {XDG_CONFIG_HOME} only when set and
 ///     not the default.
 ///
@@ -91,7 +93,7 @@ public enum DaemonLoginItem {
         \t<key>AbandonProcessGroup</key>
         \t<true/>
         \t<key>ProcessType</key>
-        \t<string>Standard</string>
+        \t<string>Interactive</string>
         \t<key>StandardOutPath</key>
         \t<string>\(x(log))</string>
         \t<key>StandardErrorPath</key>
